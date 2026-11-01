@@ -46,9 +46,7 @@ Core and tests (any OS with the .NET 8 SDK):
 dotnet test SrsMcPsqa.sln
 ```
 
-The spike needs Windows and the ESAPI DLLs; see below.
-
-You need Windows, Visual Studio 2022 or the .NET SDK (6+), and the ESAPI v18 DLLs. See [spike/SPIKE_CHECKLIST.md](spike/SPIKE_CHECKLIST.md#a-build-windows-dev-machine-with-visual-studio-2022-or-the-net-sdk).
+The spike needs Windows, Visual Studio 2022 or the .NET SDK (6+), and the ESAPI v18 DLLs. See [spike/SPIKE_CHECKLIST.md](spike/SPIKE_CHECKLIST.md#a-build-windows-dev-machine-with-visual-studio-2022-or-the-net-sdk).
 
 ## VERIFY items (open)
 
