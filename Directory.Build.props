@@ -1,0 +1,20 @@
+<Project>
+  <!--
+    Shared build settings for every project in this repository.
+
+    EsapiPath = folder holding VMS.TPS.Common.Model.API.dll and VMS.TPS.Common.Model.Types.dll.
+    Override it without editing this file, either:
+      * create EsapiPath.user.props next to this file (git-ignored) containing
+          <Project><PropertyGroup><EsapiPath>D:\esapi\18.0</EsapiPath></PropertyGroup></Project>
+      * or build with  /p:EsapiPath="D:\esapi\18.0"
+    VERIFY: default install folder on an Eclipse 18 workstation/Citrix server.
+  -->
+  <Import Project="$(MSBuildThisFileDirectory)EsapiPath.user.props" Condition="Exists('$(MSBuildThisFileDirectory)EsapiPath.user.props')" />
+
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <Deterministic>true</Deterministic>
+    <EsapiPath Condition="'$(EsapiPath)' == ''">C:\Program Files (x86)\Varian\RTM\18.0\esapi\API</EsapiPath>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,2 @@
+# First non-comment line: full path (UNC is fine) of SrsMcPsqa.Spike.exe
+\\server\share\SrsMcPsqa\Spike\SrsMcPsqa.Spike.exe

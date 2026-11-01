@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Phase 0 spike: write-enabled ESAPI v18 standalone executable.
+    Build on Windows (VS 2022 or `dotnet build -c Release`) with the ESAPI DLLs available at $(EsapiPath).
+  -->
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <RootNamespace>SrsMcPsqa.Spike</RootNamespace>
+    <AssemblyName>SrsMcPsqa.Spike</AssemblyName>
+    <Version>0.0.1</Version>
+    <!-- Nullable annotations only; no nullable attribute polyfills are needed for this spike. -->
+    <Nullable>annotations</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Lets the project build on machines without the .NET Framework 4.8 targeting pack. -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <!-- lepoco WPF UI (Fluent). Pinned. -->
+    <PackageReference Include="WPF-UI" Version="3.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ESAPI: referenced from the Eclipse installation, never copied next to the exe. -->
+    <Reference Include="VMS.TPS.Common.Model.API">
+      <HintPath>$(EsapiPath)\VMS.TPS.Common.Model.API.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="VMS.TPS.Common.Model.Types">
+      <HintPath>$(EsapiPath)\VMS.TPS.Common.Model.Types.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>
