@@ -6,6 +6,10 @@ using System.Windows;
 using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
 using EsapiApplication = VMS.TPS.Common.Model.API.Application;
+// WPF-UI (Wpf.Ui.Controls) defines its own MessageBox types; use the WPF ones.
+using MessageBoxButton = System.Windows.MessageBoxButton;
+using MessageBoxImage = System.Windows.MessageBoxImage;
+using MessageBoxResult = System.Windows.MessageBoxResult;
 
 namespace SrsMcPsqa.Spike
 {
