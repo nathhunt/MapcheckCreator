@@ -37,4 +37,10 @@
     </Reference>
   </ItemGroup>
 
+  <!-- Fail early with one clear message instead of dozens of "VMS could not be found" errors. -->
+  <Target Name="CheckEsapiPath" BeforeTargets="ResolveAssemblyReferences;CoreCompile">
+    <Error Condition="!Exists('$(EsapiPath)\VMS.TPS.Common.Model.API.dll') Or !Exists('$(EsapiPath)\VMS.TPS.Common.Model.Types.dll')"
+           Text="ESAPI DLLs not found in EsapiPath='$(EsapiPath)'. Put VMS.TPS.Common.Model.API.dll and VMS.TPS.Common.Model.Types.dll (v18) in a folder and create EsapiPath.user.props in the repository root: &lt;Project&gt;&lt;PropertyGroup&gt;&lt;EsapiPath&gt;C:\path\to\folder&lt;/EsapiPath&gt;&lt;/PropertyGroup&gt;&lt;/Project&gt;" />
+  </Target>
+
 </Project>

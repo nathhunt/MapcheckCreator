@@ -10,7 +10,8 @@ Every action is logged with `[PASS]/[FAIL]/[WARN]/[INFO]` to the on-screen repor
 ## A. Build (Windows dev machine with Visual Studio 2022 or the .NET SDK)
 
 1. Copy `VMS.TPS.Common.Model.API.dll` and `VMS.TPS.Common.Model.Types.dll` (v18) to a folder, or use the Eclipse install folder.
-2. If they aren't in `C:\Program Files (x86)\Varian\RTM\18.0\esapi\API`, create `EsapiPath.user.props` in the repo root:
+   If your dev PC has no Eclipse installed, copy the two DLLs from an Eclipse workstation or Citrix server. To find them there, search the Varian install folder for `VMS.TPS.Common.Model.API.dll`.
+2. If they aren't in `C:\Program Files (x86)\Varian\RTM\18.0\esapi\API`, create `EsapiPath.user.props` in the repo root (the folder holding `Directory.Build.props`). Without it, the build stops with "ESAPI DLLs not found in EsapiPath=...":
    ```xml
    <Project><PropertyGroup><EsapiPath>D:\esapi\18.0</EsapiPath></PropertyGroup></Project>
    ```
