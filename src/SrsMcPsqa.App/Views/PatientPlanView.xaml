@@ -19,7 +19,7 @@
                         <ui:TextBox Text="{Binding PatientId, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Patient ID" />
                     </DockPanel>
                     <TextBlock Style="{StaticResource Body}" Margin="0,8,0,0" Text="{Binding PatientText}" />
-                    <ui:InfoBar Margin="0,8,0,0" Title="Can't modify the patient" Severity="Error" IsClosable="False"
+                    <ui:InfoBar Margin="0,8,0,0" Title="Read-only: Eclipse won't allow changes to this patient" Severity="Warning" IsClosable="False"
                                 Message="{Binding ModifyError}" IsOpen="{Binding ModifyError, Converter={StaticResource NotNull}}" />
                     <ui:Button Margin="0,6,0,0" Content="Retry" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding OpenPatientCommand}"
                                Visibility="{Binding ModifyError, Converter={StaticResource BoolToVis}}" />

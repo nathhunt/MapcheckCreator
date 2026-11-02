@@ -63,7 +63,8 @@ namespace SrsMcPsqa.App.ViewModels
                 PatientText = $"{patient.Id} · {patient.DisplayName}";
                 if (!patient.CanModify)
                     ModifyError = (patient.ModifyError ?? "The patient can't be modified.") +
-                                  " Close the patient in Eclipse, then click Retry.";
+                                  "\n\nYou can still load the plan and plan the arrays. Creating QA plans needs Eclipse to allow changes: " +
+                                  "the app must be approved in Script Approvals, and the patient may need closing in Eclipse. Then click Retry.";
                 FillCourses(patient);
             });
         }

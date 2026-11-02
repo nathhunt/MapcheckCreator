@@ -9,7 +9,7 @@ Creates patient-specific QA plans for single-isocentre SRS plans, measured with 
 | 0 | Spike: test the risky ESAPI behaviour on Citrix | **Read-only part done**; write steps wait for script approval ([checklist](spike/SPIKE_CHECKLIST.md)) |
 | 1 | Core: geometry, detector model, scoring, optimisation (+ unit tests) | **Done**: 84 tests passing |
 | 2 | App shell on fake data | **Done**: full UI flow on demo data ([try it](docs/PHASE2_UI_CHECKLIST.md)) |
-| 3 | ESAPI read path | not started |
+| 3 | ESAPI read path | **Done, to test on Citrix** ([checklist](docs/PHASE3_CHECKLIST.md)) |
 | 4 | ESAPI write path | not started |
 | 5 | Hardening, deployment docs | not started |
 
@@ -17,7 +17,7 @@ Creates patient-specific QA plans for single-isocentre SRS plans, measured with 
 
 ```
 Directory.Build.props              shared settings; EsapiPath (override in EsapiPath.user.props)
-SrsMcPsqa.sln                      Core, Fake, App, tests (Esapi + Launcher come in Phase 3)
+SrsMcPsqa.sln                      Core, Fake, Esapi, App, tests
 src/SrsMcPsqa.Core/                netstandard2.0, no ESAPI/WPF. Units mm and Gy, DICOM patient coordinates
   Geometry/                        Vec3, ArrayOrientation/PlaneAxes, IsoGeometry + ShiftLabels (sign conventions),
                                    DoseGrid, StructureMask, ContourRasterizer (even-odd)
@@ -29,6 +29,8 @@ src/SrsMcPsqa.Core/                netstandard2.0, no ESAPI/WPF. Units mm and Gy
   Models/                          DTOs, QA plan naming + Comment tag, request builders
   Services/IPlanningService.cs     draft UI <-> Eclipse contract (revised after spike results)
 src/SrsMcPsqa.Fake/                netstandard2.0 synthetic patient + simulated IPlanningService (--fake)
+src/SrsMcPsqa.Esapi/               net48 x64: ESAPI IPlanningService (EsapiWorker STA thread, extraction, validation)
+src/SrsMcPsqa.Launcher/            read-only single-file Eclipse plugin that starts SrsMcPsqa.exe
 src/SrsMcPsqa.App/                 net48 x64 WPF: WPF-UI 3.0.5, CommunityToolkit.Mvvm 8.2.2, HelixToolkit.Wpf 2.25.0
   ViewModels/                      shell, patient & plan, PTVs, planning, review & fine-tune, settings
   Views/, MainWindow.xaml          Fluent UI; left navigation; progress panel
@@ -36,6 +38,8 @@ src/SrsMcPsqa.App/                 net48 x64 WPF: WPF-UI 3.0.5, CommunityToolkit
   Controls/Scene3DView.cs          3D overview (HelixToolkit)
   Infrastructure/                  settings (JSON, department + per-user), rolling log, dialogs, converters
 tests/SrsMcPsqa.Core.Tests/        net8.0 xUnit, synthetic PTVs with analytic dose; end-to-end workflow on the fake service
+tools/EsapiStubs/                  compile-check stand-ins for the ESAPI DLLs (from the v18 probe; never deployed)
+deploy/                            per-environment department settings (test / production)
 spike/
   SrsMcPsqa.Spike.sln
   SrsMcPsqa.Spike/                 net48 x64 WPF (WPF-UI 3.0.5), write-enabled ESAPI standalone
@@ -49,13 +53,13 @@ spike/
 
 ## Build
 
-Core and tests (any OS with the .NET 8 SDK):
+Core and tests (any OS with the .NET 8 SDK, no ESAPI needed):
 
 ```bash
-dotnet test SrsMcPsqa.sln
+dotnet test tests/SrsMcPsqa.Core.Tests/SrsMcPsqa.Core.Tests.csproj
 ```
 
-The app (Windows, .NET SDK 6+ or VS 2022; no Eclipse needed for demo data):
+The app (Windows, .NET SDK 6+ or VS 2022). It references ESAPI, so it needs the v18 DLLs (`EsapiPath.user.props`) to build, even for demo data:
 
 ```bash
 dotnet build SrsMcPsqa.sln -c Release
@@ -65,7 +69,15 @@ dotnet build SrsMcPsqa.sln -c Release
 src/SrsMcPsqa.App/bin/Release/net48/SrsMcPsqa.exe --fake
 ```
 
-The app project sets `EnableWindowsTargeting`, so the WPF code and XAML also compile on Linux CI (they can't run there).
+Without `--fake` the app connects to Eclipse. On a machine without Eclipse (CI, Linux), compile against the stubs:
+
+```bash
+dotnet build tools/EsapiStubs/API/VMS.TPS.Common.Model.API.csproj -c Release
+```
+
+```bash
+dotnet build SrsMcPsqa.sln -p:EsapiPath=$PWD/tools/EsapiStubs/out
+```
 
 The spike needs Windows, Visual Studio 2022 or the .NET SDK (6+), and the ESAPI v18 DLLs. See [spike/SPIKE_CHECKLIST.md](spike/SPIKE_CHECKLIST.md#a-build-windows-dev-machine-with-visual-studio-2022-or-the-net-sdk).
 
@@ -114,3 +126,12 @@ These are choices I made where the brief left room. Each is easy to change.
 - **Navigation.** It's a simple list rather than WPF-UI's `NavigationView`, which needs a page service. Screens unlock as the workflow progresses.
 - **Review screen.** Each QA plan has its own tab. Values from before calculation and from fine-tune predictions are labelled as approximations. Calculated values are labelled "CALCULATED".
 - **Array plane view.** u runs to the right, v (superior) up. At 0° patient left is on the right (seen from anterior). At 270° patient posterior is on the right.
+
+## Phase 3 notes
+
+- **Reading needs no approval.** The app opens the patient and tries `BeginModifications`. If Eclipse refuses (not approved, or the patient is locked), it carries on read-only with a yellow note, and creating QA plans comes later.
+- **PTV masks.** Contours are read per CT plane (`GetContoursOnImagePlane`) and rasterised at 0.5 mm in-plane and the CT slice spacing in z, with the even-odd rule. Meshes come from `Structure.MeshGeometry` (3D only).
+- **Dose.** The app switches the plan to absolute dose if it can. Otherwise it converts % with the plan total dose (100% = total dose) and says so. Voxel→Gy is calibrated from `VoxelToDoseValue` at three points. Only the z-planes within the PTVs + 45 mm are read: `GetVoxels` always reads a whole plane, about 0.2 s each.
+- **Validation blocks the plan** (instead of just warning) for: no valid dose, more than one isocentre, non-HFS, non-photon beams, or no non-empty PTV.
+- **Template check.** **Settings → Validate** closes your patient, opens the template read-only and re-opens your patient. ESAPI allows only one open patient.
+- **Members not in the probe.** The ESAPI code also relies on `VVector.x/y/z`, `DoseValue.Dose`/`UnitAsString` and the standard enums. These weren't in the probe dump but are used the same way in the spike, which compiled on Citrix.

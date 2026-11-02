@@ -5,6 +5,7 @@ using System.Windows;
 using SrsMcPsqa.App.Infrastructure;
 using SrsMcPsqa.App.ViewModels;
 using SrsMcPsqa.Core.Services;
+using SrsMcPsqa.Esapi;
 using SrsMcPsqa.Fake;
 using Wpf.Ui.Appearance;
 
@@ -12,6 +13,8 @@ namespace SrsMcPsqa.App
 {
     public partial class App : Application
     {
+        private IPlanningService? _service;
+
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
@@ -34,13 +37,11 @@ namespace SrsMcPsqa.App
             SettingsViewModel.ApplyTheme(settings.Theme);
 
             bool fake = launch.Fake;
-            if (!fake)
-            {
-                dialogs.ShowInfo("Demo data only",
-                    "This build (Phase 2) runs on synthetic demo data only; the Eclipse connection is added in Phase 3.\n\nStarting with demo data.");
-                fake = true;
-            }
-            IPlanningService service = new FakePlanningService();
+            IPlanningService service = fake
+                ? new FakePlanningService()
+                : new EsapiPlanningService(m => Log.Info("ESAPI: " + m));
+            _service = service;
+            Log.Info(fake ? "Using demo data (--fake)." : "Using Eclipse (ESAPI).");
 
             var session = new PlanningSession(service, settings, launch, dialogs);
             var shell = new ShellViewModel(session, fake);
@@ -54,6 +55,9 @@ namespace SrsMcPsqa.App
 
         protected override void OnExit(ExitEventArgs e)
         {
+            // Closes the patient and disposes the ESAPI Application on its own thread (ends the session).
+            try { (_service as IDisposable)?.Dispose(); }
+            catch (Exception ex) { Log.Error("Closing Eclipse connection", ex); }
             Log.Info("Exit.");
             base.OnExit(e);
         }

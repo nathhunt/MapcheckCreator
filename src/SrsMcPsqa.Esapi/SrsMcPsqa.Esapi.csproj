@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- ESAPI v18 implementation of IPlanningService. All ESAPI calls run on one STA thread (EsapiWorker). -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <PlatformTarget>x64</PlatformTarget>
+    <RootNamespace>SrsMcPsqa.Esapi</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <PackageReference Include="PolySharp" Version="1.14.1" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="VMS.TPS.Common.Model.API">
+      <HintPath>$(EsapiPath)\VMS.TPS.Common.Model.API.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="VMS.TPS.Common.Model.Types">
+      <HintPath>$(EsapiPath)\VMS.TPS.Common.Model.Types.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SrsMcPsqa.Core\SrsMcPsqa.Core.csproj" />
+  </ItemGroup>
+
+  <Target Name="CheckEsapiPath" BeforeTargets="ResolveAssemblyReferences;CoreCompile">
+    <Error Condition="!Exists('$(EsapiPath)\VMS.TPS.Common.Model.API.dll') Or !Exists('$(EsapiPath)\VMS.TPS.Common.Model.Types.dll')"
+           Text="ESAPI DLLs not found in EsapiPath='$(EsapiPath)'. Create EsapiPath.user.props in the repository root (see README). On a machine without Eclipse, build tools/EsapiStubs and pass -p:EsapiPath=&lt;repo&gt;/tools/EsapiStubs/out (compile check only)." />
+  </Target>
+
+</Project>

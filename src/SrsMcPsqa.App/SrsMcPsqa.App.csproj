@@ -2,7 +2,8 @@
 
   <!--
     SRS MapCHECK PSQA Plan Creator: WPF app (.NET Framework 4.8, x64).
-    Phase 2: runs on synthetic data with the fake switch. The ESAPI implementation is added in Phase 3.
+    Started with the fake switch it runs on synthetic data; otherwise it connects to Eclipse (ESAPI v18).
+    Write-enabled standalone: must be approved in Eclipse Script Approvals before it can create plans.
     EnableWindowsTargeting lets the project compile on non-Windows build machines (CI); it has no effect on Windows.
   -->
   <PropertyGroup>
@@ -28,11 +29,21 @@
 
   <ItemGroup>
     <Reference Include="System.Runtime.Serialization" />
+    <!-- ESAPI: from the Eclipse installation (GAC on Citrix), never copied next to the exe. -->
+    <Reference Include="VMS.TPS.Common.Model.API">
+      <HintPath>$(EsapiPath)\VMS.TPS.Common.Model.API.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="VMS.TPS.Common.Model.Types">
+      <HintPath>$(EsapiPath)\VMS.TPS.Common.Model.Types.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SrsMcPsqa.Core\SrsMcPsqa.Core.csproj" />
     <ProjectReference Include="..\SrsMcPsqa.Fake\SrsMcPsqa.Fake.csproj" />
+    <ProjectReference Include="..\SrsMcPsqa.Esapi\SrsMcPsqa.Esapi.csproj" />
   </ItemGroup>
 
   <ItemGroup>
