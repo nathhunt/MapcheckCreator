@@ -12,12 +12,16 @@ namespace VMS.TPS.Common.Model.API
         public bool IsWriteable { get; set; }
     }
 
+    /// <summary>Exists in real ESAPI (Application.PatientSummaries); included so name clashes with Core show up here.</summary>
+    public class PatientSummary { public string Id => throw new NotImplementedException(); }
+
     public class User { public string Id => throw new NotImplementedException(); }
 
     public class Application : IDisposable
     {
         public static Application CreateApplication() => throw new NotImplementedException();
         public User CurrentUser => throw new NotImplementedException();
+        public IEnumerable<PatientSummary> PatientSummaries => throw new NotImplementedException();
         public Patient OpenPatientById(string id) => throw new NotImplementedException();
         public void ClosePatient() => throw new NotImplementedException();
         public void SaveModifications() => throw new NotImplementedException();

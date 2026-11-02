@@ -10,6 +10,28 @@ using SrsMcPsqa.Core.Services;
 using VMS.TPS.Common.Model.API;
 using VMS.TPS.Common.Model.Types;
 
+// Core DTOs are aliased explicitly: ESAPI has types with the same names (e.g. VMS.TPS.Common.Model.API.PatientSummary).
+using PatientSummary = SrsMcPsqa.Core.Services.PatientSummary;
+using CourseSummary = SrsMcPsqa.Core.Services.CourseSummary;
+using PlanSummary = SrsMcPsqa.Core.Services.PlanSummary;
+using ClinicalPlanData = SrsMcPsqa.Core.Services.ClinicalPlanData;
+using ValidationMessage = SrsMcPsqa.Core.Services.ValidationMessage;
+using ValidationSeverity = SrsMcPsqa.Core.Services.ValidationSeverity;
+using PhantomImageInfo = SrsMcPsqa.Core.Services.PhantomImageInfo;
+using QaPlanResult = SrsMcPsqa.Core.Services.QaPlanResult;
+using QaPlanRequest = SrsMcPsqa.Core.Services.QaPlanRequest;
+using TemplatePhantomSettings = SrsMcPsqa.Core.Services.TemplatePhantomSettings;
+using Vec3 = SrsMcPsqa.Core.Geometry.Vec3;
+using Box3 = SrsMcPsqa.Core.Geometry.Box3;
+using DoseGrid = SrsMcPsqa.Core.Geometry.DoseGrid;
+using GridGeometry = SrsMcPsqa.Core.Geometry.GridGeometry;
+using ContourSlice = SrsMcPsqa.Core.Geometry.ContourSlice;
+using Point2 = SrsMcPsqa.Core.Geometry.Point2;
+using TriangleMesh = SrsMcPsqa.Core.Geometry.TriangleMesh;
+using ArrayOrientation = SrsMcPsqa.Core.Geometry.ArrayOrientation;
+using PtvInfo = SrsMcPsqa.Core.Models.PtvInfo;
+using QaPlanTag = SrsMcPsqa.Core.Models.QaPlanTag;
+
 namespace SrsMcPsqa.Esapi
 {
     /// <summary>Converts ESAPI objects to Core DTOs. ESAPI thread only.</summary>
