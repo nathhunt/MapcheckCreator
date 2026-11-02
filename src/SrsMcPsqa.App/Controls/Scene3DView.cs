@@ -20,9 +20,10 @@ namespace SrsMcPsqa.App.Controls
     }
 
     /// <summary>
-    /// 3D overview in patient coordinates, labelled with patient directions (L/R, A/P, S/I) instead of x/y/z.
-    /// View buttons: Anterior, Left, Superior, Fit. Pure rendering.
-    /// DICOM HFS: +X = Left, +Y = Posterior, +Z = Superior.
+    /// 3D overview in patient coordinates. Orientation is shown by a corner triad labelled in patient directions
+    /// (L = +x, P = +y, S = +z; DICOM HFS) and a caption naming the current view.
+    /// The preset views (Anterior, Left, Superior) use an orthographic camera, so an array seen face-on lies exactly
+    /// over the PTV it cuts (no perspective parallax). Pure rendering.
     /// </summary>
     public sealed class Scene3DView : UserControl
     {
@@ -41,7 +42,10 @@ namespace SrsMcPsqa.App.Controls
         {
             _viewport = new HelixViewport3D
             {
-                ShowCoordinateSystem = false,
+                ShowCoordinateSystem = true,
+                CoordinateSystemLabelX = "L",
+                CoordinateSystemLabelY = "P",
+                CoordinateSystemLabelZ = "S",
                 ShowViewCube = false,
                 ZoomExtentsWhenLoaded = false,
                 Background = new SolidColorBrush(Color.FromRgb(0x14, 0x16, 0x1A)),
@@ -51,10 +55,18 @@ namespace SrsMcPsqa.App.Controls
             _viewport.Children.Add(_content);
 
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(8) };
-            buttons.Children.Add(ViewButton("Anterior", () => SetView(new Vector3D(0, 1, 0), new Vector3D(0, 0, 1))));
-            buttons.Children.Add(ViewButton("Left", () => SetView(new Vector3D(-1, 0, 0), new Vector3D(0, 0, 1))));
-            buttons.Children.Add(ViewButton("Superior", () => SetView(new Vector3D(0, 0, -1), new Vector3D(0, -1, 0))));
+            buttons.Children.Add(ViewButton("Anterior", () => SetView(View.Anterior)));
+            buttons.Children.Add(ViewButton("Left", () => SetView(View.Left)));
+            buttons.Children.Add(ViewButton("Superior", () => SetView(View.Superior)));
             buttons.Children.Add(ViewButton("Fit", () => _viewport.ZoomExtents(300)));
+
+            _caption = new TextBlock
+            {
+                Foreground = new SolidColorBrush(Color.FromRgb(0xE6, 0xE6, 0xE6)), FontSize = 12,
+                Margin = new Thickness(10, 10, 0, 0), VerticalAlignment = VerticalAlignment.Top, HorizontalAlignment = HorizontalAlignment.Left,
+            };
+            // Any mouse interaction may rotate the view: the caption then points to the direction indicator.
+            _viewport.PreviewMouseDown += (_, __) => _caption.Text = "Free view: see the L / P / S direction indicator";
 
             var hint = new TextBlock
             {
@@ -67,6 +79,7 @@ namespace SrsMcPsqa.App.Controls
             grid.Children.Add(_viewport);
             grid.Children.Add(buttons);
             grid.Children.Add(hint);
+            grid.Children.Add(_caption);
             Content = grid;
         }
 
@@ -77,11 +90,28 @@ namespace SrsMcPsqa.App.Controls
             return b;
         }
 
-        /// <summary>Look along <paramref name="look"/> at the scene centre with <paramref name="up"/> up.</summary>
-        private void SetView(Vector3D look, Vector3D up)
+        private enum View { Anterior, Left, Superior }
+
+        private readonly TextBlock _caption;
+        private double _width = 200;
+
+        /// <summary>
+        /// Preset views, orthographic. Screen-right is look × up:
+        /// Anterior (look +y, up +z): patient left on the right. Left (look −x, up +z): posterior on the right.
+        /// Superior (look −z, up −y): seen from the head, anterior up, patient right on the right.
+        /// </summary>
+        private void SetView(View v)
         {
-            look.Normalize();
-            _viewport.Camera = new PerspectiveCamera(_centre - look * _distance, look * _distance, up, 45);
+            Vector3D look, up;
+            string caption;
+            switch (v)
+            {
+                case View.Left: look = new Vector3D(-1, 0, 0); up = new Vector3D(0, 0, 1); caption = "Left view: anterior on the left, superior up"; break;
+                case View.Superior: look = new Vector3D(0, 0, -1); up = new Vector3D(0, -1, 0); caption = "Superior view (from the head): anterior up, patient right on the right"; break;
+                default: look = new Vector3D(0, 1, 0); up = new Vector3D(0, 0, 1); caption = "Anterior view: patient right on the left, superior up"; break;
+            }
+            _viewport.Camera = new OrthographicCamera(_centre - look * _distance, look * _distance, up, _width);
+            _caption.Text = caption;
         }
 
         private void Rebuild()
@@ -131,28 +161,14 @@ namespace SrsMcPsqa.App.Controls
             }
             _centre = new Point3D((min.X + max.X) / 2, (min.Y + max.Y) / 2, (min.Z + max.Z) / 2);
             double r = Math.Max(max.X - min.X, Math.Max(max.Y - min.Y, max.Z - min.Z)) / 2 + 15;
-            _distance = Math.Max(150, r * 3.2);
-
-            // Patient-direction labels on each side of the scene.
-            AddLabel("L", _centre + new Vector3D(r, 0, 0));
-            AddLabel("R", _centre + new Vector3D(-r, 0, 0));
-            AddLabel("P", _centre + new Vector3D(0, r, 0));
-            AddLabel("A", _centre + new Vector3D(0, -r, 0));
-            AddLabel("S", _centre + new Vector3D(0, 0, r));
-            AddLabel("I", _centre + new Vector3D(0, 0, -r));
+            _distance = Math.Max(300, r * 6);
+            _width = 2.4 * r;
 
             if (!_cameraSet)
             {
-                SetView(new Vector3D(0, 1, 0), new Vector3D(0, 0, 1)); // anterior view: patient left on screen right
+                SetView(View.Anterior);
                 _cameraSet = true;
             }
         }
-
-        private void AddLabel(string text, Point3D at) =>
-            _content.Children.Add(new BillboardTextVisual3D
-            {
-                Text = text, Position = at, FontSize = 18, FontWeight = FontWeights.Bold,
-                Foreground = new SolidColorBrush(Color.FromRgb(0xE6, 0xE6, 0xE6)), Background = Brushes.Transparent,
-            });
     }
 }
