@@ -59,6 +59,8 @@ namespace SrsMcPsqa.App.Controls
             buttons.Children.Add(ViewButton("Left", () => SetView(View.Left)));
             buttons.Children.Add(ViewButton("Superior", () => SetView(View.Superior)));
             buttons.Children.Add(ViewButton("Fit", () => _viewport.ZoomExtents(300)));
+            // The first view is set before the control has a size; set it again once it is laid out.
+            _viewport.Loaded += (_, __) => { if (_cameraSet) SetView(View.Anterior); };
 
             _caption = new TextBlock
             {
@@ -110,7 +112,10 @@ namespace SrsMcPsqa.App.Controls
                 case View.Superior: look = new Vector3D(0, 0, -1); up = new Vector3D(0, -1, 0); caption = "Superior view (from the head): anterior up, patient right on the right"; break;
                 default: look = new Vector3D(0, 1, 0); up = new Vector3D(0, 0, 1); caption = "Anterior view: patient right on the left, superior up"; break;
             }
-            _viewport.Camera = new OrthographicCamera(_centre - look * _distance, look * _distance, up, _width);
+            // OrthographicCamera.Width is the horizontal extent; widen it for wide windows so the full height fits.
+            double aspect = _viewport.ActualHeight > 1 ? _viewport.ActualWidth / _viewport.ActualHeight : 1.6;
+            double width = _width * Math.Max(1.0, aspect);
+            _viewport.Camera = new OrthographicCamera(_centre - look * _distance, look * _distance, up, width);
             _caption.Text = caption;
         }
 
@@ -162,7 +167,7 @@ namespace SrsMcPsqa.App.Controls
             _centre = new Point3D((min.X + max.X) / 2, (min.Y + max.Y) / 2, (min.Z + max.Z) / 2);
             double r = Math.Max(max.X - min.X, Math.Max(max.Y - min.Y, max.Z - min.Z)) / 2 + 15;
             _distance = Math.Max(300, r * 6);
-            _width = 2.4 * r;
+            _width = 2.2 * r;
 
             if (!_cameraSet)
             {
