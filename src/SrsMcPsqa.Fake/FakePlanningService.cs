@@ -155,7 +155,6 @@ namespace SrsMcPsqa.Fake
                     : new ValidationMessage(ValidationSeverity.Info, $"{what} '{value}' found (demo)."));
             }
             Need(settings.PatientId, "Template patient");
-            Need(settings.StudyId, "Study");
             Need(settings.Image0Id, "0° image");
             Need(settings.Image270Id, "270° image");
             return list;

@@ -19,7 +19,7 @@ Output: `src/SrsMcPsqa.App/bin/Release/net48/`.
 ## Install on the test Citrix environment
 
 1. Copy the whole output folder to the test app location, e.g. `...\SrsMcPsqa\`.
-2. Template phantom: either enter it in the app (**Settings**: patient `MC_DATASETS`, its study ID, `SRSMC_0_AXB`, `SRSMC_270_AXB`, then **Save**), or copy `deploy/SrsMcPsqa.settings.TEST.json` into the app folder as `SrsMcPsqa.settings.json` with `TemplateStudyId` filled in.
+2. Template phantom: either enter it in the app (**Settings**: patient `MC_DATASETS`, images `SRSMC_0_AXB` and `SRSMC_270_AXB`; the study IDs can stay empty, then **Save**), or copy `deploy/SrsMcPsqa.settings.TEST.json` into the app folder as `SrsMcPsqa.settings.json`.
 3. Launcher: copy `src/SrsMcPsqa.Launcher/SrsMcPsqa.Launcher.cs` into the Eclipse scripts folder. Set `DefaultExePath` to the exe from step 1.
 
 ## Run

@@ -37,7 +37,7 @@ namespace SrsMcPsqa.Core.Tests
             foreach (var p in rec.Planes) _out.WriteLine($"{p.Plane}: {string.Join(", ", p.CoveredTargets.Select(k => targets[k].Id))}");
             Assert.True(rec.AllCovered);
 
-            var phantoms = await svc.EnsurePhantomImagesAsync(new TemplatePhantomSettings { PatientId = "TPL", StudyId = "S", Image0Id = "SMC_0", Image270Id = "SMC_270" },
+            var phantoms = await svc.EnsurePhantomImagesAsync(new TemplatePhantomSettings { PatientId = "TPL", Image0Id = "SMC_0", Image270Id = "SMC_270" },
                 rec.Planes.Select(p => p.Plane.Orientation).Distinct().ToList());
             var existing = (await svc.ListQaPlansAsync("QA")).Select(p => p.PlanId).ToList();
             int n = 1;

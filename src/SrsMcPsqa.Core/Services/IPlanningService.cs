@@ -99,10 +99,16 @@ namespace SrsMcPsqa.Core.Services
     public sealed class TemplatePhantomSettings
     {
         public string PatientId { get; set; } = "";
-        public string StudyId { get; set; } = "";
+        /// <summary>Study holding the 0° image; empty = search all studies of the template patient.</summary>
+        public string Study0Id { get; set; } = "";
+        /// <summary>Study holding the 270° image; empty = search all studies of the template patient.</summary>
+        public string Study270Id { get; set; } = "";
         public string Image0Id { get; set; } = "";
         public string Image270Id { get; set; } = "";
         public bool CopyTemplateStructures { get; set; }
+
+        public string ImageId(ArrayOrientation o) => o == ArrayOrientation.Deg0 ? Image0Id : Image270Id;
+        public string StudyId(ArrayOrientation o) => o == ArrayOrientation.Deg0 ? Study0Id : Study270Id;
     }
 
     /// <summary>

@@ -192,7 +192,7 @@ namespace SrsMcPsqa.Esapi
         // ------------------------------------------------------------------ template phantom (read-only)
         /// <summary>
         /// Opens the template patient read-only (ESAPI allows one open patient, so the current patient is closed and
-        /// re-opened afterwards) and checks the study and both images.
+        /// re-opened afterwards) and checks both images (each in its own study, or searched across all studies).
         /// </summary>
         public Task<IReadOnlyList<ValidationMessage>> ValidateTemplateAsync(TemplatePhantomSettings settings, CancellationToken ct = default) =>
             _worker.RunAsync<IReadOnlyList<ValidationMessage>>($"check template patient '{settings.PatientId}'", app =>
@@ -209,28 +209,18 @@ namespace SrsMcPsqa.Esapi
                     if (tp == null) { Add(ValidationSeverity.Error, $"Template patient '{settings.PatientId}' not found."); return msgs; }
                     Add(ValidationSeverity.Info, $"Template patient '{tp.Id}' found (opened read-only).");
 
-                    var study = tp.Studies.FirstOrDefault(s => s.Id == settings.StudyId);
-                    if (study == null)
+                    foreach (var o in new[] { ArrayOrientation.Deg0, ArrayOrientation.Deg270 })
                     {
-                        Add(ValidationSeverity.Error, $"Study '{settings.StudyId}' not found. Studies: {string.Join(", ", tp.Studies.Select(s => s.Id))}.");
-                        return msgs;
-                    }
-                    Add(ValidationSeverity.Info, $"Study '{study.Id}' found.");
-                    foreach (var (label, id) in new[] { ("0°", settings.Image0Id), ("270°", settings.Image270Id) })
-                    {
-                        var img = study.Images3D.FirstOrDefault(i => i.Id == id);
-                        if (img == null)
-                        {
-                            Add(ValidationSeverity.Error, $"{label} image '{id}' not found. Images: {string.Join(", ", study.Images3D.Select(i => i.Id))}.");
-                            continue;
-                        }
-                        Add(ValidationSeverity.Info, $"{label} image '{img.Id}': {img.XSize}×{img.YSize}×{img.ZSize}, {img.XRes:0.###}/{img.YRes:0.###}/{img.ZRes:0.###} mm, user origin {img.UserOrigin.ToVec3()}.");
+                        string label = o == ArrayOrientation.Deg0 ? "0°" : "270°";
+                        var (study, img, error) = EsapiExtraction.FindTemplateImage(tp, settings.StudyId(o), settings.ImageId(o));
+                        if (img == null) { Add(ValidationSeverity.Error, $"{label}: {error}"); continue; }
+                        Add(ValidationSeverity.Info, $"{label} image '{img.Id}' in study '{study!.Id}': {img.XSize}×{img.YSize}×{img.ZSize}, {img.XRes:0.###}/{img.YRes:0.###}/{img.ZRes:0.###} mm, user origin {img.UserOrigin.ToVec3()}.");
                         if (!img.HasUserOrigin) Add(ValidationSeverity.Error, $"{label} image '{img.Id}' has no user origin (it must mark the array centre).");
                         if (img.ImagingOrientation != PatientOrientation.HeadFirstSupine)
                             Add(ValidationSeverity.Warning, $"{label} image orientation is {img.ImagingOrientation} (expected HFS).");
-                        var ss = tp.StructureSets.FirstOrDefault(s => s.Image != null && s.Image.Id == img.Id);
+                        var ss = tp.StructureSets.FirstOrDefault(x => x.Image != null && x.Image.Equals(img));
                         if (ss == null) Add(ValidationSeverity.Warning, $"{label} image '{img.Id}' has no structure set.");
-                        else if (!ss.Structures.Any(s => !s.IsEmpty && (s.DicomType == "EXTERNAL" || s.DicomType == "BODY")))
+                        else if (!ss.Structures.Any(x => !x.IsEmpty && (x.DicomType == "EXTERNAL" || x.DicomType == "BODY")))
                             Add(ValidationSeverity.Warning, $"Structure set '{ss.Id}' has no BODY/EXTERNAL structure (needed for dose calculation).");
                     }
                     return msgs;

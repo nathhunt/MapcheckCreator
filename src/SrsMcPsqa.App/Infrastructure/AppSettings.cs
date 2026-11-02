@@ -19,7 +19,10 @@ namespace SrsMcPsqa.App.Infrastructure
     public sealed class AppSettings
     {
         [DataMember] public string TemplatePatientId { get; set; } = "";
-        [DataMember] public string TemplateStudyId { get; set; } = "";
+        /// <summary>Study of the 0° image (empty = search all studies).</summary>
+        [DataMember] public string Template0StudyId { get; set; } = "";
+        /// <summary>Study of the 270° image (empty = search all studies).</summary>
+        [DataMember] public string Template270StudyId { get; set; } = "";
         [DataMember] public string Template0ImageId { get; set; } = "";
         [DataMember] public string Template270ImageId { get; set; } = "";
         [DataMember] public bool CopyTemplateStructures { get; set; }
@@ -38,12 +41,12 @@ namespace SrsMcPsqa.App.Infrastructure
         [DataMember] public string Theme { get; set; } = "System";
 
         public bool HasTemplate =>
-            !string.IsNullOrWhiteSpace(TemplatePatientId) && !string.IsNullOrWhiteSpace(TemplateStudyId)
+            !string.IsNullOrWhiteSpace(TemplatePatientId)
             && !string.IsNullOrWhiteSpace(Template0ImageId) && !string.IsNullOrWhiteSpace(Template270ImageId);
 
         public TemplatePhantomSettings ToTemplate() => new TemplatePhantomSettings
         {
-            PatientId = TemplatePatientId, StudyId = TemplateStudyId, Image0Id = Template0ImageId,
+            PatientId = TemplatePatientId, Study0Id = Template0StudyId, Study270Id = Template270StudyId, Image0Id = Template0ImageId,
             Image270Id = Template270ImageId, CopyTemplateStructures = CopyTemplateStructures,
         };
 
@@ -60,7 +63,7 @@ namespace SrsMcPsqa.App.Infrastructure
         private void OnDeserializing(StreamingContext _)
         {
             var d = new AppSettings(false);
-            TemplatePatientId = d.TemplatePatientId; TemplateStudyId = d.TemplateStudyId; Template0ImageId = d.Template0ImageId;
+            TemplatePatientId = d.TemplatePatientId; Template0StudyId = d.Template0StudyId; Template270StudyId = d.Template270StudyId; Template0ImageId = d.Template0ImageId;
             Template270ImageId = d.Template270ImageId; HelperPatterns = d.HelperPatterns; PlanNamingPattern = d.PlanNamingPattern; EdgeMarginMm = d.EdgeMarginMm;
             Tau = d.Tau; MinDiodes = d.MinDiodes; Alpha = d.Alpha; FineTuneInPlaneRangeMm = d.FineTuneInPlaneRangeMm;
             FineTuneNormalRangeMm = d.FineTuneNormalRangeMm; AutoSave = d.AutoSave; LogLevel = d.LogLevel; Theme = d.Theme;
@@ -108,7 +111,7 @@ namespace SrsMcPsqa.App.Infrastructure
                 if (File.Exists(TemplatePath))
                 {
                     var t = Read<InstallationTemplate>(TemplatePath);
-                    result.TemplatePatientId = t.TemplatePatientId ?? ""; result.TemplateStudyId = t.TemplateStudyId ?? "";
+                    result.TemplatePatientId = t.TemplatePatientId ?? ""; result.Template0StudyId = t.Template0StudyId ?? ""; result.Template270StudyId = t.Template270StudyId ?? "";
                     result.Template0ImageId = t.Template0ImageId ?? ""; result.Template270ImageId = t.Template270ImageId ?? "";
                     result.CopyTemplateStructures = t.CopyTemplateStructures;
                     source += $"; template phantom from {TemplatePath}";
@@ -140,7 +143,8 @@ namespace SrsMcPsqa.App.Infrastructure
         public static void CopyEnvironmentFields(AppSettings from, AppSettings to)
         {
             to.TemplatePatientId = from.TemplatePatientId;
-            to.TemplateStudyId = from.TemplateStudyId;
+            to.Template0StudyId = from.Template0StudyId;
+            to.Template270StudyId = from.Template270StudyId;
             to.Template0ImageId = from.Template0ImageId;
             to.Template270ImageId = from.Template270ImageId;
             to.CopyTemplateStructures = from.CopyTemplateStructures;
@@ -166,7 +170,7 @@ namespace SrsMcPsqa.App.Infrastructure
             Write(TemplatePath, new InstallationTemplate
             {
                 InstallationFolder = InstallationFolder,
-                TemplatePatientId = settings.TemplatePatientId, TemplateStudyId = settings.TemplateStudyId,
+                TemplatePatientId = settings.TemplatePatientId, Template0StudyId = settings.Template0StudyId, Template270StudyId = settings.Template270StudyId,
                 Template0ImageId = settings.Template0ImageId, Template270ImageId = settings.Template270ImageId,
                 CopyTemplateStructures = settings.CopyTemplateStructures,
             });
@@ -205,7 +209,8 @@ namespace SrsMcPsqa.App.Infrastructure
     {
         [System.Runtime.Serialization.DataMember] public string? InstallationFolder { get; set; }
         [System.Runtime.Serialization.DataMember] public string? TemplatePatientId { get; set; }
-        [System.Runtime.Serialization.DataMember] public string? TemplateStudyId { get; set; }
+        [System.Runtime.Serialization.DataMember] public string? Template0StudyId { get; set; }
+        [System.Runtime.Serialization.DataMember] public string? Template270StudyId { get; set; }
         [System.Runtime.Serialization.DataMember] public string? Template0ImageId { get; set; }
         [System.Runtime.Serialization.DataMember] public string? Template270ImageId { get; set; }
         [System.Runtime.Serialization.DataMember] public bool CopyTemplateStructures { get; set; }

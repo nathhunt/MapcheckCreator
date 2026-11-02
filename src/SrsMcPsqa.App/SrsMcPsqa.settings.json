@@ -1,6 +1,7 @@
 {
   "TemplatePatientId": "",
-  "TemplateStudyId": "",
+  "Template0StudyId": "",
+  "Template270StudyId": "",
   "Template0ImageId": "",
   "Template270ImageId": "",
   "CopyTemplateStructures": false,

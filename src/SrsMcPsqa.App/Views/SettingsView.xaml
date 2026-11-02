@@ -14,24 +14,26 @@
                 <StackPanel>
                     <TextBlock Style="{StaticResource Section}" Text="Template phantom patient" />
                     <TextBlock Style="{StaticResource Hint}" Text="Images are copied from this patient into each QA patient (once). In each image the user origin must be the centre of the detector array. Saved for this installation only: test and production installations keep separate values. Leave empty to use the department settings file next to the exe." />
+                    <TextBlock Style="{StaticResource Label}" Text="Template patient ID" />
+                    <ui:TextBox Text="{Binding Edit.TemplatePatientId}" />
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition /></Grid.ColumnDefinitions>
                         <Grid.RowDefinitions><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
                         <StackPanel Grid.Row="0" Grid.Column="0">
-                            <TextBlock Style="{StaticResource Label}" Text="Template patient ID" />
-                            <ui:TextBox Text="{Binding Edit.TemplatePatientId}" />
-                        </StackPanel>
-                        <StackPanel Grid.Row="0" Grid.Column="2">
-                            <TextBlock Style="{StaticResource Label}" Text="Study ID" />
-                            <ui:TextBox Text="{Binding Edit.TemplateStudyId}" />
-                        </StackPanel>
-                        <StackPanel Grid.Row="1" Grid.Column="0">
                             <TextBlock Style="{StaticResource Label}" Text="0° image ID (array horizontal)" />
                             <ui:TextBox Text="{Binding Edit.Template0ImageId}" />
                         </StackPanel>
-                        <StackPanel Grid.Row="1" Grid.Column="2">
+                        <StackPanel Grid.Row="0" Grid.Column="2">
+                            <TextBlock Style="{StaticResource Label}" Text="0° study ID (optional; empty = search all studies)" />
+                            <ui:TextBox Text="{Binding Edit.Template0StudyId}" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="1" Grid.Column="0">
                             <TextBlock Style="{StaticResource Label}" Text="270° image ID (array vertical)" />
                             <ui:TextBox Text="{Binding Edit.Template270ImageId}" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="1" Grid.Column="2">
+                            <TextBlock Style="{StaticResource Label}" Text="270° study ID (optional; empty = search all studies)" />
+                            <ui:TextBox Text="{Binding Edit.Template270StudyId}" />
                         </StackPanel>
                     </Grid>
                     <CheckBox Margin="0,10,0,0" Content="Recreate template structures in the copied image (if the copy doesn't bring them)"

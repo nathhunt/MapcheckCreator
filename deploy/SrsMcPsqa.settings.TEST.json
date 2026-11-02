@@ -1,6 +1,7 @@
 {
   "TemplatePatientId": "MC_DATASETS",
-  "TemplateStudyId": "",
+  "Template0StudyId": "",
+  "Template270StudyId": "",
   "Template0ImageId": "SRSMC_0_AXB",
   "Template270ImageId": "SRSMC_270_AXB",
   "CopyTemplateStructures": false,

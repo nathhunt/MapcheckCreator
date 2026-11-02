@@ -103,6 +103,31 @@ namespace SrsMcPsqa.Esapi
             return v;
         }
 
+        // ------------------------------------------------------------------ template phantom
+        /// <summary>
+        /// Finds a template image by ID: in the given study, or (study empty) in any study of the patient.
+        /// Errors if not found or, when searching, if the ID occurs in more than one study.
+        /// </summary>
+        public static (Study? Study, Image? Image, string? Error) FindTemplateImage(Patient template, string? studyId, string? imageId)
+        {
+            if (string.IsNullOrWhiteSpace(imageId)) return (null, null, "image ID is not set.");
+            var studies = template.Studies.ToList();
+            if (!string.IsNullOrWhiteSpace(studyId))
+            {
+                var st = studies.FirstOrDefault(s => s.Id == studyId);
+                if (st == null) return (null, null, $"study '{studyId}' not found. Studies: {string.Join(", ", studies.Select(s => s.Id))}.");
+                var img = st.Images3D.FirstOrDefault(i => i.Id == imageId);
+                return img == null
+                    ? (st, null, $"image '{imageId}' not found in study '{studyId}'. Images: {string.Join(", ", st.Images3D.Select(i => i.Id))}.")
+                    : (st, img, null);
+            }
+            var hits = studies.SelectMany(s => s.Images3D.Where(i => i.Id == imageId).Select(i => (s, i))).ToList();
+            if (hits.Count == 0) return (null, null, $"image '{imageId}' not found in any study of '{template.Id}'.");
+            if (hits.Count > 1)
+                return (null, null, $"image '{imageId}' exists in several studies ({string.Join(", ", hits.Select(h => h.s.Id))}); enter its study ID in Settings.");
+            return (hits[0].s, hits[0].i, null);
+        }
+
         // ------------------------------------------------------------------ PTVs
         /// <summary>Non-empty structures with "PTV" in the ID: mask (0.5 mm in-plane, CT slice spacing), mesh, Rx guess.</summary>
         public static List<PtvInfo> ExtractPtvs(StructureSet ss, double? planTotalGy, IProgress<string>? progress, CancellationToken ct, List<ValidationMessage> notes)
