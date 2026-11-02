@@ -15,6 +15,9 @@ namespace SrsMcPsqa.Core.Services
         public string CourseId { get; set; } = "";
         public string PlanId { get; set; } = "";
         public bool IsQaPlan { get; set; }
+
+        /// <summary>Parsed app tag from the plan Comment (QA plans created by this app only).</summary>
+        public QaPlanTag? Tag { get; set; }
     }
 
     public sealed class CourseSummary
@@ -73,6 +76,8 @@ namespace SrsMcPsqa.Core.Services
         public string QaCourseId { get; set; } = "";
         public string PlanId { get; set; } = "";
         public ArrayOrientation Orientation { get; set; }
+        /// <summary>PTVs this plane is for (written to the plan tag).</summary>
+        public IReadOnlyList<string> AssignedPtvIds { get; set; } = Array.Empty<string>();
         /// <summary>QA isocentre in phantom DICOM coordinates (<see cref="IsoGeometry.QaIsocentre"/>).</summary>
         public Vec3 Isocentre { get; set; }
         /// <summary>Region (phantom coordinates) to return dose for, e.g. array plane ± 15 mm.</summary>
@@ -112,6 +117,9 @@ namespace SrsMcPsqa.Core.Services
 
         Task<IReadOnlyList<PhantomImageInfo>> EnsurePhantomImagesAsync(TemplatePhantomSettings settings, IReadOnlyCollection<ArrayOrientation> orientations,
             IProgress<string>? progress = null, CancellationToken ct = default);
+
+        /// <summary>Opens the template patient read-only and checks the configured study/image IDs exist.</summary>
+        Task<IReadOnlyList<ValidationMessage>> ValidateTemplateAsync(TemplatePhantomSettings settings, CancellationToken ct = default);
 
         Task<QaPlanResult> CreateQaPlanAsync(QaPlanRequest request, IProgress<string>? progress = null, CancellationToken ct = default);
 

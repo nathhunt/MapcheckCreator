@@ -111,5 +111,8 @@ namespace SrsMcPsqa.Core.Models
         public double RxGy { get; set; }
         public RxSource RxSource { get; set; }
         public StructureMask? Mask { get; set; }
+
+        /// <summary>Surface mesh for the 3D view (optional).</summary>
+        public TriangleMesh? Mesh { get; set; }
     }
 }

@@ -22,8 +22,6 @@ namespace SrsMcPsqa.Core.Tests
         [InlineData("PTV_2400", 24)]
         [InlineData("PTV1_2700_3fx", 27)]
         [InlineData("PTV2_3000_5#", 30)]
-        [InlineData("PTV_3x9Gy", 27)]
-        [InlineData("PTV_5x6Gy", 30)]
         [InlineData("PTV_24G", 24)]
         [InlineData("PTV3_18G_1fx", 18)]
         [InlineData("PTV_Cerebellum_24Gy_3F", 24)]

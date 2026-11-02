@@ -32,9 +32,9 @@ namespace SrsMcPsqa.Core.Prescription
     }
 
     /// <summary>
-    /// Guesses a PTV's total prescription dose from its structure ID. Rules, case-insensitive, first match wins:
+    /// Reads a PTV's total prescription dose from its structure ID (department convention: the name only ever carries
+    /// the total dose). Rules, case-insensitive, first match wins:
     /// <list type="number">
-    /// <item><c>N x D Gy</c> (e.g. <c>3x9Gy</c>) → N·D Gy. (Added so per-fraction notation isn't read as the total.)</item>
     /// <item><c>D Gy</c> (decimal point or comma allowed, spaces/underscores before "Gy") → D Gy.</item>
     /// <item><c>D cGy</c> → D/100 Gy.</item>
     /// <item>A bare whole number ≥ 100 (e.g. <c>PTV_2400</c>) → cGy.</item>
@@ -47,7 +47,6 @@ namespace SrsMcPsqa.Core.Prescription
         private const RegexOptions Opt = RegexOptions.IgnoreCase | RegexOptions.CultureInvariant;
         private const string Num = @"(\d+(?:[.,]\d+)?)";
 
-        private static readonly Regex FractionsTimesDose = new Regex(@"(?<![\d.,])(\d{1,2})\s*[x×]\s*" + Num + @"[\s_]*Gy(?![a-z])", Opt);
         private static readonly Regex GyRule = new Regex(@"(?<![\d.,])" + Num + @"[\s_]*Gy(?![a-z])", Opt);
         private static readonly Regex CGyRule = new Regex(@"(?<![\d.,])(\d+)[\s_]*cGy(?![a-z])", Opt);
         private static readonly Regex FractionTokens = new Regex(
@@ -65,11 +64,7 @@ namespace SrsMcPsqa.Core.Prescription
             if (string.IsNullOrWhiteSpace(structureId)) return false;
             var s = structureId!;
 
-            var m = FractionsTimesDose.Match(s);
-            if (m.Success)
-                return Accept(int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture) * ParseNum(m.Groups[2].Value), out gy);
-
-            m = GyRule.Match(s);
+            var m = GyRule.Match(s);
             if (m.Success) return Accept(ParseNum(m.Groups[1].Value), out gy);
 
             m = CGyRule.Match(s);
