@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    SRS MapCHECK PSQA Plan Creator: WPF app (.NET Framework 4.8, x64).
+    Phase 2: runs on synthetic data with the fake switch. The ESAPI implementation is added in Phase 3.
+    EnableWindowsTargeting lets the project compile on non-Windows build machines (CI); it has no effect on Windows.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <RootNamespace>SrsMcPsqa.App</RootNamespace>
+    <AssemblyName>SrsMcPsqa</AssemblyName>
+    <Version>0.2.0</Version>
+    <Product>SRS MapCHECK PSQA Plan Creator</Product>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <PackageReference Include="PolySharp" Version="1.14.1" PrivateAssets="all" />
+    <PackageReference Include="WPF-UI" Version="3.0.5" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+    <PackageReference Include="HelixToolkit.Wpf" Version="2.25.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Runtime.Serialization" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SrsMcPsqa.Core\SrsMcPsqa.Core.csproj" />
+    <ProjectReference Include="..\SrsMcPsqa.Fake\SrsMcPsqa.Fake.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="SrsMcPsqa.settings.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

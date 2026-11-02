@@ -1,0 +1,120 @@
+<UserControl x:Class="SrsMcPsqa.App.Views.ReviewView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:vm="clr-namespace:SrsMcPsqa.App.ViewModels"
+             xmlns:controls="clr-namespace:SrsMcPsqa.App.Controls"
+             mc:Ignorable="d" d:DataContext="{d:DesignInstance Type=vm:ReviewViewModel}">
+    <Grid Margin="16,12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Style="{StaticResource PageTitle}" Text="Review &amp; fine-tune" />
+
+        <WrapPanel Grid.Row="1" Margin="0,0,0,8">
+            <ui:Button Margin="0,0,8,4" Content="Optimise further" Icon="{ui:SymbolIcon Sparkle24}" Appearance="Primary" Command="{Binding OptimiseFurtherCommand}" />
+            <ui:Button Margin="0,0,24,4" Content="Apply &amp; recalculate" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding ApplyCommand}"
+                       IsEnabled="{Binding HasProposals}" />
+            <ui:Button Margin="0,0,8,4" Content="Add new QA plans" Icon="{ui:SymbolIcon Add24}" Command="{Binding AddNewCommand}" />
+            <ui:Button Margin="0,0,8,4" Content="Delete ticked" Icon="{ui:SymbolIcon Delete24}" Command="{Binding DeleteSelectedCommand}" />
+            <ui:Button Margin="0,0,8,4" Content="Delete all QA plans" Icon="{ui:SymbolIcon Delete24}" Appearance="Danger" Command="{Binding DeleteAllCommand}" />
+        </WrapPanel>
+
+        <!-- One tab per QA plan -->
+        <TabControl Grid.Row="2" ItemsSource="{Binding QaPlans}" SelectedItem="{Binding SelectedQaPlan}">
+            <TabControl.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Horizontal">
+                        <CheckBox MinWidth="0" Margin="0,0,4,0" IsChecked="{Binding IsChecked}" ToolTip="Tick to delete" />
+                        <TextBlock VerticalAlignment="Center" Text="{Binding Header}" />
+                    </StackPanel>
+                </DataTemplate>
+            </TabControl.ItemTemplate>
+            <TabControl.ContentTemplate>
+                <DataTemplate>
+                    <Grid Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="430" />
+                        </Grid.ColumnDefinitions>
+                        <controls:PlaneView Grid.Column="0" MinHeight="260" Scene="{Binding Scene}" Overlay="{Binding Overlay}" AllowDrag="False" />
+                        <DockPanel Grid.Column="2">
+                            <StackPanel DockPanel.Dock="Top">
+                                <TextBlock Style="{StaticResource Section}" Text="{Binding Header}" />
+                                <TextBlock Style="{StaticResource Body}" Text="{Binding AssignedText, StringFormat='PTVs: {0}'}" />
+                                <TextBlock Style="{StaticResource Body}" Text="{Binding ArrayText}" />
+                                <TextBlock Style="{StaticResource Body}" Text="{Binding IsoText}" />
+                                <TextBlock Style="{StaticResource Body}" Text="{Binding CalcText}" Foreground="{Binding CalcOk, Converter={StaticResource StatusBrush}}" />
+                                <TextBlock Style="{StaticResource Hint}" Text="{Binding Iterations, StringFormat='Fine-tune iterations applied: {0}'}" />
+                                <CheckBox Margin="0,6,0,6" Content="Show diodes" IsChecked="{Binding ShowDiodes}" />
+                            </StackPanel>
+                            <DataGrid ItemsSource="{Binding Metrics}" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" FontSize="12">
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="" Width="22">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate><Rectangle Width="10" Height="10" Fill="{Binding Brush}" /></DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="PTV" Binding="{Binding Id}" Width="2*" />
+                                    <DataGridTextColumn Header="Area mm²" Binding="{Binding Area}" Width="*" />
+                                    <DataGridTextColumn Header="Diodes" Binding="{Binding Diodes}" Width="*" />
+                                    <DataGridTextColumn Header="≥ Rx" Binding="{Binding DiodesAtRx}" Width="*" />
+                                    <DataGridTextColumn Header="H/Amax" Binding="{Binding HighDose}" Width="*" />
+                                    <DataGridTextColumn Header="J" Binding="{Binding Score}" Width="*" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Grid>
+                </DataTemplate>
+            </TabControl.ContentTemplate>
+        </TabControl>
+
+        <!-- Fine-tune proposals -->
+        <Border Grid.Row="3" Margin="0,10,0,0" Padding="10" CornerRadius="6"
+                Background="{DynamicResource ControlFillColorDefaultBrush}"
+                Visibility="{Binding HasProposals, Converter={StaticResource BoolToVis}}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource Section}" Text="Proposed shifts (array relative to patient)" />
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource Hint}" Margin="0,0,0,6" Text="{Binding ProposalStatus}" />
+                <ScrollViewer MaxHeight="230" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Proposals}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="80" />
+                                        <ColumnDefinition Width="190" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="100" />
+                                        <ColumnDefinition Width="190" />
+                                        <ColumnDefinition Width="230" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" FontWeight="SemiBold" Text="{Binding PlanId}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                    <TextBlock Grid.Column="1" TextWrapping="Wrap" Text="{Binding ProposedText}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                    <TextBlock Grid.Column="2" TextWrapping="Wrap" FontSize="11" Text="{Binding PredictedText}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    <ComboBox Grid.Column="3" VerticalAlignment="Top" ItemsSource="{x:Static vm:FineTuneRowViewModel.Decisions}" SelectedItem="{Binding Decision}" />
+                                    <StackPanel Grid.Column="4" Margin="6,0" IsEnabled="{Binding IsEditing}">
+                                        <TextBlock FontSize="11" Text="Custom move x / y / z (mm, +L +P +S)" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBox Width="56" Margin="0,0,3,0" Text="{Binding CustomX, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBox Width="56" Margin="0,0,3,0" Text="{Binding CustomY, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBox Width="56" Text="{Binding CustomZ, UpdateSourceTrigger=PropertyChanged}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="5" TextWrapping="Wrap" FontSize="11" Text="{Binding ResultText}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>

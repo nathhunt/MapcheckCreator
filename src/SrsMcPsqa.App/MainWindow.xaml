@@ -1,0 +1,110 @@
+<ui:FluentWindow x:Class="SrsMcPsqa.App.MainWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:vm="clr-namespace:SrsMcPsqa.App.ViewModels"
+                 xmlns:views="clr-namespace:SrsMcPsqa.App.Views"
+                 mc:Ignorable="d"
+                 d:DataContext="{d:DesignInstance Type=vm:ShellViewModel}"
+                 Title="{Binding WindowTitle}"
+                 Width="1340" Height="740" MinWidth="1100" MinHeight="620"
+                 WindowStartupLocation="CenterScreen"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowBackdropType="None"
+                 Background="{DynamicResource ApplicationBackgroundBrush}">
+    <ui:FluentWindow.Resources>
+        <DataTemplate DataType="{x:Type vm:PatientPlanViewModel}"><views:PatientPlanView /></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:PtvsViewModel}"><views:PtvsView /></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:PlanningViewModel}"><views:PlanningView /></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ReviewViewModel}"><views:ReviewView /></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SettingsViewModel}"><views:SettingsView /></DataTemplate>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="{Binding WindowTitle}" />
+
+        <Border Grid.Row="1" Background="#FFD08A00" Padding="12,4"
+                Visibility="{Binding IsFake, Converter={StaticResource BoolToVis}}">
+            <TextBlock Foreground="Black" FontWeight="SemiBold"
+                       Text="DEMO DATA: synthetic patient and simulated Eclipse operations. Nothing is written to Eclipse." />
+        </Border>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="200" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Navigation -->
+            <Border Grid.Column="0" Background="{DynamicResource ControlFillColorDefaultBrush}">
+                <ListBox ItemsSource="{Binding Pages}" SelectedItem="{Binding SelectedPage}" Margin="6,8"
+                         Background="Transparent" BorderThickness="0">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                            <Setter Property="IsEnabled" Value="{Binding IsAvailable}" />
+                            <Setter Property="Padding" Value="10,8" />
+                            <Setter Property="Margin" Value="0,2" />
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="{Binding Symbol}" FontSize="18" Margin="0,0,10,0" />
+                                <TextBlock Text="{Binding Title}" VerticalAlignment="Center" FontSize="13" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+
+            <!-- Current screen -->
+            <ContentControl Grid.Column="1" Content="{Binding SelectedPage}" Focusable="False" />
+        </Grid>
+
+        <!-- Progress panel (modal over the content) -->
+        <Grid Grid.Row="1" Grid.RowSpan="2" Background="#99000000"
+              Visibility="{Binding Progress.IsOpen, Converter={StaticResource BoolToVis}}">
+            <Border Width="640" MaxHeight="560" VerticalAlignment="Center" CornerRadius="8" Padding="20"
+                    Background="{DynamicResource ApplicationBackgroundBrush}"
+                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Style="{StaticResource Section}" Text="{Binding Progress.Title}" />
+                    <ProgressBar DockPanel.Dock="Top" Height="4" Margin="0,4,0,8" IsIndeterminate="{Binding Progress.IsRunning}" />
+                    <TextBlock DockPanel.Dock="Top" Style="{StaticResource Body}" Text="{Binding Progress.CurrentText}" Margin="0,0,0,8" />
+                    <TextBlock DockPanel.Dock="Top" Style="{StaticResource Hint}" Margin="0,0,0,8"
+                               Text="Eclipse calculations can't be interrupted: Cancel stops after the current step." />
+
+                    <DockPanel DockPanel.Dock="Bottom" LastChildFill="False" Margin="0,12,0,0">
+                        <ui:Button DockPanel.Dock="Right" Content="Close" MinWidth="90" Command="{Binding Progress.CloseCommand}"
+                                   Visibility="{Binding Progress.IsRunning, Converter={StaticResource InverseBoolToVis}}" Appearance="Primary" />
+                        <ui:Button DockPanel.Dock="Right" Content="Cancel after current step" Command="{Binding Progress.CancelCommand}"
+                                   Visibility="{Binding Progress.IsRunning, Converter={StaticResource BoolToVis}}"
+                                   IsEnabled="{Binding Progress.CancelRequested, Converter={StaticResource Not}}" />
+                    </DockPanel>
+
+                    <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Progress.Steps}" Margin="0,0,0,8">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Margin="0,2">
+                                    <TextBlock Width="20" Text="{Binding State, Converter={StaticResource StepGlyph}}" FontWeight="Bold"
+                                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                    <TextBlock Text="{Binding Text}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <ListBox ItemsSource="{Binding Progress.LogLines}" FontFamily="Consolas" FontSize="11" MinHeight="80" />
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</ui:FluentWindow>

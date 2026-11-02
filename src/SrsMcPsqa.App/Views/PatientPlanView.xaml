@@ -1,0 +1,85 @@
+<UserControl x:Class="SrsMcPsqa.App.Views.PatientPlanView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:vm="clr-namespace:SrsMcPsqa.App.ViewModels"
+             mc:Ignorable="d" d:DataContext="{d:DesignInstance Type=vm:PatientPlanViewModel}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24,16" MaxWidth="820" HorizontalAlignment="Left">
+            <TextBlock Style="{StaticResource PageTitle}" Text="Patient &amp; plan" />
+
+            <ui:Card Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource Section}" Text="Patient" />
+                    <DockPanel>
+                        <ui:Button DockPanel.Dock="Right" Margin="8,0,0,0" Content="Open" Icon="{ui:SymbolIcon FolderOpen24}"
+                                   Appearance="Primary" Command="{Binding OpenPatientCommand}" />
+                        <ui:TextBox Text="{Binding PatientId, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Patient ID" />
+                    </DockPanel>
+                    <TextBlock Style="{StaticResource Body}" Margin="0,8,0,0" Text="{Binding PatientText}" />
+                    <ui:InfoBar Margin="0,8,0,0" Title="Can't modify the patient" Severity="Error" IsClosable="False"
+                                Message="{Binding ModifyError}" IsOpen="{Binding ModifyError, Converter={StaticResource NotNull}}" />
+                    <ui:Button Margin="0,6,0,0" Content="Retry" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding OpenPatientCommand}"
+                               Visibility="{Binding ModifyError, Converter={StaticResource BoolToVis}}" />
+                </StackPanel>
+            </ui:Card>
+
+            <ui:Card Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource Section}" Text="Clinical plan" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Style="{StaticResource Label}" Text="Course" />
+                            <ComboBox ItemsSource="{Binding Courses}" SelectedItem="{Binding SelectedCourse}" DisplayMemberPath="Id" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource Label}" Text="Plan (single isocentre, calculated)" />
+                            <ComboBox ItemsSource="{Binding Plans}" SelectedItem="{Binding SelectedPlan}" DisplayMemberPath="PlanId" />
+                        </StackPanel>
+                    </Grid>
+                    <ui:Button Margin="0,12,0,0" Content="Load plan" Icon="{ui:SymbolIcon ArrowDownload24}" Appearance="Primary"
+                               Command="{Binding LoadPlanCommand}" />
+                    <ItemsControl Margin="0,10,0,0" ItemsSource="{Binding Validation}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Margin="0,2">
+                                    <Ellipse Width="10" Height="10" Margin="0,0,8,0" Fill="{Binding Severity, Converter={StaticResource StatusBrush}}" />
+                                    <TextBlock Style="{StaticResource Body}" Text="{Binding Text}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ui:Card>
+
+            <ui:Card Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource Section}" Text="QA course" />
+                    <TextBlock Style="{StaticResource Hint}" Text="QA plans are created in this course. Create the course in Eclipse; the app never creates courses. Completed courses are not listed." />
+                    <ComboBox Margin="0,8,0,0" ItemsSource="{Binding QaCourses}" SelectedItem="{Binding SelectedQaCourse}" DisplayMemberPath="Id" />
+                    <ui:InfoBar Margin="0,8,0,0" Severity="Warning" IsClosable="False" Title="No suitable course"
+                                Message="Create a QA course for this patient in Eclipse, then reopen the patient."
+                                IsOpen="{Binding HasNoQaCourse}" />
+                </StackPanel>
+            </ui:Card>
+
+            <ui:Card>
+                <DockPanel>
+                    <ui:Button DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0" Content="Settings"
+                               Icon="{ui:SymbolIcon Settings24}" Command="{Binding OpenSettingsCommand}" />
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Section}" Text="Phantom images" />
+                        <TextBlock Style="{StaticResource Body}" Text="{Binding PhantomStatus}" />
+                    </StackPanel>
+                </DockPanel>
+            </ui:Card>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -8,7 +8,7 @@ Creates patient-specific QA plans for single-isocentre SRS plans, measured with 
 |---|---|---|
 | 0 | Spike: test the risky ESAPI behaviour on Citrix | **Code ready, waiting for Citrix test results** ([checklist](spike/SPIKE_CHECKLIST.md)) |
 | 1 | Core: geometry, detector model, scoring, optimisation (+ unit tests) | **Done**: 84 tests passing |
-| 2 | App shell on fake data | not started |
+| 2 | App shell on fake data | **Done**: full UI flow on demo data ([try it](docs/PHASE2_UI_CHECKLIST.md)) |
 | 3 | ESAPI read path | not started |
 | 4 | ESAPI write path | not started |
 | 5 | Hardening, deployment docs | not started |
@@ -17,7 +17,7 @@ Creates patient-specific QA plans for single-isocentre SRS plans, measured with 
 
 ```
 Directory.Build.props              shared settings; EsapiPath (override in EsapiPath.user.props)
-SrsMcPsqa.sln                      Core + tests (app projects are added in later phases)
+SrsMcPsqa.sln                      Core, Fake, App, tests (Esapi + Launcher come in Phase 3)
 src/SrsMcPsqa.Core/                netstandard2.0, no ESAPI/WPF. Units mm and Gy, DICOM patient coordinates
   Geometry/                        Vec3, ArrayOrientation/PlaneAxes, IsoGeometry + ShiftLabels (sign conventions),
                                    DoseGrid, StructureMask, ContourRasterizer (even-odd)
@@ -25,8 +25,17 @@ src/SrsMcPsqa.Core/                netstandard2.0, no ESAPI/WPF. Units mm and Gy
   Prescription/                    PTV-ID prescription parser and resolver
   Optimisation/                    Scoring (J_k), PlanningModel (summed-area tables), CandidateSearch,
                                    SetCoverSolver, Recommender, ConstrainedOptimizer, FineTuneOptimizer
+  Rendering/                       plane sampling and marching-squares isolines for the 2D view
+  Models/                          DTOs, QA plan naming + Comment tag, request builders
   Services/IPlanningService.cs     draft UI <-> Eclipse contract (revised after spike results)
-tests/SrsMcPsqa.Core.Tests/        net8.0 xUnit, synthetic spherical PTVs with analytic dose
+src/SrsMcPsqa.Fake/                netstandard2.0 synthetic patient + simulated IPlanningService (--fake)
+src/SrsMcPsqa.App/                 net48 x64 WPF: WPF-UI 3.0.5, CommunityToolkit.Mvvm 8.2.2, HelixToolkit.Wpf 2.25.0
+  ViewModels/                      shell, patient & plan, PTVs, planning, review & fine-tune, settings
+  Views/, MainWindow.xaml          Fluent UI; left navigation; progress panel
+  Controls/PlaneView.cs            2D array-plane renderer (dose, PTVs, 100% isodose, array, diodes, rulers, drag)
+  Controls/Scene3DView.cs          3D overview (HelixToolkit)
+  Infrastructure/                  settings (JSON, department + per-user), rolling log, dialogs, converters
+tests/SrsMcPsqa.Core.Tests/        net8.0 xUnit, synthetic PTVs with analytic dose; end-to-end workflow on the fake service
 spike/
   SrsMcPsqa.Spike.sln
   SrsMcPsqa.Spike/                 net48 x64 WPF (WPF-UI 3.0.5), write-enabled ESAPI standalone
@@ -45,6 +54,18 @@ Core and tests (any OS with the .NET 8 SDK):
 ```bash
 dotnet test SrsMcPsqa.sln
 ```
+
+The app (Windows, .NET SDK 6+ or VS 2022; no Eclipse needed for demo data):
+
+```bash
+dotnet build SrsMcPsqa.sln -c Release
+```
+
+```bash
+src/SrsMcPsqa.App/bin/Release/net48/SrsMcPsqa.exe --fake
+```
+
+The app project sets `EnableWindowsTargeting`, so the WPF code and XAML also compile on Linux CI (they can't run there).
 
 The spike needs Windows, Visual Studio 2022 or the .NET SDK (6+), and the ESAPI v18 DLLs. See [spike/SPIKE_CHECKLIST.md](spike/SPIKE_CHECKLIST.md#a-build-windows-dev-machine-with-visual-studio-2022-or-the-net-sdk).
 
@@ -84,3 +105,12 @@ These are choices I made where the brief left room. Each is easy to change.
 7. **Fine-tune constraint.** "Keep assigned PTVs inside the usable square" means no PTV may end up more clipped than it is now (or more than the clip tolerance, if that's larger), and PTVs on the plane must stay on it. If scores are equal, the smallest move is preferred, so an already-optimal plan gets Δ = 0.
 8. **Manual edits.** The area and score terms use the nearest 0.5 mm depth (the cached tables). Diode counts use the exact plane.
 9. **Limit.** At most 64 PTVs per model. Selected PTVs are passed in as the model's targets.
+
+## Phase 2 notes
+
+- **No JSON library.** Settings use `DataContractJsonSerializer` from .NET Framework, which avoids an assembly that could clash with what ESAPI loads.
+- **Settings files.** Department defaults live in `SrsMcPsqa.settings.json` next to the exe (read-only, optional). Personal settings are in `%APPDATA%\SrsMcPsqa\settings.json`. "Reset to department defaults" deletes the personal file.
+- **Errors.** Every error opens a dialog with **Copy details** and is logged to `%LOCALAPPDATA%\SrsMcPsqa\logs` (30 days kept).
+- **Navigation.** It's a simple list rather than WPF-UI's `NavigationView`, which needs a page service. Screens unlock as the workflow progresses.
+- **Review screen.** Each QA plan has its own tab. Values from before calculation and from fine-tune predictions are labelled as approximations. Calculated values are labelled "CALCULATED".
+- **Array plane view.** u runs to the right, v (superior) up. At 0° patient left is on the right (seen from anterior). At 270° patient posterior is on the right.

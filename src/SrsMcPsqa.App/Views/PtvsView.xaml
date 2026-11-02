@@ -1,0 +1,45 @@
+<UserControl x:Class="SrsMcPsqa.App.Views.PtvsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:vm="clr-namespace:SrsMcPsqa.App.ViewModels"
+             mc:Ignorable="d" d:DataContext="{d:DesignInstance Type=vm:PtvsViewModel}">
+    <DockPanel Margin="24,16">
+        <TextBlock DockPanel.Dock="Top" Style="{StaticResource PageTitle}" Text="PTVs" />
+        <TextBlock DockPanel.Dock="Top" Style="{StaticResource Hint}" Margin="0,0,0,10" Text="{Binding Summary}" />
+
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,12,0,0">
+            <ui:Button Content="Select all" Margin="0,0,8,0" Command="{Binding SelectAllCommand}" />
+            <ui:Button Content="Select none" Margin="0,0,24,0" Command="{Binding SelectNoneCommand}" />
+            <ui:Button Content="Continue to array planning" Icon="{ui:SymbolIcon ArrowRight24}" Appearance="Primary" Command="{Binding ContinueCommand}" />
+        </StackPanel>
+
+        <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                  HeadersVisibility="Column" SelectionMode="Single">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="Include" Width="70">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox HorizontalAlignment="Center" IsChecked="{Binding Include, UpdateSourceTrigger=PropertyChanged}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="" Width="28" IsReadOnly="True">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Rectangle Width="12" Height="12" Fill="{Binding Brush}" RadiusX="2" RadiusY="2" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="PTV" Binding="{Binding Id}" IsReadOnly="True" Width="2*" />
+                <DataGridTextColumn Header="Volume (cc)" Binding="{Binding VolumeCc, StringFormat=0.00}" IsReadOnly="True" Width="*" />
+                <DataGridTextColumn Header="Rx (Gy) – editable" Binding="{Binding RxGy, StringFormat=0.##, UpdateSourceTrigger=LostFocus}" Width="*" />
+                <DataGridTextColumn Header="Rx source" Binding="{Binding RxSourceText}" IsReadOnly="True" Width="*" />
+                <DataGridTextColumn Header="Max cross-section 0° (mm²)" Binding="{Binding MaxArea0, StringFormat=0}" IsReadOnly="True" Width="1.4*" />
+                <DataGridTextColumn Header="Max cross-section 270° (mm²)" Binding="{Binding MaxArea270, StringFormat=0}" IsReadOnly="True" Width="1.4*" />
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</UserControl>

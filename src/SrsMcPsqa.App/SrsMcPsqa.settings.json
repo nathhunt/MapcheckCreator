@@ -1,0 +1,17 @@
+{
+  "TemplatePatientId": "",
+  "TemplateStudyId": "",
+  "Template0ImageId": "",
+  "Template270ImageId": "",
+  "CopyTemplateStructures": false,
+  "PlanNamingPattern": "SMC{n}_{orient}",
+  "EdgeMarginMm": 3,
+  "Tau": 0.85,
+  "MinDiodes": 5,
+  "Alpha": 0.5,
+  "FineTuneInPlaneRangeMm": 15,
+  "FineTuneNormalRangeMm": 10,
+  "AutoSave": true,
+  "LogLevel": "Info",
+  "Theme": "System"
+}

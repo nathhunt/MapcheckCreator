@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Synthetic IPlanningService so the UI runs without Eclipse (app started with the fake switch). No ESAPI. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>SrsMcPsqa.Fake</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PolySharp" Version="1.14.1" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SrsMcPsqa.Core\SrsMcPsqa.Core.csproj" />
+  </ItemGroup>
+
+</Project>
