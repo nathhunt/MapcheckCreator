@@ -20,6 +20,8 @@ namespace SrsMcPsqa.App.Infrastructure
         [DataMember] public string Template0ImageId { get; set; } = "";
         [DataMember] public string Template270ImageId { get; set; } = "";
         [DataMember] public bool CopyTemplateStructures { get; set; }
+        /// <summary>Comma-separated prefixes of helper PTV structures, unticked by default (e.g. "z").</summary>
+        [DataMember] public string HelperPrefixes { get; set; } = Core.Prescription.PtvFilter.DefaultHelperPrefixes;
         [DataMember] public string PlanNamingPattern { get; set; } = Core.Models.QaPlanNaming.DefaultPattern;
         [DataMember] public double EdgeMarginMm { get; set; } = 3.0;
         [DataMember] public double Tau { get; set; } = 0.85;
@@ -56,7 +58,7 @@ namespace SrsMcPsqa.App.Infrastructure
         {
             var d = new AppSettings(false);
             TemplatePatientId = d.TemplatePatientId; TemplateStudyId = d.TemplateStudyId; Template0ImageId = d.Template0ImageId;
-            Template270ImageId = d.Template270ImageId; PlanNamingPattern = d.PlanNamingPattern; EdgeMarginMm = d.EdgeMarginMm;
+            Template270ImageId = d.Template270ImageId; HelperPrefixes = d.HelperPrefixes; PlanNamingPattern = d.PlanNamingPattern; EdgeMarginMm = d.EdgeMarginMm;
             Tau = d.Tau; MinDiodes = d.MinDiodes; Alpha = d.Alpha; FineTuneInPlaneRangeMm = d.FineTuneInPlaneRangeMm;
             FineTuneNormalRangeMm = d.FineTuneNormalRangeMm; AutoSave = d.AutoSave; LogLevel = d.LogLevel; Theme = d.Theme;
         }

@@ -25,6 +25,12 @@ namespace SrsMcPsqa.Core.Tests
         [InlineData("PTV_24G", 24)]
         [InlineData("PTV3_18G_1fx", 18)]
         [InlineData("PTV_Cerebellum_24Gy_3F", 24)]
+        [InlineData("PTV30", 30)]
+        [InlineData("PTV25", 25)]
+        [InlineData("PTV25_Eval", 25)]
+        [InlineData("zPTV25", 25)]
+        [InlineData("ZPTV30", 30)]
+        [InlineData("PTV18_3fx", 18)]
         public void Parses(string id, double expectedGy)
         {
             Assert.True(PrescriptionParser.TryParse(id, out var gy), id);
@@ -35,6 +41,8 @@ namespace SrsMcPsqa.Core.Tests
         [InlineData("PTV_eval")]
         [InlineData("PTV")]
         [InlineData("PTV1")]
+        [InlineData("PTV2_eval")]
+        [InlineData("zPTVin")]
         [InlineData("PTV_10")]
         [InlineData("PTV_3fx")]
         [InlineData("PTV_x3")]
@@ -54,5 +62,24 @@ namespace SrsMcPsqa.Core.Tests
             Assert.Equal((20.0, RxSource.PlanRx), PrescriptionResolver.Resolve("PTV_other", targets, 20));
             Assert.Equal((0.0, RxSource.None), PrescriptionResolver.Resolve("PTV_other", null, null));
         }
+    }
+}
+
+namespace SrsMcPsqa.Core.Tests
+{
+    public class PtvFilterTests
+    {
+        [Xunit.Theory]
+        [Xunit.InlineData("zPTV25", true)]
+        [Xunit.InlineData("ZPTV30", true)]
+        [Xunit.InlineData("zPTVin", true)]
+        [Xunit.InlineData("PTV30", false)]
+        [Xunit.InlineData("PTV25_Eval", false)]
+        public void HelpersStartWithZ(string id, bool helper) =>
+            Xunit.Assert.Equal(helper, SrsMcPsqa.Core.Prescription.PtvFilter.IsHelper(id, SrsMcPsqa.Core.Prescription.PtvFilter.DefaultHelperPrefixes));
+
+        [Xunit.Fact]
+        public void EmptyPrefixListMeansNoHelpers() =>
+            Xunit.Assert.False(SrsMcPsqa.Core.Prescription.PtvFilter.IsHelper("zPTV", ""));
     }
 }

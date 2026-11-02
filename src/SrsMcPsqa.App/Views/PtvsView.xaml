@@ -37,6 +37,7 @@
                 <DataGridTextColumn Header="Volume (cc)" Binding="{Binding VolumeCc, StringFormat=0.00}" IsReadOnly="True" Width="*" />
                 <DataGridTextColumn Header="Rx (Gy) – editable" Binding="{Binding RxGy, StringFormat=0.##, UpdateSourceTrigger=LostFocus}" Width="*" />
                 <DataGridTextColumn Header="Rx source" Binding="{Binding RxSourceText}" IsReadOnly="True" Width="*" />
+                <DataGridTextColumn Header="Note" Binding="{Binding Note}" IsReadOnly="True" Width="0.6*" />
                 <DataGridTextColumn Header="Max cross-section 0° (mm²)" Binding="{Binding MaxArea0, StringFormat=0}" IsReadOnly="True" Width="1.4*" />
                 <DataGridTextColumn Header="Max cross-section 270° (mm²)" Binding="{Binding MaxArea270, StringFormat=0}" IsReadOnly="True" Width="1.4*" />
             </DataGrid.Columns>

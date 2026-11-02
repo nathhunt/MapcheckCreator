@@ -55,6 +55,8 @@
                     <TextBlock Style="{StaticResource Section}" Text="QA plans" />
                     <TextBlock Style="{StaticResource Label}" Text="Plan ID pattern ({n} = number, {orient} = 0 or 270; max 13 characters)" />
                     <ui:TextBox Text="{Binding Edit.PlanNamingPattern}" Width="240" HorizontalAlignment="Left" />
+                    <TextBlock Style="{StaticResource Label}" Text="Helper PTV prefixes (comma-separated; listed but unticked by default)" />
+                    <ui:TextBox Text="{Binding Edit.HelperPrefixes}" Width="240" HorizontalAlignment="Left" />
                     <CheckBox Margin="0,10,0,0" Content="Save to Eclipse after every completed write (recommended)" IsChecked="{Binding Edit.AutoSave}" />
                 </StackPanel>
             </ui:Card>

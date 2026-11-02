@@ -58,6 +58,7 @@ namespace SrsMcPsqa.Fake
                 new FakePtv("PTV_R_Front_2700cGy", iso + new Vec3(30, -28, -15), new Vec3(8, 7, 9), 27),
                 new FakePtv("PTV4_18Gy", iso + new Vec3(28, 15, -30), new Vec3(5, 5, 5), 18),
                 new FakePtv("PTV5", iso + new Vec3(-35, 25, -45), new Vec3(3.5, 3.5, 4), 20), // no Rx in name -> plan Rx
+                new FakePtv("zPTV1_opt", iso + new Vec3(-18, 2, 10), new Vec3(7, 6, 8), 0),    // helper: unticked by default; adds no dose
             };
         }
 

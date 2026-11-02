@@ -20,7 +20,7 @@ Without `--fake`, this build shows a note and starts on demo data anyway, becaus
 |---|---|---|
 | 1 | Start the app. | An orange "DEMO DATA" bar. Patient FAKE001 opens by itself; course C1 and plan SRS_5Mets are preselected, and the QA course is "QA". C0_Old is completed, so it isn't offered as a QA course. |
 | 2 | Click **Load plan**. | Validation messages appear, then the PTVs screen. |
-| 3 | PTVs: check the Rx column. | 24, 20 (from cGy), 27, 18 come from the names. PTV5 has none in its name, so it gets the plan Rx of 20 Gy. Max cross-sections appear after a moment. Edit an Rx and its source changes to "user". |
+| 3 | PTVs: check the Rx column. | 24, 20 (from cGy), 27, 18 come from the names. PTV5 has none in its name, so it gets the plan Rx of 20 Gy. Max cross-sections appear after a moment. Edit an Rx and its source changes to "user". `zPTV1_opt` is listed as a helper and is unticked. |
 | 4 | **Continue**, then **Recommend**. | Three plans: PTV1+PTV2 at 0°, PTV_R_Front+PTV4 at 270°, PTV5 alone. Coverage list, then the 2D plane view with dose, PTV outlines (solid), 100% Rx isodose (dashed), the array, the usable square, diodes and mm rulers. |
 | 5 | Click the other plans in the list; open the **3D overview** tab. | The plane view follows the selection. 3D shows the coloured PTVs and the translucent arrays, with the selected one highlighted. The default view is from anterior with patient left on screen right. |
 | 6 | Use the nudge buttons, type a centre, and drag the array in the 2D view. | Metrics and coverage update live, and the plan is marked "(manual)". Check that the direction labels (Left/Right, Ant/Post, Sup/Inf) match what the view shows. |

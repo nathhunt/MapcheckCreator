@@ -1,9 +1,10 @@
 {
-  "TemplatePatientId": "",
+  "TemplatePatientId": "MC_DATASETS",
   "TemplateStudyId": "",
-  "Template0ImageId": "",
-  "Template270ImageId": "",
+  "Template0ImageId": "SRSMC_0_AXB",
+  "Template270ImageId": "SRSMC_270_AXB",
   "CopyTemplateStructures": false,
+  "HelperPrefixes": "z",
   "PlanNamingPattern": "SMC{n}_{orient}",
   "EdgeMarginMm": 3,
   "Tau": 0.85,

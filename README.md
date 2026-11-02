@@ -96,7 +96,7 @@ Status after the first Citrix run (ESAPI 18.1.0.472, API assembly 1.0.700.247). 
 
 These are choices I made where the brief left room. Each is easy to change.
 
-1. **Prescription parser.** PTV names only ever carry the total dose (confirmed), so there is no per-fraction rule. Parsed values outside 1–100 Gy are rejected.
+1. **Prescription parser.** PTV names only ever carry the total dose (confirmed), so there is no per-fraction rule. Department convention (confirmed): `PTV30` = 30 Gy, so a two-digit number straight after "PTV" is read as Gy. A single digit (`PTV1`) is a PTV number. Parsed values outside 1–100 Gy are rejected. Structures starting with `z` are planning helpers: listed, but unticked by default (`HelperPrefixes` setting).
 2. **Coverage and the diode rule.** If no position near a PTV's best plane puts N_min diodes inside it (a very small PTV), the diode rule is waived for that PTV and it is reported as **LowDiodeCount**. Confirmed acceptable: the plane still intersects the PTV, and PTVs below ~1 cm equivalent diameter aren't treated.
 3. **"Partial coverage".** A PTV is partial when, on its primary plane, more than 1% of its cross-section lies outside the usable square (e.g. a PTV bigger than the array). The tolerance is configurable (`ClipTolerance`).
 4. **Ties are centred.** Once covered PTVs are fully inside the usable square, many positions score the same. The optimiser then moves the array towards the centre of the covered PTVs, so they sit mid-array.

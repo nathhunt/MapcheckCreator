@@ -39,6 +39,8 @@ namespace SrsMcPsqa.Core.Prescription
     /// <item><c>D cGy</c> → D/100 Gy.</item>
     /// <item>A bare whole number ≥ 100 (e.g. <c>PTV_2400</c>) → cGy.</item>
     /// <item>A number &lt; 100 followed by a Gy-like "G" (e.g. <c>PTV_24G</c>) → Gy.</item>
+    /// <item>Department convention: a two-digit number directly after "PTV" (e.g. <c>PTV30</c>, <c>PTV25_Eval</c>) → Gy.
+    /// A single digit (<c>PTV1</c>, <c>PTV2</c>) is treated as a PTV number, not a dose.</item>
     /// </list>
     /// Fraction counts (<c>x3</c>, <c>3#</c>, <c>3fx</c>, <c>3F</c>, <c>/3</c>) are removed before rules 4–5. Results outside 1–100 Gy are rejected.
     /// </summary>
@@ -52,6 +54,7 @@ namespace SrsMcPsqa.Core.Prescription
         private static readonly Regex FractionTokens = new Regex(
             @"(?<![a-z])x\s*\d+|\d+\s*#|\d+\s*(?:fx|fr|f)(?![a-z])|/\s*\d+", Opt);
         private static readonly Regex BareLarge = new Regex(@"(?<![\d.,])(\d{3,5})(?![\d.,])", Opt);
+        private static readonly Regex PtvTwoDigits = new Regex(@"PTV(\d{2})(?![\d.,])", Opt);
         private static readonly Regex GyLike = new Regex(@"(?<![\d.,])" + Num + @"[\s_]*G(?![a-z])", Opt);
 
         public const double MinGy = 1.0;
@@ -81,6 +84,9 @@ namespace SrsMcPsqa.Core.Prescription
                 double v = ParseNum(m.Groups[1].Value);
                 if (v < 100) return Accept(v, out gy);
             }
+
+            m = PtvTwoDigits.Match(stripped);
+            if (m.Success) return Accept(ParseNum(m.Groups[1].Value), out gy);
             return false;
         }
 
