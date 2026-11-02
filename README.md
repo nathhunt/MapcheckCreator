@@ -6,7 +6,7 @@ Creates patient-specific QA plans for single-isocentre SRS plans, measured with 
 
 | Phase | Content | State |
 |---|---|---|
-| 0 | Spike: test the risky ESAPI behaviour on Citrix | **Code ready, waiting for Citrix test results** ([checklist](spike/SPIKE_CHECKLIST.md)) |
+| 0 | Spike: test the risky ESAPI behaviour on Citrix | **Read-only part done**; write steps wait for script approval ([checklist](spike/SPIKE_CHECKLIST.md)) |
 | 1 | Core: geometry, detector model, scoring, optimisation (+ unit tests) | **Done**: 84 tests passing |
 | 2 | App shell on fake data | **Done**: full UI flow on demo data ([try it](docs/PHASE2_UI_CHECKLIST.md)) |
 | 3 | ESAPI read path | not started |
@@ -69,28 +69,28 @@ The app project sets `EnableWindowsTargeting`, so the WPF code and XAML also com
 
 The spike needs Windows, Visual Studio 2022 or the .NET SDK (6+), and the ESAPI v18 DLLs. See [spike/SPIKE_CHECKLIST.md](spike/SPIKE_CHECKLIST.md#a-build-windows-dev-machine-with-visual-studio-2022-or-the-net-sdk).
 
-## VERIFY items (open)
+## VERIFY items
 
-The spike either calls these through reflection (so it compiles whether or not they exist) or reports them in the step 0 API probe. Each will be marked resolved once there are Citrix results.
+Status after the first Citrix run (ESAPI 18.1.0.472, API assembly 1.0.700.247). The probe confirmed every member below exists with the signature the code uses.
 
-| # | Item | How the spike checks it |
+| # | Item | Result |
 |---|---|---|
-| V1 | Default `EsapiPath` for v18 | build |
-| V2 | `Patient.CopyImageFromOtherPatient` return type; whether structures/HU/couch come across | step 2 |
-| V3 | `BeginModifications` while the patient is open in Eclipse | step 1 |
-| V4 | `Course.AddExternalPlanSetupAsVerificationPlan` behaviour (beams copied? calc model inherited?) | step 3 |
-| V5 | `PlanSetup.Comment` writable | step 3 (reflection) |
-| V6 | `ExternalBeamMachineParameters` constructor; `MLCId`; `null` primary fluence mode for flattened beams | step 3 (MLCId via reflection) |
-| V7 | `Add*Beam` signatures; `GetEditableParameters`/`ApplyParameters` leaf and jaw copy | step 3 |
-| V8 | Calc model/options read/write; dose grid size via the options (`CalculationGridSizeInCM`?) | step 1b / step 3 |
-| V9 | `CalculateDoseWithPresetValues` signature, result and messages | step 3 |
-| V10 | `BeamParameters.Isocenter` setter (otherwise remove/recreate the beam) | step 3b (reflection) |
-| V11 | `Course.RemovePlanSetup` | cleanup |
-| V12 | `Dose.GetVoxels` / `VoxelToDoseValue` units (absolute vs relative presentation) | step 1b |
-| V13 | `PlanSetup.TotalDose` (v16+ name), `RTPrescription` availability | step 1b |
-| V14 | `Assembly.Location` for a single-file plugin (launcher config file next to the script) | launcher diagnostics |
-| V15 | ESAPI on a non-UI STA thread works in a WPF standalone | steps 0/1 |
-| V16 | WPF-UI 3.x on net48 under Citrix (theme, rendering) | step 4 (visual) |
+| V1 | Default `EsapiPath` for v18 | ESAPI DLLs are in the GAC on the Citrix server; set `EsapiPath.user.props` on the dev PC. |
+| V2 | `CopyImageFromOtherPatient` | Returns `StructureSet`; there's also an overload taking a target `Study`, and `CanCopyImageFromOtherPatient(...)`. **Whether structures come across is still untested (needs approval).** Template `SRSMC_0_AXB` has one structure, BODY with assigned HU 250. |
+| V3 | `BeginModifications` with patient open in Eclipse | **Pending:** blocked by script approval (`UnauthorizedScriptingAPIAccessException`). |
+| V4 | `AddExternalPlanSetupAsVerificationPlan` | Exists. Behaviour pending approval. |
+| V5 | `PlanSetup.Comment` writable | ✓ `{ get; set; }` |
+| V6 | `ExternalBeamMachineParameters` | ✓ ctor (machine, energy, doseRate, technique, fluence) plus a settable `MLCId`. |
+| V7 | `Add*Beam`, control-point editing | ✓ all present. `ControlPointParameters.MetersetWeight` and `GantryAngle` are settable. |
+| V8 | Calculation model / options | `GetCalculationModel(PhotonVolumeDose)` returned **empty** for the test plan; the spike now also reports `PhotonCalculationModel`/`PhotonCalculationOptions`. |
+| V9 | `CalculateDoseWithPresetValues` | ✓ exists. `CalculationResult` has **only `Success`**, with no messages, so the app reports beam calculation logs (`Beam.CalculationLogs`) instead. |
+| V10 | `BeamParameters.Isocenter` setter | ✓ `{ get; set; }`, so no beam re-creation should be needed. |
+| V11 | `Course.RemovePlanSetup` | ✓, plus `CanRemovePlanSetup`. |
+| V12 | Dose units | Test plan is `DoseValuePresentation=Relative`, so `VoxelToDoseValue` returns %. Must switch to Absolute (the spike now tests whether that works read-only). `GetVoxels` takes ~190 ms per plane at 468×241, so extraction must read only the z-planes around the PTVs. |
+| V13 | `TotalDose`, `RTPrescription` | ✓ `TotalDose` (30 Gy); `RTPrescription` null for the test plan. |
+| V14 | Launcher `Assembly.Location` | **Empty** for a single-file plugin, so the config file next to the script can't work. Use the constant path or the environment variable. |
+| V15 | ESAPI on a dedicated STA thread | ✓ `CreateApplication` in 1.7 s, calls fine. |
+| V16 | WPF-UI on Citrix | Renders (to be confirmed visually). |
 
 ## Phase 1 design notes and decisions to review
 

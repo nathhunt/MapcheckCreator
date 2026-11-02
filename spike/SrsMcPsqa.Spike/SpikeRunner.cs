@@ -167,7 +167,11 @@ namespace SrsMcPsqa.Spike
             Info($"RTPrescription: {Reflect.TryGet(plan, "RTPrescription")?.ToString() ?? "null/not available"}");
 
             var model = plan.GetCalculationModel(CalculationType.PhotonVolumeDose);
-            Info($"Photon volume dose model = '{model}'");
+            Info($"GetCalculationModel(PhotonVolumeDose) = '{model}'");
+            Info($"PhotonCalculationModel property = '{plan.PhotonCalculationModel}'");
+            foreach (var kv in plan.PhotonCalculationOptions ?? new Dictionary<string, string>())
+                Info($"  PhotonCalculationOptions {kv.Key} = {kv.Value}");
+            if (string.IsNullOrEmpty(model)) model = plan.PhotonCalculationModel;
             if (!string.IsNullOrEmpty(model))
                 foreach (var kv in plan.GetCalculationOptions(model))
                     Info($"  option {kv.Key} = {kv.Value}");
@@ -188,6 +192,14 @@ namespace SrsMcPsqa.Spike
             if (singleIso) Pass($"Single isocentre {V(isos[0])} for {tx.Count} treatment beams.");
             else Warn("Treatment beams do not share one isocentre.");
 
+            // Dose comes back in % when the plan's presentation is Relative. Try switching to absolute (read-only allowed?).
+            try
+            {
+                plan.DoseValuePresentation = DoseValuePresentation.Absolute;
+                Pass($"DoseValuePresentation set to {plan.DoseValuePresentation} (without BeginModifications).");
+            }
+            catch (Exception ex) { Warn("Setting DoseValuePresentation = Absolute threw: " + ex.Message); }
+
             var dose = plan.Dose;
             if (dose != null)
             {
@@ -205,7 +217,7 @@ namespace SrsMcPsqa.Spike
             var img = ss?.Image;
             if (ss != null && img != null)
             {
-                Info($"CT '{img.Id}': {img.XSize}x{img.YSize}x{img.ZSize}, res {img.XRes:F2}/{img.YRes:F2}/{img.ZRes:F2}, orientation={img.ImagingOrientation}, userOrigin={V(img.UserOrigin)}");
+                Info($"CT '{img.Id}': {img.XSize}x{img.YSize}x{img.ZSize}, res {img.XRes:F2}/{img.YRes:F2}/{img.ZRes:F2}, orientation={img.ImagingOrientation}, origin={V(img.Origin)}, userOrigin={V(img.UserOrigin)}, HasUserOrigin={img.HasUserOrigin}");
                 foreach (var s in ss.Structures.Where(s => s.Id.IndexOf("PTV", StringComparison.OrdinalIgnoreCase) >= 0))
                 {
                     if (s.IsEmpty) { Info($"PTV '{s.Id}': empty"); continue; }
@@ -323,7 +335,7 @@ namespace SrsMcPsqa.Spike
                     if (img == null) Fail($"Image '{inp.TemplateImageId}' not found. Images: [{string.Join(", ", study.Images3D.Select(i => i.Id))}]");
                     else
                     {
-                        Pass($"Template image '{img.Id}': {img.XSize}x{img.YSize}x{img.ZSize}, res {img.XRes:F3}/{img.YRes:F3}/{img.ZRes:F3}, userOrigin {V(img.UserOrigin)}");
+                        Pass($"Template image '{img.Id}': {img.XSize}x{img.YSize}x{img.ZSize}, res {img.XRes:F3}/{img.YRes:F3}/{img.ZRes:F3}, origin {V(img.Origin)}, userOrigin {V(img.UserOrigin)}, HasUserOrigin={img.HasUserOrigin}, orientation={img.ImagingOrientation}");
                         foreach (var ss in tp.StructureSets.Where(s => s.Image != null && s.Image.Id == img.Id))
                         {
                             DescribeStructureSet(ss);
