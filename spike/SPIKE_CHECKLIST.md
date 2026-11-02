@@ -24,7 +24,12 @@ Every action is logged with `[PASS]/[FAIL]/[WARN]/[INFO]` to the on-screen repor
 
 ## B. Install on Citrix
 
-1. **Script approval.** The exe is write-enabled (`[assembly: ESAPIScript(IsWriteable = true)]`). Register and approve it in Eclipse **Script Approvals** for the database you test on. Note which approval status was needed.
+1. **Script approval.** The exe is write-enabled (`[assembly: ESAPIScript(IsWriteable = true)]`), so on a clinical database `BeginModifications` fails with `UnauthorizedScriptingAPIAccessException` until it is approved. Options, per Varian's ESAPI guide ("Approving Scripts for Clinical Use"):
+   - **Non-clinical (test/research) system:** unapproved write-enabled scripts run without approval. This is the easiest place for the spike. A database can be put in research mode under RT Administration → System and Facilities → System Properties → "Database in Research Mode". That needs a research ESAPI licence, and plans created there have intent "Research".
+   - **Clinical system, evaluation:** in Eclipse, **Tools → Script Approvals** opens the ESAPI Script Administration window. Copy the exe folder to the system scripts location, click **Register New Script**, then **Approve for Evaluation Testing** and **File → Save All**. Each user who runs it also needs the **Run Script in Evaluation State** right, which the clinical physicist grants in Varian Service Portal.
+   - Full approval ("Approve") is for finished clinical scripts, not for the spike.
+   - The script is identified as `SrsMcPsqa.Spike (0.0.1.0)`. I keep that version fixed. If a rebuilt exe is rejected after approval, re-register it; Varian's page doesn't say whether approval also checks the file's contents.
+   - Until it is approved, step 1 still runs read-only and reports the clinical plan details (useful for Phase 3). Steps 2–3b need approval.
 2. **Launcher.** Copy `SrsMcPsqa.Spike.Launcher/SrsMcPsqa.Spike.Launcher.cs` (and optionally `SrsMcPsqa.Spike.Launcher.txt`) into the Eclipse scripts folder. Point it at the exe by one of:
    - editing `DefaultExePath` in the `.cs` file (most reliable),
    - setting the user environment variable `SRSMCPSQA_SPIKE_EXE`, or

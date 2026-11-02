@@ -117,6 +117,7 @@ namespace SrsMcPsqa.Spike
             try { canModify = _patient.CanModifyData(); Info($"Patient.CanModifyData() = {canModify}"); }
             catch (Exception ex) { Fail("CanModifyData() threw: " + ex); }
 
+            bool modifiable = true;
             try
             {
                 _patient.BeginModifications();
@@ -125,9 +126,11 @@ namespace SrsMcPsqa.Spike
             catch (Exception ex)
             {
                 Fail("Patient.BeginModifications() threw:\n" + ex);
-                return false;
+                Warn("Continuing READ-ONLY: the clinical plan is still described below. Steps 2, 3 and 3b need modifications and will not work.");
+                modifiable = false;
             }
 
+            // Read-only part: works whether or not modifications are allowed.
             foreach (var c in _patient.Courses)
                 Info($"Course '{c.Id}': plans [{string.Join(", ", c.PlanSetups.Select(p => p.Id))}]");
 
@@ -136,7 +139,9 @@ namespace SrsMcPsqa.Spike
                 try { DescribeClinicalPlan(inp); }
                 catch (Exception ex) { Fail("Describing clinical plan threw: " + ex); }
             }
-            return true;
+
+            if (!modifiable) _patient = null; // later write steps then report "run step 1 first" instead of failing obscurely
+            return modifiable;
         }
 
         private ExternalPlanSetup? FindClinicalPlan(SpikeInputs inp)
