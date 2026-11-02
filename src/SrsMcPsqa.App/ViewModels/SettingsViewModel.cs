@@ -30,6 +30,8 @@ namespace SrsMcPsqa.App.ViewModels
         public string UserPath => SettingsStore.UserPath;
         public string DepartmentPath => SettingsStore.DepartmentPath;
         public string LogFolder => Log.Folder;
+        public string InstallationFolder => SettingsStore.InstallationFolder;
+        public string TemplatePath => SettingsStore.TemplatePath;
 
         public override void OnNavigatedTo()
         {
@@ -45,7 +47,6 @@ namespace SrsMcPsqa.App.ViewModels
                 if (Edit.PlanNamingPattern.Length == 0) Edit.PlanNamingPattern = Core.Models.QaPlanNaming.DefaultPattern;
                 SettingsStore.SaveUser(Edit);
                 var applied = Edit.Clone();
-                SettingsStore.CopyEnvironmentFields(Session.Settings, applied);
                 Session.Settings = applied;
                 Edit = applied.Clone();
                 Log.Initialise(Edit.LogLevel);
@@ -62,7 +63,7 @@ namespace SrsMcPsqa.App.ViewModels
         [RelayCommand]
         private void ResetToDepartment()
         {
-            if (!Session.Dialogs.Confirm("Reset settings", "Discard your personal settings and use the department defaults?", "Reset")) return;
+            if (!Session.Dialogs.Confirm("Reset settings", "Discard your personal settings (including this installation's template phantom values) and use the department defaults?", "Reset")) return;
             try
             {
                 SettingsStore.DeleteUser();

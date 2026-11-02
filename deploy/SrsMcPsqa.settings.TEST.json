@@ -4,7 +4,7 @@
   "Template0ImageId": "SRSMC_0_AXB",
   "Template270ImageId": "SRSMC_270_AXB",
   "CopyTemplateStructures": false,
-  "HelperPrefixes": "z",
+  "HelperPatterns": "z*, *eval*",
   "PlanNamingPattern": "SMC{n}_{orient}",
   "EdgeMarginMm": 3,
   "Tau": 0.85,

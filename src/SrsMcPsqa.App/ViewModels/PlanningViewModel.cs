@@ -239,6 +239,20 @@ namespace SrsMcPsqa.App.ViewModels
             MovePlane(p, p.Centre + delta, full: true);
         }
 
+        /// <summary>Centre the intersected PTV cross-sections (of the PTVs on this plan) in the array, keeping the depth.</summary>
+        [RelayCommand]
+        private void CentreOnPtvs()
+        {
+            var p = SelectedPlane;
+            if (p == null || _model == null) return;
+            var o = p.Orientation;
+            int j = _model.DepthIndexOf(o, p.Evaluation.Plane.Depth);
+            var c = _model.CrossSectionCentre(p.AssignedIndices, o, j);
+            if (c == null) { Session.Dialogs.ShowInfo("Centre on PTVs", "This plane doesn't intersect the plan's PTVs."); return; }
+            double Snap(double x) => Math.Round(x * 2) / 2;
+            MovePlane(p, o.FromPlane(Snap(c.Value.U), Snap(c.Value.V), p.Evaluation.Plane.Depth), full: true);
+        }
+
         [RelayCommand]
         private void ApplyCentre()
         {
@@ -325,7 +339,7 @@ namespace SrsMcPsqa.App.ViewModels
             var settings = Session.Settings;
             if (!settings.HasTemplate && !Shell.IsFake)
             {
-                Session.Dialogs.ShowInfo("Phantom not configured", "The template phantom patient and image IDs for this environment are not set in the department settings file (see Settings).");
+                Session.Dialogs.ShowInfo("Phantom not configured", "Set the template phantom patient, study and image IDs in Settings first.");
                 return;
             }
             var planes = Planes.ToList();

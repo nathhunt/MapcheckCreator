@@ -11,7 +11,9 @@ namespace SrsMcPsqa.App.Infrastructure
     /// <summary>
     /// App settings (JSON). Department defaults come from <c>SrsMcPsqa.settings.json</c> next to the exe (read-only, optional);
     /// a per-user override of personal preferences is stored in <c>%APPDATA%\SrsMcPsqa\settings.json</c>.
-    /// Template phantom IDs are environment-specific and are only taken from the department file. The app never writes to its own folder.
+    /// Template phantom IDs differ between environments (test, production), so a user's template values are stored
+    /// per installation folder (<c>%APPDATA%\SrsMcPsqa\template-&lt;folder hash&gt;.json</c>), falling back to the
+    /// department file of that installation. The app never writes to its own folder.
     /// </summary>
     [DataContract]
     public sealed class AppSettings
@@ -21,8 +23,8 @@ namespace SrsMcPsqa.App.Infrastructure
         [DataMember] public string Template0ImageId { get; set; } = "";
         [DataMember] public string Template270ImageId { get; set; } = "";
         [DataMember] public bool CopyTemplateStructures { get; set; }
-        /// <summary>Comma-separated prefixes of helper PTV structures, unticked by default (e.g. "z").</summary>
-        [DataMember] public string HelperPrefixes { get; set; } = Core.Prescription.PtvFilter.DefaultHelperPrefixes;
+        /// <summary>Comma-separated patterns of helper PTV structures, listed but unticked by default ("*" = any text).</summary>
+        [DataMember] public string HelperPatterns { get; set; } = Core.Prescription.PtvFilter.DefaultHelperPatterns;
         [DataMember] public string PlanNamingPattern { get; set; } = Core.Models.QaPlanNaming.DefaultPattern;
         [DataMember] public double EdgeMarginMm { get; set; } = 3.0;
         [DataMember] public double Tau { get; set; } = 0.85;
@@ -59,7 +61,7 @@ namespace SrsMcPsqa.App.Infrastructure
         {
             var d = new AppSettings(false);
             TemplatePatientId = d.TemplatePatientId; TemplateStudyId = d.TemplateStudyId; Template0ImageId = d.Template0ImageId;
-            Template270ImageId = d.Template270ImageId; HelperPrefixes = d.HelperPrefixes; PlanNamingPattern = d.PlanNamingPattern; EdgeMarginMm = d.EdgeMarginMm;
+            Template270ImageId = d.Template270ImageId; HelperPatterns = d.HelperPatterns; PlanNamingPattern = d.PlanNamingPattern; EdgeMarginMm = d.EdgeMarginMm;
             Tau = d.Tau; MinDiodes = d.MinDiodes; Alpha = d.Alpha; FineTuneInPlaneRangeMm = d.FineTuneInPlaneRangeMm;
             FineTuneNormalRangeMm = d.FineTuneNormalRangeMm; AutoSave = d.AutoSave; LogLevel = d.LogLevel; Theme = d.Theme;
         }
@@ -80,8 +82,8 @@ namespace SrsMcPsqa.App.Infrastructure
 
         /// <summary>
         /// Personal preferences from the user file (if present) over the department file (or built-in defaults).
-        /// The template phantom fields always come from the department file: they differ between environments
-        /// (e.g. test and production Citrix), while %APPDATA% may follow the user between them.
+        /// Template phantom fields: this installation's template file if present, else the department file.
+        /// (%APPDATA% may follow the user between test and production, so template values are kept per installation.)
         /// </summary>
         public static AppSettings Load(out string source)
         {
@@ -92,7 +94,7 @@ namespace SrsMcPsqa.App.Infrastructure
             {
                 if (File.Exists(UserPath))
                 {
-                    result = Read(UserPath);
+                    result = Read<AppSettings>(UserPath);
                     source = $"user settings ({UserPath}) over {source}";
                 }
             }
@@ -101,7 +103,37 @@ namespace SrsMcPsqa.App.Infrastructure
                 Log.Warn($"Could not read user settings from {UserPath}: {ex.Message}");
             }
             CopyEnvironmentFields(dept, result);
+            try
+            {
+                if (File.Exists(TemplatePath))
+                {
+                    var t = Read<InstallationTemplate>(TemplatePath);
+                    result.TemplatePatientId = t.TemplatePatientId ?? ""; result.TemplateStudyId = t.TemplateStudyId ?? "";
+                    result.Template0ImageId = t.Template0ImageId ?? ""; result.Template270ImageId = t.Template270ImageId ?? "";
+                    result.CopyTemplateStructures = t.CopyTemplateStructures;
+                    source += $"; template phantom from {TemplatePath}";
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"Could not read template settings from {TemplatePath}: {ex.Message}");
+            }
             return result;
+        }
+
+        /// <summary>Folder of this installation (test and production installations differ).</summary>
+        public static string InstallationFolder => Path.GetFullPath(AppDomain.CurrentDomain.BaseDirectory).TrimEnd('\\', '/');
+
+        /// <summary>Per-user, per-installation template phantom file.</summary>
+        public static string TemplatePath
+        {
+            get
+            {
+                using var sha = System.Security.Cryptography.SHA1.Create();
+                var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(InstallationFolder.ToUpperInvariant()));
+                var key = BitConverter.ToString(hash, 0, 6).Replace("-", "").ToLowerInvariant();
+                return Path.Combine(Path.GetDirectoryName(UserPath)!, $"template-{key}.json");
+            }
         }
 
         /// <summary>Environment-specific fields (template phantom) are owned by the department file.</summary>
@@ -116,34 +148,66 @@ namespace SrsMcPsqa.App.Infrastructure
 
         public static AppSettings LoadDepartmentDefaults()
         {
-            try { if (File.Exists(DepartmentPath)) return Read(DepartmentPath); }
+            try { if (File.Exists(DepartmentPath)) return Read<AppSettings>(DepartmentPath); }
             catch (Exception ex) { Log.Warn($"Could not read department defaults: {ex.Message}"); }
             return new AppSettings();
         }
 
-        /// <summary>Saves personal preferences only; template phantom fields are left blank in the user file.</summary>
+        /// <summary>
+        /// Saves personal preferences to the user file (template fields blank there) and the template phantom
+        /// fields to this installation's template file.
+        /// </summary>
         public static void SaveUser(AppSettings settings)
         {
+            Directory.CreateDirectory(Path.GetDirectoryName(UserPath)!);
             var s = settings.Clone();
             CopyEnvironmentFields(new AppSettings { PlanNamingPattern = s.PlanNamingPattern }, s);
-            Directory.CreateDirectory(Path.GetDirectoryName(UserPath)!);
-            var ser = new DataContractJsonSerializer(typeof(AppSettings));
-            using var ms = new MemoryStream();
-            using (var writer = JsonReaderWriterFactory.CreateJsonWriter(ms, Encoding.UTF8, ownsStream: false, indent: true))
-                ser.WriteObject(writer, s);
-            File.WriteAllBytes(UserPath, ms.ToArray());
+            Write(UserPath, s);
+            Write(TemplatePath, new InstallationTemplate
+            {
+                InstallationFolder = InstallationFolder,
+                TemplatePatientId = settings.TemplatePatientId, TemplateStudyId = settings.TemplateStudyId,
+                Template0ImageId = settings.Template0ImageId, Template270ImageId = settings.Template270ImageId,
+                CopyTemplateStructures = settings.CopyTemplateStructures,
+            });
         }
 
+        private static void Write<T>(string path, T value)
+        {
+            var ser = new DataContractJsonSerializer(typeof(T));
+            using var ms = new MemoryStream();
+            using (var writer = JsonReaderWriterFactory.CreateJsonWriter(ms, Encoding.UTF8, ownsStream: false, indent: true))
+                ser.WriteObject(writer, value);
+            File.WriteAllBytes(path, ms.ToArray());
+        }
+
+        /// <summary>Deletes personal preferences and this installation's template values.</summary>
         public static void DeleteUser()
         {
             if (File.Exists(UserPath)) File.Delete(UserPath);
+            if (File.Exists(TemplatePath)) File.Delete(TemplatePath);
         }
 
-        private static AppSettings Read(string path)
+        private static T Read<T>(string path)
         {
-            var ser = new DataContractJsonSerializer(typeof(AppSettings));
+            var ser = new DataContractJsonSerializer(typeof(T));
             using var fs = File.OpenRead(path);
-            return (AppSettings)ser.ReadObject(fs);
+            return (T)ser.ReadObject(fs);
         }
+    }
+}
+
+namespace SrsMcPsqa.App.Infrastructure
+{
+    /// <summary>A user's template phantom values for one installation folder.</summary>
+    [System.Runtime.Serialization.DataContract]
+    public sealed class InstallationTemplate
+    {
+        [System.Runtime.Serialization.DataMember] public string? InstallationFolder { get; set; }
+        [System.Runtime.Serialization.DataMember] public string? TemplatePatientId { get; set; }
+        [System.Runtime.Serialization.DataMember] public string? TemplateStudyId { get; set; }
+        [System.Runtime.Serialization.DataMember] public string? Template0ImageId { get; set; }
+        [System.Runtime.Serialization.DataMember] public string? Template270ImageId { get; set; }
+        [System.Runtime.Serialization.DataMember] public bool CopyTemplateStructures { get; set; }
     }
 }

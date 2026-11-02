@@ -105,6 +105,35 @@ namespace SrsMcPsqa.Core.Optimisation
             return (o.U(b.Min), o.U(b.Max), b.Min.Z, b.Max.Z);
         }
 
+        /// <summary>
+        /// In-plane bounds of PTV k's cross-section at depth index <paramref name="j"/> (the area the array actually
+        /// intersects), or null if the plane misses the PTV.
+        /// </summary>
+        public (double UMin, double UMax, double VMin, double VMax)? CrossSectionBounds(int k, ArrayOrientation o, int j)
+        {
+            var sl = Data(o).Targets[k].Get(j);
+            return sl == null ? ((double, double, double, double)?)null : (sl.UMin, sl.UMax, sl.VMin, sl.VMax);
+        }
+
+        /// <summary>
+        /// Centre of the union of the cross-sections of <paramref name="targets"/> at depth index j
+        /// (null if none is intersected). Used to centre the intersected area in the array.
+        /// </summary>
+        public (double U, double V)? CrossSectionCentre(IEnumerable<int> targets, ArrayOrientation o, int j)
+        {
+            double umin = double.MaxValue, umax = double.MinValue, vmin = double.MaxValue, vmax = double.MinValue;
+            bool any = false;
+            foreach (var k in targets)
+            {
+                var b = CrossSectionBounds(k, o, j);
+                if (b == null) continue;
+                any = true;
+                umin = Math.Min(umin, b.Value.UMin); umax = Math.Max(umax, b.Value.UMax);
+                vmin = Math.Min(vmin, b.Value.VMin); vmax = Math.Max(vmax, b.Value.VMax);
+            }
+            return any ? ((umin + umax) / 2, (vmin + vmax) / 2) : ((double, double)?)null;
+        }
+
         /// <summary>A_k,max: largest cross-section area of PTV k over all depths for orientation o (mm²).</summary>
         public double MaxArea(int k, ArrayOrientation o) => Data(o).Targets[k].MaxArea;
 
@@ -242,7 +271,7 @@ namespace SrsMcPsqa.Core.Optimisation
                 var mask = new double[nu * nv];
                 var high = new double[nu * nv];
                 var ratio = new double[nu * nv];
-                int count = 0;
+                int count = 0, iMin = int.MaxValue, iMax = -1, lMin = int.MaxValue, lMax = -1;
                 for (int l = 0; l < nv; l++)
                 {
                     double v = v0 + (lFirst + l + 0.5) * h;
@@ -257,11 +286,17 @@ namespace SrsMcPsqa.Core.Optimisation
                         high[idx] = d >= rx ? 1 : 0;
                         ratio[idx] = Math.Min(d / rx, Scoring.RatioCap);
                         count++;
+                        if (i < iMin) iMin = i; if (i > iMax) iMax = i; if (l < lMin) lMin = l; if (l > lMax) lMax = l;
                     }
                 }
                 if (count == 0) return;
                 slices[dj] = new PtvSlice(iFirst, lFirst, count,
-                    new SummedAreaTable(mask, nu, nv), new SummedAreaTable(high, nu, nv), new SummedAreaTable(ratio, nu, nv));
+                    new SummedAreaTable(mask, nu, nv), new SummedAreaTable(high, nu, nv), new SummedAreaTable(ratio, nu, nv))
+                {
+                    // Cross-section bounds (pixel edges) in plane coordinates.
+                    UMin = u0 + (iFirst + iMin) * h, UMax = u0 + (iFirst + iMax + 1) * h,
+                    VMin = v0 + (lFirst + lMin) * h, VMax = v0 + (lFirst + lMax + 1) * h,
+                };
             });
 
             double maxArea = 0;
@@ -318,6 +353,10 @@ namespace SrsMcPsqa.Core.Optimisation
             public SummedAreaTable Mask { get; }
             public SummedAreaTable High { get; }
             public SummedAreaTable Ratio { get; }
+            public double UMin { get; set; }
+            public double UMax { get; set; }
+            public double VMin { get; set; }
+            public double VMax { get; set; }
         }
     }
 }

@@ -33,7 +33,7 @@ namespace SrsMcPsqa.App.ViewModels
 
         public string PhantomStatus => Session.Settings.HasTemplate
             ? $"Template phantom: patient '{Session.Settings.TemplatePatientId}', study '{Session.Settings.TemplateStudyId}', images '{Session.Settings.Template0ImageId}' (0°) and '{Session.Settings.Template270ImageId}' (270°)."
-            : "Template phantom images are not configured for this environment. Ask for them to be set in the department settings file (see Settings) before creating QA plans.";
+            : "Template phantom images are not configured for this installation. Set them in Settings before creating QA plans.";
 
         public bool PhantomConfigured => Session.Settings.HasTemplate;
 

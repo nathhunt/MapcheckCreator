@@ -19,7 +19,7 @@ namespace SrsMcPsqa.App.ViewModels
     {
         private bool _settingRx;
 
-        public PtvRowViewModel(int index, PtvInfo info, string helperPrefixes)
+        public PtvRowViewModel(int index, PtvInfo info, string helperPatterns)
         {
             Index = index; Info = info;
             Colour = PtvColours.For(index);
@@ -29,14 +29,14 @@ namespace SrsMcPsqa.App.ViewModels
             RxGy = info.RxGy;
             _settingRx = false;
             RxSource = info.RxSource;
-            IsHelper = PtvFilter.IsHelper(info.Id, helperPrefixes);
+            IsHelper = PtvFilter.IsHelper(info.Id, helperPatterns);
             Include = info.RxGy > 0 && !IsHelper;
         }
 
         public int Index { get; }
         public PtvInfo Info { get; }
 
-        /// <summary>Planning helper (e.g. z-prefixed): listed but unticked by default.</summary>
+        /// <summary>Planning helper (e.g. z-prefixed or eval): listed but unticked by default.</summary>
         public bool IsHelper { get; }
         public string Note => IsHelper ? "helper" : "";
         public string Id => Info.Id;
@@ -97,7 +97,7 @@ namespace SrsMcPsqa.App.ViewModels
             _modelCache = null;
             int i = 0;
             foreach (var p in plan.Ptvs.Where(p => p.Mask != null && !p.Mask.IsEmpty))
-                Ptvs.Add(new PtvRowViewModel(i++, p, Settings.HelperPrefixes));
+                Ptvs.Add(new PtvRowViewModel(i++, p, Settings.HelperPatterns));
             PlanLoaded?.Invoke(this, EventArgs.Empty);
         }
 

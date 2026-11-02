@@ -120,6 +120,25 @@ namespace SrsMcPsqa.Core.Tests
         }
 
         [Fact]
+        public void CentresOnIntersectedCrossSectionNotBoundingBox()
+        {
+            // One PTV made of two lobes at different depths: the 3D bounding box centre (x = 14) is far from the
+            // cross-section the array cuts at y = 0 (centred on x = 0).
+            var a = S("A", 0, 0, 0, 8);
+            var b = S("B", 30, 10, 0, 6);
+            var mask = Core.Geometry.StructureMask.FromPredicate(new Box3(new Vec3(-10, -10, -10), new Vec3(38, 18, 10)), MaskSpacing,
+                p => (p - a.Centre).Length <= a.Radius || (p - b.Centre).Length <= b.Radius);
+            var model = new PlanningModel(new[] { new PlanningTarget("PTV_lobes", 20, mask) }, Dose(new[] { a, b }));
+            var rec = Recommender.Recommend(model, new OptimisationSettings());
+            var plane = Assert.Single(rec.Planes).Plane;
+            _out.WriteLine(plane.ToString());
+            Assert.Equal(ArrayOrientation.Deg0, plane.Orientation);
+            Assert.InRange(plane.Depth, -0.6, 0.6);
+            Assert.InRange(plane.U, -1.0, 1.0);
+            Assert.InRange(plane.V, -1.0, 1.0);
+        }
+
+        [Fact]
         public void PtvLargerThanArrayIsPartial()
         {
             var rec = Run(new OptimisationSettings(), S("Big", 0, 0, 0, 45));

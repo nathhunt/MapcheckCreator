@@ -74,9 +74,19 @@ namespace SrsMcPsqa.Core.Tests
         [Xunit.InlineData("ZPTV30", true)]
         [Xunit.InlineData("zPTVin", true)]
         [Xunit.InlineData("PTV30", false)]
-        [Xunit.InlineData("PTV25_Eval", false)]
-        public void HelpersStartWithZ(string id, bool helper) =>
-            Xunit.Assert.Equal(helper, SrsMcPsqa.Core.Prescription.PtvFilter.IsHelper(id, SrsMcPsqa.Core.Prescription.PtvFilter.DefaultHelperPrefixes));
+        [Xunit.InlineData("PTV25_Eval", true)]
+        [Xunit.InlineData("PTV_eval2", true)]
+        [Xunit.InlineData("PTV25", false)]
+        public void DefaultHelpersAreZAndEval(string id, bool helper) =>
+            Xunit.Assert.Equal(helper, SrsMcPsqa.Core.Prescription.PtvFilter.IsHelper(id, SrsMcPsqa.Core.Prescription.PtvFilter.DefaultHelperPatterns));
+
+        [Xunit.Fact]
+        public void BarePatternIsPrefix()
+        {
+            Xunit.Assert.True(SrsMcPsqa.Core.Prescription.PtvFilter.IsHelper("zPTV", "z"));
+            Xunit.Assert.False(SrsMcPsqa.Core.Prescription.PtvFilter.IsHelper("PTVz", "z"));
+            Xunit.Assert.True(SrsMcPsqa.Core.Prescription.PtvFilter.IsHelper("PTV_opt", "*_opt"));
+        }
 
         [Xunit.Fact]
         public void EmptyPrefixListMeansNoHelpers() =>

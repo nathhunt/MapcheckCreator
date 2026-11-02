@@ -376,23 +376,20 @@ namespace SrsMcPsqa.Core.Optimisation
 
         /// <summary>
         /// Many in-plane positions score the same once every covered PTV is fully inside the usable square.
-        /// Among those, move the array towards the centre of the covered PTVs' in-plane bounding box, so the PTVs sit
-        /// mid-array with the most margin. Accepts a move only if no covered score drops and the set stays covered.
+        /// Among those, move the array towards the centre of the covered PTVs' cross-sections at this depth (the area
+        /// the array actually intersects), so it sits mid-array with the most margin. Accepts a move only if no covered score drops and the set stays covered.
         /// </summary>
         /// <param name="reference">Null for a single-PTV best location (only the score is checked).</param>
         internal PlaneCandidate CentreOnTargets(PlaneCandidate c, ulong set, CoverageReference? reference)
         {
             var o = c.Orientation;
-            double umin = double.MaxValue, umax = double.MinValue, vmin = double.MaxValue, vmax = double.MinValue;
-            for (int k = 0; k < _m.TargetCount; k++)
-            {
-                if ((set >> k & 1UL) == 0) continue;
-                var b = _m.InPlaneBounds(k, o);
-                umin = Math.Min(umin, b.UMin); umax = Math.Max(umax, b.UMax); vmin = Math.Min(vmin, b.VMin); vmax = Math.Max(vmax, b.VMax);
-            }
+            // Centre on the cross-sections the array actually intersects at this depth (not the 3D bounding boxes).
+            var members = Enumerable.Range(0, _m.TargetCount).Where(k => (set >> k & 1UL) != 0);
+            var centre = _m.CrossSectionCentre(members, o, c.DepthIndex);
+            if (centre == null) return c;
             double step = _s.FineStepMm;
             double Snap(double x, double origin) => origin + Math.Round((x - origin) / step) * step;
-            double tu = Snap((umin + umax) / 2, _m.U0(o)), tv = Snap((vmin + vmax) / 2, _m.V0(o));
+            double tu = Snap(centre.Value.U, _m.U0(o)), tv = Snap(centre.Value.V, _m.V0(o));
 
             // Try the full move first, then shorter moves along the same line.
             foreach (var f in new[] { 1.0, 0.75, 0.5, 0.25 })

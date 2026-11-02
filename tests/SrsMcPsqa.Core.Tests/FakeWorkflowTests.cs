@@ -25,11 +25,11 @@ namespace SrsMcPsqa.Core.Tests
             Assert.True(patient.CanModify);
             var plan = await svc.LoadClinicalPlanAsync("C1", "SRS_5Mets");
             Assert.Equal(6, plan.Ptvs.Count);
-            Assert.True(PtvFilter.IsHelper(plan.Ptvs[5].Id, PtvFilter.DefaultHelperPrefixes));
+            Assert.True(PtvFilter.IsHelper(plan.Ptvs[5].Id, PtvFilter.DefaultHelperPatterns));
             Assert.Equal(RxSource.FromName, plan.Ptvs[0].RxSource);
             Assert.Equal(RxSource.PlanRx, plan.Ptvs[4].RxSource);
 
-            var targets = plan.Ptvs.Where(p => !PtvFilter.IsHelper(p.Id, PtvFilter.DefaultHelperPrefixes)).Select(p => new PlanningTarget(p.Id, p.RxGy, p.Mask!)).ToList();
+            var targets = plan.Ptvs.Where(p => !PtvFilter.IsHelper(p.Id, PtvFilter.DefaultHelperPatterns)).Select(p => new PlanningTarget(p.Id, p.RxGy, p.Mask!)).ToList();
             var model = new PlanningModel(targets, plan.Dose!);
             var settings = new OptimisationSettings();
             var analysis = new CandidateSearch(model, settings).Analyse();

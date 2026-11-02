@@ -4,7 +4,7 @@
   "Template0ImageId": "",
   "Template270ImageId": "",
   "CopyTemplateStructures": false,
-  "HelperPrefixes": "z",
+  "HelperPatterns": "z*, *eval*",
   "PlanNamingPattern": "SMC{n}_{orient}",
   "EdgeMarginMm": 3,
   "Tau": 0.85,

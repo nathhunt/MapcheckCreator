@@ -188,6 +188,9 @@
                                 <ui:Button Style="{StaticResource NudgeButton}" Content="+5" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="n:5" />
                             </WrapPanel>
 
+                            <ui:Button Margin="0,8,0,0" Content="Centre on PTVs" Icon="{ui:SymbolIcon CenterHorizontal24}"
+                                       ToolTip="Centre the intersected PTV cross-sections in the array (depth unchanged)"
+                                       Command="{Binding DataContext.CentreOnPtvsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
                             <TextBlock Style="{StaticResource Label}" Text="Array centre in patient, x / y / z (mm)" />
                             <Grid>
                                 <Grid.ColumnDefinitions>
