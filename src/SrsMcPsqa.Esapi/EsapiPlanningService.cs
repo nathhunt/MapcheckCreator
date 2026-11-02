@@ -219,8 +219,8 @@ namespace SrsMcPsqa.Esapi
                         if (img == null) { Add(ValidationSeverity.Error, $"{label}: {error}"); continue; }
                         Add(ValidationSeverity.Info, $"{label} image '{img.Id}' in study '{study!.Id}': {img.XSize}×{img.YSize}×{img.ZSize}, {img.XRes:0.###}/{img.YRes:0.###}/{img.ZRes:0.###} mm, user origin {img.UserOrigin.ToVec3()}.");
                         if (!img.HasUserOrigin)
-                            Add(ValidationSeverity.Warning, $"{label} image '{img.Id}' has no explicit user origin, so Eclipse uses the DICOM origin {img.UserOrigin.ToVec3()}. " +
-                                "The app takes this point as the array centre: check in Eclipse that it is.");
+                            Add(ValidationSeverity.Info, $"{label} image '{img.Id}' uses Eclipse's default user origin (DICOM origin {img.UserOrigin.ToVec3()}) as the array centre. " +
+                                "Fine for the department template; for a new template, check this point is the array centre.");
                         if (img.ImagingOrientation != PatientOrientation.HeadFirstSupine)
                             Add(ValidationSeverity.Warning, $"{label} image orientation is {img.ImagingOrientation} (expected HFS).");
                         var ss = tp.StructureSets.FirstOrDefault(x => x.Image != null && x.Image.Equals(img));
