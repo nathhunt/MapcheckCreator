@@ -209,13 +209,18 @@ namespace SrsMcPsqa.Esapi
                     if (tp == null) { Add(ValidationSeverity.Error, $"Template patient '{settings.PatientId}' not found."); return msgs; }
                     Add(ValidationSeverity.Info, $"Template patient '{tp.Id}' found (opened read-only).");
 
+                    if (!string.IsNullOrWhiteSpace(settings.Image0Id) && string.Equals(settings.Image0Id, settings.Image270Id, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(settings.Study0Id ?? "", settings.Study270Id ?? "", StringComparison.OrdinalIgnoreCase))
+                        Add(ValidationSeverity.Error, $"The 0° and 270° image IDs are the same ('{settings.Image0Id}'); they must be different images.");
                     foreach (var o in new[] { ArrayOrientation.Deg0, ArrayOrientation.Deg270 })
                     {
                         string label = o == ArrayOrientation.Deg0 ? "0°" : "270°";
                         var (study, img, error) = EsapiExtraction.FindTemplateImage(tp, settings.StudyId(o), settings.ImageId(o));
                         if (img == null) { Add(ValidationSeverity.Error, $"{label}: {error}"); continue; }
                         Add(ValidationSeverity.Info, $"{label} image '{img.Id}' in study '{study!.Id}': {img.XSize}×{img.YSize}×{img.ZSize}, {img.XRes:0.###}/{img.YRes:0.###}/{img.ZRes:0.###} mm, user origin {img.UserOrigin.ToVec3()}.");
-                        if (!img.HasUserOrigin) Add(ValidationSeverity.Error, $"{label} image '{img.Id}' has no user origin (it must mark the array centre).");
+                        if (!img.HasUserOrigin)
+                            Add(ValidationSeverity.Warning, $"{label} image '{img.Id}' has no explicit user origin, so Eclipse uses the DICOM origin {img.UserOrigin.ToVec3()}. " +
+                                "The app takes this point as the array centre: check in Eclipse that it is.");
                         if (img.ImagingOrientation != PatientOrientation.HeadFirstSupine)
                             Add(ValidationSeverity.Warning, $"{label} image orientation is {img.ImagingOrientation} (expected HFS).");
                         var ss = tp.StructureSets.FirstOrDefault(x => x.Image != null && x.Image.Equals(img));
