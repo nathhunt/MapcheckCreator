@@ -88,7 +88,7 @@ Status after the first Citrix run (ESAPI 18.1.0.472, API assembly 1.0.700.247). 
 | V11 | `Course.RemovePlanSetup` | ✓, plus `CanRemovePlanSetup`. |
 | V12 | Dose units | Test plan is `DoseValuePresentation=Relative`, so `VoxelToDoseValue` returns %. Must switch to Absolute (the spike now tests whether that works read-only). `GetVoxels` takes ~190 ms per plane at 468×241, so extraction must read only the z-planes around the PTVs. |
 | V13 | `TotalDose`, `RTPrescription` | ✓ `TotalDose` (30 Gy); `RTPrescription` null for the test plan. |
-| V14 | Launcher `Assembly.Location` | **Empty** for a single-file plugin, so the config file next to the script can't work. Use the constant path or the environment variable. |
+| V14 | Launcher | ✓ Passes patient, course and plan to the exe. `Assembly.Location` is **empty** for a single-file plugin, so the config file next to the script can't work; use the constant path or the environment variable. |
 | V15 | ESAPI on a dedicated STA thread | ✓ `CreateApplication` in 1.7 s, calls fine. |
 | V16 | WPF-UI on Citrix | Renders (to be confirmed visually). |
 
@@ -109,7 +109,7 @@ These are choices I made where the brief left room. Each is easy to change.
 ## Phase 2 notes
 
 - **No JSON library.** Settings use `DataContractJsonSerializer` from .NET Framework, which avoids an assembly that could clash with what ESAPI loads.
-- **Settings files.** Department defaults live in `SrsMcPsqa.settings.json` next to the exe (read-only, optional). Personal settings are in `%APPDATA%\SrsMcPsqa\settings.json`. "Reset to department defaults" deletes the personal file.
+- **Settings files.** Department defaults live in `SrsMcPsqa.settings.json` next to the exe (read-only, optional), one per environment; see [deploy/README.md](deploy/README.md). Personal preferences are in `%APPDATA%\SrsMcPsqa\settings.json`. The template phantom IDs differ between test and production, so they come **only** from the department file and are never saved personally (`%APPDATA%` may follow you between environments). "Reset to department defaults" deletes the personal file.
 - **Errors.** Every error opens a dialog with **Copy details** and is logged to `%LOCALAPPDATA%\SrsMcPsqa\logs` (30 days kept).
 - **Navigation.** It's a simple list rather than WPF-UI's `NavigationView`, which needs a page service. Screens unlock as the workflow progresses.
 - **Review screen.** Each QA plan has its own tab. Values from before calculation and from fine-tune predictions are labelled as approximations. Calculated values are labelled "CALCULATED".

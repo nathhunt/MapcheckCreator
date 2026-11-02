@@ -10,7 +10,8 @@ namespace SrsMcPsqa.App.Infrastructure
 {
     /// <summary>
     /// App settings (JSON). Department defaults come from <c>SrsMcPsqa.settings.json</c> next to the exe (read-only, optional);
-    /// a per-user override is stored in <c>%APPDATA%\SrsMcPsqa\settings.json</c>. The app never writes to its own folder.
+    /// a per-user override of personal preferences is stored in <c>%APPDATA%\SrsMcPsqa\settings.json</c>.
+    /// Template phantom IDs are environment-specific and are only taken from the department file. The app never writes to its own folder.
     /// </summary>
     [DataContract]
     public sealed class AppSettings
@@ -77,22 +78,40 @@ namespace SrsMcPsqa.App.Infrastructure
         public static string UserPath =>
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SrsMcPsqa", "settings.json");
 
-        /// <summary>User file if present, else department file, else built-in defaults. Also says where they came from.</summary>
+        /// <summary>
+        /// Personal preferences from the user file (if present) over the department file (or built-in defaults).
+        /// The template phantom fields always come from the department file: they differ between environments
+        /// (e.g. test and production Citrix), while %APPDATA% may follow the user between them.
+        /// </summary>
         public static AppSettings Load(out string source)
         {
-            foreach (var (path, label) in new[] { (UserPath, "user settings"), (DepartmentPath, "department defaults") })
+            var dept = LoadDepartmentDefaults();
+            AppSettings result = dept.Clone();
+            source = File.Exists(DepartmentPath) ? $"department defaults ({DepartmentPath})" : "built-in defaults";
+            try
             {
-                try
+                if (File.Exists(UserPath))
                 {
-                    if (File.Exists(path)) { source = $"{label} ({path})"; return Read(path); }
-                }
-                catch (Exception ex)
-                {
-                    Log.Warn($"Could not read {label} from {path}: {ex.Message}");
+                    result = Read(UserPath);
+                    source = $"user settings ({UserPath}) over {source}";
                 }
             }
-            source = "built-in defaults";
-            return new AppSettings();
+            catch (Exception ex)
+            {
+                Log.Warn($"Could not read user settings from {UserPath}: {ex.Message}");
+            }
+            CopyEnvironmentFields(dept, result);
+            return result;
+        }
+
+        /// <summary>Environment-specific fields (template phantom) are owned by the department file.</summary>
+        public static void CopyEnvironmentFields(AppSettings from, AppSettings to)
+        {
+            to.TemplatePatientId = from.TemplatePatientId;
+            to.TemplateStudyId = from.TemplateStudyId;
+            to.Template0ImageId = from.Template0ImageId;
+            to.Template270ImageId = from.Template270ImageId;
+            to.CopyTemplateStructures = from.CopyTemplateStructures;
         }
 
         public static AppSettings LoadDepartmentDefaults()
@@ -102,8 +121,11 @@ namespace SrsMcPsqa.App.Infrastructure
             return new AppSettings();
         }
 
-        public static void SaveUser(AppSettings s)
+        /// <summary>Saves personal preferences only; template phantom fields are left blank in the user file.</summary>
+        public static void SaveUser(AppSettings settings)
         {
+            var s = settings.Clone();
+            CopyEnvironmentFields(new AppSettings { PlanNamingPattern = s.PlanNamingPattern }, s);
             Directory.CreateDirectory(Path.GetDirectoryName(UserPath)!);
             var ser = new DataContractJsonSerializer(typeof(AppSettings));
             using var ms = new MemoryStream();

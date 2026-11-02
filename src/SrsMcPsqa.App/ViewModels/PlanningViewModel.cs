@@ -325,7 +325,7 @@ namespace SrsMcPsqa.App.ViewModels
             var settings = Session.Settings;
             if (!settings.HasTemplate && !Shell.IsFake)
             {
-                Session.Dialogs.ShowInfo("Phantom not configured", "Set the template phantom patient and image IDs in Settings first.");
+                Session.Dialogs.ShowInfo("Phantom not configured", "The template phantom patient and image IDs for this environment are not set in the department settings file (see Settings).");
                 return;
             }
             var planes = Planes.ToList();

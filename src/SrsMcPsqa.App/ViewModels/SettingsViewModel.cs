@@ -44,7 +44,10 @@ namespace SrsMcPsqa.App.ViewModels
             {
                 if (Edit.PlanNamingPattern.Length == 0) Edit.PlanNamingPattern = Core.Models.QaPlanNaming.DefaultPattern;
                 SettingsStore.SaveUser(Edit);
-                Session.Settings = Edit.Clone();
+                var applied = Edit.Clone();
+                SettingsStore.CopyEnvironmentFields(Session.Settings, applied);
+                Session.Settings = applied;
+                Edit = applied.Clone();
                 Log.Initialise(Edit.LogLevel);
                 ApplyTheme(Edit.Theme);
                 Status = $"Saved to {SettingsStore.UserPath}.";
