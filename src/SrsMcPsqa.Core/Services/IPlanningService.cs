@@ -117,6 +117,9 @@ namespace SrsMcPsqa.Core.Services
     /// </summary>
     public interface IPlanningService
     {
+        /// <summary>True when this implementation can create/modify plans (false for read-only builds).</summary>
+        bool SupportsWriting { get; }
+
         Task<PatientSummary> OpenPatientAsync(string patientId, CancellationToken ct = default);
 
         Task<ClinicalPlanData> LoadClinicalPlanAsync(string courseId, string planId, IProgress<string>? progress = null, CancellationToken ct = default);

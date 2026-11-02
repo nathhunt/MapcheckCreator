@@ -50,8 +50,12 @@ namespace SrsMcPsqa.App.ViewModels
         {
             Number = number;
             Rows = rows;
+            RecommendedCentre = evaluation.Plane.Centre;
             Update(evaluation);
         }
+
+        /// <summary>Position as recommended/re-optimised (for Reset).</summary>
+        public Vec3 RecommendedCentre { get; }
 
         public int Number { get; private set; }
         public IReadOnlyList<PtvRowViewModel> Rows { get; }
@@ -75,10 +79,31 @@ namespace SrsMcPsqa.App.ViewModels
 
         public string CentreText => Centre.ToString();
 
-        // Nudge row labels: what − and + mean in patient directions for this orientation (array relative to patient).
-        public string UText => Orientation == ArrayOrientation.Deg0 ? "In-plane x:  − Right / + Left" : "In-plane y:  − Ant / + Post";
-        public string VText => "In-plane z:  − Inf / + Sup";
-        public string NText => Orientation == ArrayOrientation.Deg0 ? "Depth y:  − Ant / + Post" : "Depth x:  − Right / + Left";
+        // Move-button labels: patient directions for this orientation (array moves relative to the patient).
+        public string UMinusText => Orientation == ArrayOrientation.Deg0 ? "R" : "A";
+        public string UPlusText => Orientation == ArrayOrientation.Deg0 ? "L" : "P";
+        public string NMinusText => Orientation == ArrayOrientation.Deg0 ? "Ant" : "Right";
+        public string NPlusText => Orientation == ArrayOrientation.Deg0 ? "Post" : "Left";
+        public string DepthAxisText => Orientation == ArrayOrientation.Deg0 ? "Depth (anterior–posterior)" : "Depth (right–left)";
+
+        /// <summary>PTVs this plan is for.</summary>
+        public string PtvText => string.Join(", ", AssignedIndices.Select(k => Rows[k].Id));
+
+        /// <summary>One-line status of this plan's PTVs.</summary>
+        public string StatusText
+        {
+            get
+            {
+                var m = AssignedIndices.Select(k => Evaluation.Targets[k]).ToList();
+                if (m.Count == 0) return "No PTV on this plane";
+                if (m.Any(t => !t.Covered)) return "✗ not all PTVs covered";
+                if (m.Any(t => t.Clipped)) return "◐ PTV extends beyond the array";
+                return "✓ PTVs covered";
+            }
+        }
+
+        public System.Windows.Media.Brush StatusBrush => StatusText.StartsWith("✓") ? StatusBrushConverter.Good
+            : StatusText.StartsWith("◐") ? StatusBrushConverter.Caution : StatusBrushConverter.Bad;
         public string CoveredText => string.Join(", ", Evaluation.Targets.Where(t => t.Covered).Select(t => t.TargetId));
         public string ScoreText => Evaluation.Targets.Where(t => t.Covered).Sum(t => t.Score).ToString("0.00", CultureInfo.InvariantCulture);
 
@@ -103,7 +128,8 @@ namespace SrsMcPsqa.App.ViewModels
             CentreZ = Centre.Z.ToString("0.0", CultureInfo.InvariantCulture);
             foreach (var p in new[] { nameof(Evaluation), nameof(Orientation), nameof(Centre), nameof(Title), nameof(OrientationText),
                                       nameof(DepthText), nameof(CentreText), nameof(CoveredText), nameof(ScoreText),
-                                      nameof(UText), nameof(VText), nameof(NText) })
+                                      nameof(UMinusText), nameof(UPlusText), nameof(NMinusText), nameof(NPlusText), nameof(DepthAxisText),
+                                      nameof(PtvText), nameof(StatusText), nameof(StatusBrush) })
                 OnPropertyChanged(p);
         }
     }

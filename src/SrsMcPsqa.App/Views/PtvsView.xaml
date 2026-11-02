@@ -6,18 +6,21 @@
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:vm="clr-namespace:SrsMcPsqa.App.ViewModels"
              mc:Ignorable="d" d:DataContext="{d:DesignInstance Type=vm:PtvsViewModel}">
-    <DockPanel Margin="24,16">
-        <TextBlock DockPanel.Dock="Top" Style="{StaticResource PageTitle}" Text="PTVs" />
-        <TextBlock DockPanel.Dock="Top" Style="{StaticResource Hint}" Margin="0,0,0,10" Text="{Binding Summary}" />
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
 
-        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,12,0,0">
-            <ui:Button Content="Select all" Margin="0,0,8,0" Command="{Binding SelectAllCommand}" />
-            <ui:Button Content="Select none" Margin="0,0,24,0" Command="{Binding SelectNoneCommand}" />
-            <ui:Button Content="Continue to array planning" Icon="{ui:SymbolIcon ArrowRight24}" Appearance="Primary" Command="{Binding ContinueCommand}" />
+        <StackPanel Grid.Row="0" Margin="24,12,24,8">
+            <TextBlock Style="{StaticResource PageTitle}" Margin="0,0,0,4" Text="2 · PTVs" />
+            <TextBlock Style="{StaticResource Hint}" FontSize="13"
+                       Text="Tick the PTVs to measure and check each prescription (read from the PTV name; click a value to change it). Helper structures are listed but unticked." />
         </StackPanel>
 
-        <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
-                  HeadersVisibility="Column" SelectionMode="Single">
+        <DataGrid Grid.Row="1" Margin="24,0,24,12" ItemsSource="{Binding Rows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                  CanUserDeleteRows="False" HeadersVisibility="Column" SelectionMode="Single">
             <DataGrid.Columns>
                 <DataGridTemplateColumn Header="Include" Width="70">
                     <DataGridTemplateColumn.CellTemplate>
@@ -34,13 +37,25 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
                 <DataGridTextColumn Header="PTV" Binding="{Binding Id}" IsReadOnly="True" Width="2*" />
+                <DataGridTextColumn Header="Note" Binding="{Binding Note}" IsReadOnly="True" Width="0.7*" />
+                <DataGridTextColumn Header="Rx (Gy)" Binding="{Binding RxGy, StringFormat=0.##, UpdateSourceTrigger=LostFocus}" Width="0.8*" />
+                <DataGridTextColumn Header="Rx from" Binding="{Binding RxSourceText}" IsReadOnly="True" Width="*" />
                 <DataGridTextColumn Header="Volume (cc)" Binding="{Binding VolumeCc, StringFormat=0.00}" IsReadOnly="True" Width="*" />
-                <DataGridTextColumn Header="Rx (Gy) – editable" Binding="{Binding RxGy, StringFormat=0.##, UpdateSourceTrigger=LostFocus}" Width="*" />
-                <DataGridTextColumn Header="Rx source" Binding="{Binding RxSourceText}" IsReadOnly="True" Width="*" />
-                <DataGridTextColumn Header="Note" Binding="{Binding Note}" IsReadOnly="True" Width="0.6*" />
-                <DataGridTextColumn Header="Max cross-section 0° (mm²)" Binding="{Binding MaxArea0, StringFormat=0}" IsReadOnly="True" Width="1.4*" />
-                <DataGridTextColumn Header="Max cross-section 270° (mm²)" Binding="{Binding MaxArea270, StringFormat=0}" IsReadOnly="True" Width="1.4*" />
+                <DataGridTextColumn Header="Largest section 0° (mm²)" Binding="{Binding MaxArea0, StringFormat=0}" IsReadOnly="True" Width="1.3*" />
+                <DataGridTextColumn Header="Largest section 270° (mm²)" Binding="{Binding MaxArea270, StringFormat=0}" IsReadOnly="True" Width="1.3*" />
             </DataGrid.Columns>
         </DataGrid>
-    </DockPanel>
+
+        <Border Grid.Row="2" Padding="24,10" Background="{DynamicResource ControlFillColorDefaultBrush}">
+            <DockPanel>
+                <ui:Button DockPanel.Dock="Right" MinWidth="180" Appearance="Primary" Icon="{ui:SymbolIcon ArrowRight24}"
+                           Content="Next: array planning" Command="{Binding ContinueCommand}" />
+                <StackPanel Orientation="Horizontal">
+                    <ui:Button Content="Select all" Margin="0,0,8,0" Command="{Binding SelectAllCommand}" />
+                    <ui:Button Content="Select none" Margin="0,0,16,0" Command="{Binding SelectNoneCommand}" />
+                    <TextBlock VerticalAlignment="Center" Style="{StaticResource Hint}" FontSize="12" Text="{Binding Summary}" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+    </Grid>
 </UserControl>

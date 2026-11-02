@@ -259,6 +259,9 @@ namespace SrsMcPsqa.Esapi
 
         public bool IsBusy => _worker.IsBusy;
 
+        /// <summary>Phase 3: read path only.</summary>
+        public bool SupportsWriting => false;
+
         public void Dispose() => _worker.Dispose();
     }
 }

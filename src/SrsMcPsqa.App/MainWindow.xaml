@@ -6,6 +6,7 @@
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                  xmlns:vm="clr-namespace:SrsMcPsqa.App.ViewModels"
                  xmlns:views="clr-namespace:SrsMcPsqa.App.Views"
+                 xmlns:inf="clr-namespace:SrsMcPsqa.App.Infrastructure"
                  mc:Ignorable="d"
                  d:DataContext="{d:DesignInstance Type=vm:ShellViewModel}"
                  Title="{Binding WindowTitle}"
@@ -43,26 +44,52 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- Navigation -->
+            <!-- Navigation: numbered workflow steps; Settings apart at the bottom -->
             <Border Grid.Column="0" Background="{DynamicResource ControlFillColorDefaultBrush}">
-                <ListBox ItemsSource="{Binding Pages}" SelectedItem="{Binding SelectedPage}" Margin="6,8"
-                         Background="Transparent" BorderThickness="0">
-                    <ListBox.ItemContainerStyle>
-                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
-                            <Setter Property="IsEnabled" Value="{Binding IsAvailable}" />
-                            <Setter Property="Padding" Value="10,8" />
-                            <Setter Property="Margin" Value="0,2" />
-                        </Style>
-                    </ListBox.ItemContainerStyle>
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="{Binding Symbol}" FontSize="18" Margin="0,0,10,0" />
-                                <TextBlock Text="{Binding Title}" VerticalAlignment="Center" FontSize="13" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+                <DockPanel Margin="6,8">
+                    <ListBox DockPanel.Dock="Bottom" ItemsSource="{Binding Utilities}" SelectedItem="{Binding SelectedUtility}"
+                             Background="Transparent" BorderThickness="0">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                <Setter Property="Padding" Value="10,8" />
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="{Binding Symbol}" FontSize="18" Margin="2,0,12,0" />
+                                    <TextBlock Text="{Binding Title}" VerticalAlignment="Center" FontSize="13" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <TextBlock DockPanel.Dock="Top" Margin="10,4,0,8" FontSize="11" Text="STEPS"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ListBox ItemsSource="{Binding Steps}" SelectedItem="{Binding SelectedStep}" Background="Transparent" BorderThickness="0">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                <Setter Property="IsEnabled" Value="{Binding IsAvailable}" />
+                                <Setter Property="Padding" Value="10,8" />
+                                <Setter Property="Margin" Value="0,2" />
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <Grid Width="24" Height="24" Margin="0,0,10,0">
+                                        <Ellipse Stroke="{DynamicResource TextFillColorSecondaryBrush}" StrokeThickness="1.2" />
+                                        <TextBlock Text="{Binding Step}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12"
+                                                   Visibility="{Binding IsDone, Converter={StaticResource InverseBoolToVis}}" />
+                                        <TextBlock Text="✓" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="13" FontWeight="Bold"
+                                                   Foreground="{x:Static inf:StatusBrushConverter.Good}"
+                                                   Visibility="{Binding IsDone, Converter={StaticResource BoolToVis}}" />
+                                    </Grid>
+                                    <TextBlock Text="{Binding Title}" VerticalAlignment="Center" FontSize="13" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
             </Border>
 
             <!-- Current screen -->

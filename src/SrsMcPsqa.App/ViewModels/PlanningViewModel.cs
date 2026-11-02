@@ -26,12 +26,13 @@ namespace SrsMcPsqa.App.ViewModels
         private CandidateAnalysis? _analysis;
         private Vec3? _dragStart;
 
-        public PlanningViewModel(ShellViewModel shell) : base(shell, "Array planning", SymbolRegular.Grid24)
+        public PlanningViewModel(ShellViewModel shell) : base(shell, "Array planning", SymbolRegular.Grid24, 3)
         {
-            var d = shell.Session.Settings;
-            _alpha = d.Alpha; _edgeMargin = d.EdgeMarginMm; _tau = d.Tau; _minDiodes = d.MinDiodes;
+            _alpha = shell.Session.Settings.Alpha;
             _preference = Preferences[0];
             Session.PlanLoaded += (_, __) => Clear();
+            Session.PropertyChanged += (_, __) => NotifyCreateState();
+            Warnings.CollectionChanged += (_, __) => OnPropertyChanged(nameof(HasProblems));
         }
 
         public static IReadOnlyList<Choice<OrientationPreference>> Preferences { get; } = new[]
@@ -47,21 +48,16 @@ namespace SrsMcPsqa.App.ViewModels
         // ------------------------------------------------------------------ options
         [ObservableProperty] private Choice<OrientationPreference> _preference;
         [ObservableProperty] private double _alpha;
-        [ObservableProperty] private double _edgeMargin;
-        [ObservableProperty] private double _tau;
-        [ObservableProperty] private int _minDiodes;
         [ObservableProperty] private bool _optionsChanged;
 
         partial void OnPreferenceChanged(Choice<OrientationPreference> value) => OptionsChanged = HasPlanes;
         partial void OnAlphaChanged(double value) => OptionsChanged = HasPlanes;
-        partial void OnEdgeMarginChanged(double value) => OptionsChanged = HasPlanes;
-        partial void OnTauChanged(double value) => OptionsChanged = HasPlanes;
-        partial void OnMinDiodesChanged(int value) => OptionsChanged = HasPlanes;
 
+        /// <summary>Page options: orientation preference and α. Edge margin, τ and N_min come from Settings.</summary>
         private OptimisationSettings CurrentSettings()
         {
             var s = Session.OptimisationDefaults();
-            s.Alpha = Alpha; s.EdgeMarginMm = EdgeMargin; s.Tau = Tau; s.MinDiodes = MinDiodes;
+            s.Alpha = Alpha;
             s.OrientationPreference = Preference.Value;
             s.Validate();
             return s;
@@ -80,9 +76,31 @@ namespace SrsMcPsqa.App.ViewModels
         [ObservableProperty] private PlaneOverlay? _overlay;
         [ObservableProperty] private Scene3D? _scene3D;
         [ObservableProperty] private bool _showDiodes = true;
-        [ObservableProperty] private string _resultSummary = "Click Recommend to compute the array planes.";
+        [ObservableProperty] private bool _show3D;
+        [ObservableProperty] private bool _showDetails;
+        [ObservableProperty] private bool _isComputing;
+        [ObservableProperty] private string _resultSummary = "";
+
+        /// <summary>Step size for the move buttons (mm).</summary>
+        [ObservableProperty] private double _nudgeStep = 1.0;
+        public static IReadOnlyList<double> NudgeSteps { get; } = new[] { 0.5, 1.0, 5.0 };
 
         public bool HasPlanes => Planes.Count > 0;
+        public bool HasProblems => Warnings.Count > 0;
+
+        // ------------------------------------------------------------------ create-button state
+        public bool CanCreate => HasPlanes && Session.CanCreatePlans;
+        public string CreateButtonText => Planes.Count == 1 ? "Create 1 QA plan" : $"Create {Planes.Count} QA plans";
+        public string CreateHint => !HasPlanes
+            ? "Waiting for the recommendation."
+            : Session.CreateBlockedReason ?? "Creates the plans in Eclipse on the phantom and calculates them with the clinical MUs.";
+
+        private void NotifyCreateState()
+        {
+            OnPropertyChanged(nameof(CanCreate));
+            OnPropertyChanged(nameof(CreateButtonText));
+            OnPropertyChanged(nameof(CreateHint));
+        }
 
         partial void OnSelectedPlaneChanged(PlanePlanViewModel? value) { UpdatePlaneView(force: true); Update3D(); }
         partial void OnShowDiodesChanged(bool value) { UpdatePlaneView(force: false); Update3D(); }
@@ -102,13 +120,19 @@ namespace SrsMcPsqa.App.ViewModels
             _model = null; _analysis = null; _rows = Array.Empty<PtvRowViewModel>();
             Planes.Clear(); Coverage.Clear(); Warnings.Clear(); ConstraintRows.Clear(); PtvHeaders.Clear();
             SelectedPlane = null; Scene = null; Overlay = null; Scene3D = null; OptionsChanged = false;
-            ResultSummary = "Click Recommend to compute the array planes.";
+            ResultSummary = "";
             OnPropertyChanged(nameof(HasPlanes));
+            NotifyCreateState();
         }
 
+        /// <summary>Recommend automatically on arrival, and again if the PTV selection or prescriptions changed.</summary>
         public override void OnNavigatedTo()
         {
-            if (!HasPlanes) Update3D();
+            if (!Session.HasPlan || IsComputing) return;
+            PlanningModel current;
+            try { current = Session.GetModel().Model; }
+            catch (Exception ex) { ResultSummary = ex.Message; return; }
+            if (!HasPlanes || !ReferenceEquals(current, _model)) _ = RecommendAsync();
         }
 
         // ------------------------------------------------------------------ recommend / re-optimise
@@ -129,7 +153,8 @@ namespace SrsMcPsqa.App.ViewModels
                 return;
             }
 
-            ResultSummary = "Computing...";
+            ResultSummary = "Finding the fewest QA plans...";
+            IsComputing = true;
             var result = await Shell.ComputeAsync("Recommendation", () =>
             {
                 var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -137,10 +162,11 @@ namespace SrsMcPsqa.App.ViewModels
                 var rec = Recommender.Recommend(model, analysis);
                 return Tuple.Create(analysis, rec, sw.Elapsed.TotalSeconds);
             });
+            IsComputing = false;
             if (result == null) { ResultSummary = "Recommendation failed."; return; }
             _model = model; _rows = rows; _analysis = result.Item1;
             Apply(result.Item2, resetConstraints: true);
-            ResultSummary = $"{result.Item2.Planes.Count} plan(s) recommended in {result.Item3:0.0} s (approximation from the clinical dose).";
+            ResultSummary = $"{result.Item2.Planes.Count} QA plan(s) needed for {rows.Count} PTV(s). Based on the clinical dose (before QA calculation).";
             OptionsChanged = false;
         }
 
@@ -176,6 +202,7 @@ namespace SrsMcPsqa.App.ViewModels
             ApplyCoverage(rec);
             if (resetConstraints || ConstraintRows.Count != Planes.Count) ResetConstraints();
             OnPropertyChanged(nameof(HasPlanes));
+            NotifyCreateState();
             SelectedPlane = Planes.FirstOrDefault();
         }
 
@@ -221,14 +248,14 @@ namespace SrsMcPsqa.App.ViewModels
         }
 
         // ------------------------------------------------------------------ manual adjustment
-        /// <summary>Parameter "axis:amount", axis u/v/n (in-plane horizontal, in-plane vertical, normal).</summary>
+        /// <summary>Parameter "axis:sign", axis u/v/n (in-plane horizontal, in-plane vertical, normal); moves by sign × step.</summary>
         [RelayCommand]
         private void Nudge(string spec)
         {
             var p = SelectedPlane;
             if (p == null || _model == null) return;
             var parts = spec.Split(':');
-            double amount = double.Parse(parts[1], CultureInfo.InvariantCulture);
+            double amount = double.Parse(parts[1], CultureInfo.InvariantCulture) * NudgeStep;
             var o = p.Orientation;
             var delta = parts[0] switch
             {
@@ -237,6 +264,25 @@ namespace SrsMcPsqa.App.ViewModels
                 _ => o.FromPlane(0, 0, amount),
             };
             MovePlane(p, p.Centre + delta, full: true);
+        }
+
+        /// <summary>Back to the recommended position for the selected plan.</summary>
+        [RelayCommand]
+        private void ResetPlane()
+        {
+            var p = SelectedPlane;
+            if (p == null) return;
+            MovePlane(p, p.RecommendedCentre, full: true);
+            p.IsManual = false;
+        }
+
+        /// <summary>Opens the "Change plans" dialog (number of plans, orientations, required PTVs) and re-optimises on OK.</summary>
+        [RelayCommand]
+        private async Task ChangePlansAsync()
+        {
+            if (!HasPlanes) return;
+            if (!Session.Dialogs.ShowChangePlans(this)) return;
+            await ReoptimiseAsync();
         }
 
         /// <summary>Centre the intersected PTV cross-sections (of the PTVs on this plan) in the array, keeping the depth.</summary>
@@ -330,6 +376,7 @@ namespace SrsMcPsqa.App.ViewModels
         {
             var plan = Session.ClinicalPlan;
             if (plan == null || Planes.Count == 0) return;
+            if (Session.CreateBlockedReason is string why) { Session.Dialogs.ShowInfo("Can't create QA plans yet", why); return; }
             var course = Session.QaCourse;
             if (course == null)
             {

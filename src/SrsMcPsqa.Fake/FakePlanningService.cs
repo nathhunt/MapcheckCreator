@@ -26,6 +26,8 @@ namespace SrsMcPsqa.Fake
         private readonly HashSet<ArrayOrientation> _copiedPhantoms = new HashSet<ArrayOrientation>();
         private readonly object _lock = new object();
 
+        public bool SupportsWriting => true;
+
         /// <summary>Multiplier for simulated delays (0 = instant, useful in tests).</summary>
         public double DelayScale { get; set; } = 1.0;
 

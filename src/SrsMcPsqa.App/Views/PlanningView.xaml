@@ -7,208 +7,125 @@
              xmlns:vm="clr-namespace:SrsMcPsqa.App.ViewModels"
              xmlns:controls="clr-namespace:SrsMcPsqa.App.Controls"
              mc:Ignorable="d" d:DataContext="{d:DesignInstance Type=vm:PlanningViewModel}">
-    <Grid Margin="16,12">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="340" />
-            <ColumnDefinition Width="12" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
 
-        <!-- ============================== left: options, plans, constraints ============================== -->
-        <DockPanel Grid.Column="0">
-            <ui:Button DockPanel.Dock="Bottom" Margin="0,10,0,0" HorizontalAlignment="Stretch" Content="Create QA plans in Eclipse"
-                       Icon="{ui:SymbolIcon Add24}" Appearance="Primary" Command="{Binding CreateQaPlansCommand}"
-                       IsEnabled="{Binding HasPlanes}" />
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel Margin="0,0,8,0">
-                    <TextBlock Style="{StaticResource PageTitle}" Text="Array planning" />
+        <!-- ============================== header ============================== -->
+        <StackPanel Grid.Row="0" Margin="20,12,20,8">
+            <TextBlock Style="{StaticResource PageTitle}" Margin="0,0,0,4" Text="3 · Array planning" />
+            <TextBlock Style="{StaticResource Hint}" FontSize="13"
+                       Text="Check the suggested QA plans. Select a plan to see where the array cuts the PTVs and move it if needed. Then create the plans." />
+        </StackPanel>
 
-                    <TextBlock Style="{StaticResource Section}" Text="Options" />
-                    <TextBlock Style="{StaticResource Label}" Text="Orientation" />
-                    <ComboBox ItemsSource="{x:Static vm:PlanningViewModel.Preferences}" SelectedItem="{Binding Preference}" DisplayMemberPath="Text" />
-                    <TextBlock Style="{StaticResource Label}" Text="{Binding Alpha, StringFormat='Prefer high dose ↔ Prefer coverage   (α = {0:0.00})'}" />
-                    <Slider Minimum="0" Maximum="1" Value="{Binding Alpha}" TickFrequency="0.05" IsSnapToTickEnabled="True" IsDirectionReversed="True" />
-                    <Grid Margin="0,4,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition /><ColumnDefinition Width="8" /><ColumnDefinition /><ColumnDefinition Width="8" /><ColumnDefinition />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0">
-                            <TextBlock Style="{StaticResource Label}" Text="Edge margin (mm)" />
-                            <ui:TextBox Text="{Binding EdgeMargin, UpdateSourceTrigger=LostFocus}" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Style="{StaticResource Label}" Text="τ (coverage)" />
-                            <ui:TextBox Text="{Binding Tau, UpdateSourceTrigger=LostFocus}" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="4">
-                            <TextBlock Style="{StaticResource Label}" Text="Min diodes" />
-                            <ui:TextBox Text="{Binding MinDiodes, UpdateSourceTrigger=LostFocus}" />
-                        </StackPanel>
-                    </Grid>
-                    <ui:InfoBar Margin="0,8,0,0" Severity="Informational" IsClosable="False" Title="Options changed"
-                                Message="Click Recommend to apply them." IsOpen="{Binding OptionsChanged}" />
-                    <ui:Button Margin="0,10,0,0" HorizontalAlignment="Stretch" Content="Recommend" Icon="{ui:SymbolIcon Sparkle24}"
-                               Appearance="Primary" Command="{Binding RecommendCommand}" />
-                    <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" Text="{Binding ResultSummary}" />
+        <!-- ============================== body ============================== -->
+        <Grid Grid.Row="1" Margin="20,0,20,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="270" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="200" />
+            </Grid.ColumnDefinitions>
 
-                    <TextBlock Style="{StaticResource Section}" Margin="0,14,0,6" Text="Plans" Visibility="{Binding HasPlanes, Converter={StaticResource BoolToVis}}" />
-                    <ListBox ItemsSource="{Binding Planes}" SelectedItem="{Binding SelectedPlane}">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel Margin="0,2">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock FontWeight="SemiBold" Text="{Binding Title}" />
-                                        <TextBlock Margin="8,0,0,0" Text="(manual)" FontStyle="Italic"
-                                                   Visibility="{Binding IsManual, Converter={StaticResource BoolToVis}}" />
-                                    </StackPanel>
-                                    <TextBlock FontSize="12" Text="{Binding DepthText}" />
-                                    <TextBlock FontSize="12" TextWrapping="Wrap" Text="{Binding CoveredText, StringFormat='Covers: {0}'}" />
-                                    <TextBlock FontSize="12" Text="{Binding ScoreText, StringFormat='Score ΣJ: {0}'}" />
-                                </StackPanel>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+            <!-- left: the plans -->
+            <DockPanel Grid.Column="0">
+                <StackPanel DockPanel.Dock="Top">
+                    <DockPanel>
+                        <ui:ProgressRing DockPanel.Dock="Right" Width="16" Height="16" IsIndeterminate="True"
+                                         Visibility="{Binding IsComputing, Converter={StaticResource BoolToVis}}" />
+                        <TextBlock Style="{StaticResource Section}" Text="QA plans" />
+                    </DockPanel>
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,8" Text="{Binding ResultSummary}" />
+                </StackPanel>
 
-                    <TextBlock Style="{StaticResource Section}" Margin="0,14,0,6" Text="Coverage" Visibility="{Binding HasPlanes, Converter={StaticResource BoolToVis}}" />
-                    <ItemsControl ItemsSource="{Binding Coverage}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="0,2">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="18" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="56" />
-                                    </Grid.ColumnDefinitions>
-                                    <Rectangle Width="10" Height="10" Fill="{Binding Brush}" />
-                                    <TextBlock Grid.Column="1" Text="{Binding Id}" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                                    <TextBlock Grid.Column="2" Margin="6,0" Text="{Binding StatusText}" Foreground="{Binding Status, Converter={StaticResource StatusBrush}}" />
-                                    <TextBlock Grid.Column="3" Text="{Binding PlaneText}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <ItemsControl Margin="0,6,0,0" ItemsSource="{Binding Warnings}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Style="{StaticResource Hint}" Text="{Binding StringFormat='⚠ {0}'}" />
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-
-                    <Expander Margin="0,14,0,0" Header="Change plans (constraints)" Visibility="{Binding HasPlanes, Converter={StaticResource BoolToVis}}">
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource Hint}" Text="Set the number of plans, each plan's orientation and which PTVs each plan must include, then Re-optimise." />
-                            <TextBlock Style="{StaticResource Label}" Text="Number of plans" />
-                            <ui:TextBox Text="{Binding NumberOfPlans, UpdateSourceTrigger=LostFocus}" Width="80" HorizontalAlignment="Left" />
-                            <TextBlock Style="{StaticResource Label}" Text="Plan × PTV (tick = must include)" />
-                            <ItemsControl ItemsSource="{Binding PtvHeaders}" Margin="118,0,0,2">
-                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Width="32" FontSize="10" Text="{Binding}" ToolTip="{Binding}" TextTrimming="CharacterEllipsis"
-                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <ItemsControl ItemsSource="{Binding ConstraintRows}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <StackPanel Orientation="Horizontal" Margin="0,2">
-                                            <TextBlock Width="46" VerticalAlignment="Center" Text="{Binding Label}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                                            <ComboBox Width="68" Margin="0,0,4,0" FontSize="11"
-                                                      ItemsSource="{x:Static vm:ConstraintRowViewModel.OrientationChoices}"
-                                                      SelectedItem="{Binding Orientation}" DisplayMemberPath="Text" />
-                                            <ItemsControl ItemsSource="{Binding Cells}">
-                                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <CheckBox Width="32" MinWidth="0" Padding="0" IsChecked="{Binding IsAssigned}" ToolTip="{Binding Id}" />
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <ui:Button Content="Re-optimise" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding ReoptimiseCommand}" Margin="0,0,8,0" />
-                                <ui:Button Content="Clear ticks" Command="{Binding ClearAssignmentsCommand}" />
-                            </StackPanel>
+                <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                    <Border Padding="10,8" CornerRadius="6" Margin="0,0,0,8" Background="#22D08A00"
+                            Visibility="{Binding HasProblems, Converter={StaticResource BoolToVis}}">
+                        <ItemsControl ItemsSource="{Binding Warnings}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Style="{StaticResource Body}" FontSize="12" Text="{Binding StringFormat='⚠ {0}'}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Border>
+                    <ui:Button HorizontalAlignment="Stretch" Content="Change plans…" Icon="{ui:SymbolIcon Edit24}"
+                               ToolTip="Choose the number of plans, their orientations and which PTVs each must include"
+                               Command="{Binding ChangePlansCommand}" IsEnabled="{Binding HasPlanes}" />
+                    <Expander Margin="0,8,0,0" Header="Options">
+                        <StackPanel Margin="0,4,0,0">
+                            <TextBlock Style="{StaticResource Label}" Margin="0,0,0,3" Text="Array orientation" />
+                            <ComboBox ItemsSource="{x:Static vm:PlanningViewModel.Preferences}" SelectedItem="{Binding Preference}" DisplayMemberPath="Text" />
+                            <TextBlock Style="{StaticResource Label}" Text="Position the array for" />
+                            <Slider Minimum="0" Maximum="1" Value="{Binding Alpha}" TickFrequency="0.05" IsSnapToTickEnabled="True" IsDirectionReversed="True" />
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Left" Style="{StaticResource Hint}" Text="high dose" />
+                                <TextBlock DockPanel.Dock="Right" Style="{StaticResource Hint}" Text="more PTV area" />
+                                <TextBlock />
+                            </DockPanel>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" Text="Edge margin, coverage threshold and minimum diodes are in Settings." />
+                            <ui:Button Margin="0,8,0,0" HorizontalAlignment="Stretch" Content="Recommend again" Icon="{ui:SymbolIcon ArrowSync24}"
+                                       Appearance="{Binding OptionsChanged, Converter={StaticResource PrimaryIfTrue}}"
+                                       Command="{Binding RecommendCommand}" />
                         </StackPanel>
                     </Expander>
                 </StackPanel>
-            </ScrollViewer>
-        </DockPanel>
 
-        <!-- ============================== right: 2D / 3D ============================== -->
-        <TabControl Grid.Column="2">
-            <TabItem Header="Array plane">
-                <Grid Margin="0,8,0,0">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="250" />
-                    </Grid.ColumnDefinitions>
+                <ListBox ItemsSource="{Binding Planes}" SelectedItem="{Binding SelectedPlane}">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                            <Setter Property="Padding" Value="10,8" />
+                            <Setter Property="Margin" Value="0,0,0,4" />
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontWeight="SemiBold" FontSize="14" Text="{Binding Title}" />
+                                    <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" FontSize="11" FontStyle="Italic" Text="moved"
+                                               Visibility="{Binding IsManual, Converter={StaticResource BoolToVis}}" />
+                                </StackPanel>
+                                <TextBlock FontSize="12" TextWrapping="Wrap" Text="{Binding PtvText}" />
+                                <TextBlock FontSize="12" Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
 
-                    <controls:PlaneView Grid.Row="0" Grid.Column="0" MinHeight="280" Margin="0,0,10,0"
-                                        Scene="{Binding Scene}" Overlay="{Binding Overlay}" AllowDrag="True"
-                                        DragCommand="{Binding DragCommand}" />
+            <!-- middle: view + table -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <DockPanel Grid.Row="0" Margin="0,0,0,6" LastChildFill="False">
+                    <RadioButton DockPanel.Dock="Left" Content="Array plane" GroupName="View" MinWidth="0" Margin="0,0,16,0"
+                                 IsChecked="{Binding Show3D, Converter={StaticResource Not}}" />
+                    <RadioButton DockPanel.Dock="Left" Content="3D" GroupName="View" MinWidth="0" IsChecked="{Binding Show3D}" />
+                    <CheckBox DockPanel.Dock="Right" Content="Show diodes" IsChecked="{Binding ShowDiodes}" />
+                </DockPanel>
 
-                    <ScrollViewer Grid.Row="0" Grid.Column="1" VerticalScrollBarVisibility="Auto">
-                        <StackPanel DataContext="{Binding SelectedPlane}" Visibility="{Binding Converter={StaticResource BoolToVis}}">
-                            <TextBlock Style="{StaticResource Section}" Text="{Binding Title}" />
-                            <TextBlock Style="{StaticResource Hint}" Text="Move the array (array relative to patient). Drag it in the view, use the buttons or type the centre." />
+                <controls:PlaneView Grid.Row="1" MinHeight="260" Scene="{Binding Scene}" Overlay="{Binding Overlay}" AllowDrag="True"
+                                    DragCommand="{Binding DragCommand}"
+                                    Visibility="{Binding Show3D, Converter={StaticResource InverseBoolToVis}}" />
+                <controls:Scene3DView Grid.Row="1" Scene="{Binding Scene3D}"
+                                      Visibility="{Binding Show3D, Converter={StaticResource BoolToVis}}" />
 
-                            <TextBlock Style="{StaticResource Label}" Text="{Binding UText}" />
-                            <WrapPanel>
-                                <ui:Button Style="{StaticResource NudgeButton}" Content="−5" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="u:-5" />
-                                <ui:Button Style="{StaticResource NudgeButton}" Content="−1" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="u:-1" />
-                                <ui:Button Style="{StaticResource NudgeButton}" Content="−0.5" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="u:-0.5" />
-                                <ui:Button Style="{StaticResource NudgeButton}" Content="+0.5" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="u:0.5" />
-                                <ui:Button Style="{StaticResource NudgeButton}" Content="+1" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="u:1" />
-                                <ui:Button Style="{StaticResource NudgeButton}" Content="+5" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="u:5" />
-                            </WrapPanel>
-                            <TextBlock Style="{StaticResource Label}" Text="{Binding VText}" />
-                            <WrapPanel>
-                                <ui:Button Style="{StaticResource NudgeButton}" Content="−5" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="v:-5" />
-                                <ui:Button Style="{StaticResource NudgeButton}" Content="−1" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="v:-1" />
-                                <ui:Button Style="{StaticResource NudgeButton}" Content="−0.5" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="v:-0.5" />
-                                <ui:Button Style="{StaticResource NudgeButton}" Content="+0.5" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="v:0.5" />
-                                <ui:Button Style="{StaticResource NudgeButton}" Content="+1" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="v:1" />
-                                <ui:Button Style="{StaticResource NudgeButton}" Content="+5" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="v:5" />
-                            </WrapPanel>
-                            <TextBlock Style="{StaticResource Label}" Text="{Binding NText}" />
-                            <WrapPanel>
-                                <ui:Button Style="{StaticResource NudgeButton}" Content="−5" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="n:-5" />
-                                <ui:Button Style="{StaticResource NudgeButton}" Content="−1" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="n:-1" />
-                                <ui:Button Style="{StaticResource NudgeButton}" Content="−0.5" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="n:-0.5" />
-                                <ui:Button Style="{StaticResource NudgeButton}" Content="+0.5" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="n:0.5" />
-                                <ui:Button Style="{StaticResource NudgeButton}" Content="+1" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="n:1" />
-                                <ui:Button Style="{StaticResource NudgeButton}" Content="+5" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="n:5" />
-                            </WrapPanel>
-
-                            <ui:Button Margin="0,8,0,0" Content="Centre on PTVs" Icon="{ui:SymbolIcon CenterHorizontal24}"
-                                       ToolTip="Centre the intersected PTV cross-sections in the array (depth unchanged)"
-                                       Command="{Binding DataContext.CentreOnPtvsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                            <TextBlock Style="{StaticResource Label}" Text="Array centre in patient, x / y / z (mm)" />
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition /><ColumnDefinition Width="4" /><ColumnDefinition /><ColumnDefinition Width="4" /><ColumnDefinition />
-                                </Grid.ColumnDefinitions>
-                                <ui:TextBox Grid.Column="0" Text="{Binding CentreX, UpdateSourceTrigger=PropertyChanged}" />
-                                <ui:TextBox Grid.Column="2" Text="{Binding CentreY, UpdateSourceTrigger=PropertyChanged}" />
-                                <ui:TextBox Grid.Column="4" Text="{Binding CentreZ, UpdateSourceTrigger=PropertyChanged}" />
-                            </Grid>
-                            <ui:Button Margin="0,6,0,0" Content="Apply centre"
-                                       Command="{Binding DataContext.ApplyCentreCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                            <CheckBox Margin="0,10,0,0" Content="Show diodes"
-                                      IsChecked="{Binding DataContext.ShowDiodes, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                        </StackPanel>
-                    </ScrollViewer>
-
-                    <DataGrid Grid.Row="1" Grid.ColumnSpan="2" Margin="0,10,0,0" MaxHeight="190" ItemsSource="{Binding SelectedPlane.Metrics}"
-                              AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" FontSize="12">
+                <StackPanel Grid.Row="2" Margin="0,8,0,0">
+                    <DockPanel Margin="0,0,0,4">
+                        <CheckBox DockPanel.Dock="Right" Content="Show details" IsChecked="{Binding ShowDetails}" />
+                        <TextBlock VerticalAlignment="Center" Style="{StaticResource Hint}" Text="PTVs on the selected plan (before QA calculation)" />
+                    </DockPanel>
+                    <DataGrid MaxHeight="150" ItemsSource="{Binding SelectedPlane.Metrics}" AutoGenerateColumns="False" IsReadOnly="True"
+                              HeadersVisibility="Column" FontSize="12"
+                              Visibility="{Binding ShowDetails, Converter={StaticResource InverseBoolToVis}}">
                         <DataGrid.Columns>
                             <DataGridTemplateColumn Header="" Width="22">
                                 <DataGridTemplateColumn.CellTemplate>
@@ -216,22 +133,90 @@
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
                             <DataGridTextColumn Header="PTV" Binding="{Binding Id}" Width="2*" />
-                            <DataGridTextColumn Header="Rx Gy" Binding="{Binding Rx}" Width="*" />
-                            <DataGridTextColumn Header="Area in array mm²" Binding="{Binding Area}" Width="*" />
-                            <DataGridTextColumn Header="Max area mm²" Binding="{Binding MaxArea}" Width="*" />
-                            <DataGridTextColumn Header="≥Rx area / max" Binding="{Binding HighDose}" Width="*" />
-                            <DataGridTextColumn Header="J" Binding="{Binding Score}" Width="*" />
-                            <DataGridTextColumn Header="J / best" Binding="{Binding Relative}" Width="*" />
+                            <DataGridTextColumn Header="Rx (Gy)" Binding="{Binding Rx}" Width="*" />
+                            <DataGridTextColumn Header="Area on array (mm²)" Binding="{Binding Area}" Width="1.4*" />
                             <DataGridTextColumn Header="Diodes in PTV" Binding="{Binding Diodes}" Width="*" />
                             <DataGridTextColumn Header="Diodes ≥ Rx" Binding="{Binding DiodesAtRx}" Width="*" />
                             <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="1.6*" />
                         </DataGrid.Columns>
                     </DataGrid>
-                </Grid>
-            </TabItem>
-            <TabItem Header="3D overview">
-                <controls:Scene3DView Margin="0,8,0,0" Scene="{Binding Scene3D}" />
-            </TabItem>
-        </TabControl>
+                    <DataGrid MaxHeight="150" ItemsSource="{Binding SelectedPlane.Metrics}" AutoGenerateColumns="False" IsReadOnly="True"
+                              HeadersVisibility="Column" FontSize="12"
+                              Visibility="{Binding ShowDetails, Converter={StaticResource BoolToVis}}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="PTV" Binding="{Binding Id}" Width="2*" />
+                            <DataGridTextColumn Header="Area on array" Binding="{Binding Area}" Width="*" />
+                            <DataGridTextColumn Header="Max area" Binding="{Binding MaxArea}" Width="*" />
+                            <DataGridTextColumn Header="≥ Rx area / max" Binding="{Binding HighDose}" Width="*" />
+                            <DataGridTextColumn Header="Mean D/Rx" Binding="{Binding MeanRatio}" Width="*" />
+                            <DataGridTextColumn Header="Score J" Binding="{Binding Score}" Width="*" />
+                            <DataGridTextColumn Header="J / best" Binding="{Binding Relative}" Width="*" />
+                            <DataGridTextColumn Header="Diodes" Binding="{Binding Diodes}" Width="*" />
+                            <DataGridTextColumn Header="≥ Rx" Binding="{Binding DiodesAtRx}" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+            </Grid>
+
+            <!-- right: adjust the selected plan -->
+            <ScrollViewer Grid.Column="4" VerticalScrollBarVisibility="Auto">
+                <StackPanel Visibility="{Binding SelectedPlane, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Style="{StaticResource Section}" Text="Adjust array" />
+                    <TextBlock Style="{StaticResource Hint}" Text="Moves the array relative to the patient. You can also drag it in the view." />
+
+                    <DockPanel Margin="0,10,0,0">
+                        <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,8,0" Text="Step" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                        <ComboBox ItemsSource="{x:Static vm:PlanningViewModel.NudgeSteps}" SelectedItem="{Binding NudgeStep}" ItemStringFormat="{}{0} mm" />
+                    </DockPanel>
+
+                    <TextBlock Style="{StaticResource Label}" Text="In the array plane" />
+                    <Grid HorizontalAlignment="Center">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="58" /><ColumnDefinition Width="58" /><ColumnDefinition Width="58" /></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
+                        <ui:Button Grid.Row="0" Grid.Column="1" Margin="2" HorizontalAlignment="Stretch" Content="▲ S" ToolTip="Superior"
+                                   Command="{Binding NudgeCommand}" CommandParameter="v:1" />
+                        <ui:Button Grid.Row="1" Grid.Column="0" Margin="2" HorizontalAlignment="Stretch" Content="{Binding SelectedPlane.UMinusText}" ContentStringFormat="◀ {0}"
+                                   Command="{Binding NudgeCommand}" CommandParameter="u:-1" />
+                        <ui:Button Grid.Row="1" Grid.Column="1" Margin="2" HorizontalAlignment="Stretch" Icon="{ui:SymbolIcon CenterHorizontal24}"
+                                   ToolTip="Centre on PTVs: centre the area where the array cuts the PTVs"
+                                   Command="{Binding CentreOnPtvsCommand}" />
+                        <ui:Button Grid.Row="1" Grid.Column="2" Margin="2" HorizontalAlignment="Stretch" Content="{Binding SelectedPlane.UPlusText}" ContentStringFormat="{}{0} ▶"
+                                   Command="{Binding NudgeCommand}" CommandParameter="u:1" />
+                        <ui:Button Grid.Row="2" Grid.Column="1" Margin="2" HorizontalAlignment="Stretch" Content="▼ I" ToolTip="Inferior"
+                                   Command="{Binding NudgeCommand}" CommandParameter="v:-1" />
+                    </Grid>
+
+                    <TextBlock Style="{StaticResource Label}" Text="{Binding SelectedPlane.DepthAxisText}" />
+                    <UniformGrid Columns="2">
+                        <ui:Button Margin="0,0,2,0" HorizontalAlignment="Stretch" Content="{Binding SelectedPlane.NMinusText}"
+                                   Command="{Binding NudgeCommand}" CommandParameter="n:-1" />
+                        <ui:Button Margin="2,0,0,0" HorizontalAlignment="Stretch" Content="{Binding SelectedPlane.NPlusText}"
+                                   Command="{Binding NudgeCommand}" CommandParameter="n:1" />
+                    </UniformGrid>
+
+                    <ui:Button Margin="0,14,0,0" HorizontalAlignment="Stretch" Content="Reset to suggested" Icon="{ui:SymbolIcon ArrowUndo24}"
+                               Command="{Binding ResetPlaneCommand}" />
+
+                    <Expander Margin="0,10,0,0" Header="Exact position">
+                        <StackPanel Margin="0,4,0,0">
+                            <TextBlock Style="{StaticResource Hint}" Text="Array centre in patient coordinates (mm): x, y, z" />
+                            <ui:TextBox Margin="0,4,0,0" Text="{Binding SelectedPlane.CentreX, UpdateSourceTrigger=PropertyChanged}" />
+                            <ui:TextBox Margin="0,4,0,0" Text="{Binding SelectedPlane.CentreY, UpdateSourceTrigger=PropertyChanged}" />
+                            <ui:TextBox Margin="0,4,0,0" Text="{Binding SelectedPlane.CentreZ, UpdateSourceTrigger=PropertyChanged}" />
+                            <ui:Button Margin="0,6,0,0" HorizontalAlignment="Stretch" Content="Apply" Command="{Binding ApplyCentreCommand}" />
+                        </StackPanel>
+                    </Expander>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- ============================== footer ============================== -->
+        <Border Grid.Row="2" Padding="20,10" Background="{DynamicResource ControlFillColorDefaultBrush}">
+            <DockPanel>
+                <ui:Button DockPanel.Dock="Right" MinWidth="180" Appearance="Primary" Icon="{ui:SymbolIcon Add24}"
+                           Content="{Binding CreateButtonText}" Command="{Binding CreateQaPlansCommand}" IsEnabled="{Binding CanCreate}" />
+                <TextBlock VerticalAlignment="Center" Margin="0,0,16,0" Style="{StaticResource Hint}" FontSize="12" Text="{Binding CreateHint}" />
+            </DockPanel>
+        </Border>
     </Grid>
 </UserControl>

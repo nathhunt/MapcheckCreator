@@ -15,16 +15,21 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Style="{StaticResource PageTitle}" Text="Review &amp; fine-tune" />
+        <StackPanel Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock Style="{StaticResource PageTitle}" Margin="0,0,0,4" Text="4 · Review &amp; fine-tune" />
+            <TextBlock Style="{StaticResource Hint}" FontSize="13"
+                       Text="Each tab is a created QA plan with its calculated dose on the array. Click 'Check for better positions' to get suggested isocentre shifts; accept, edit or discard each, then apply. Repeat if needed." />
+        </StackPanel>
 
-        <WrapPanel Grid.Row="1" Margin="0,0,0,8">
-            <ui:Button Margin="0,0,8,4" Content="Optimise further" Icon="{ui:SymbolIcon Sparkle24}" Appearance="Primary" Command="{Binding OptimiseFurtherCommand}" />
-            <ui:Button Margin="0,0,24,4" Content="Apply &amp; recalculate" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding ApplyCommand}"
+        <DockPanel Grid.Row="1" Margin="0,0,0,8" LastChildFill="False">
+            <ui:Button DockPanel.Dock="Left" Margin="0,0,8,0" Content="Check for better positions" Icon="{ui:SymbolIcon Sparkle24}" Appearance="Primary"
+                       Command="{Binding OptimiseFurtherCommand}" />
+            <ui:Button DockPanel.Dock="Left" Content="Apply shifts and recalculate" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding ApplyCommand}"
                        IsEnabled="{Binding HasProposals}" />
-            <ui:Button Margin="0,0,8,4" Content="Add new QA plans" Icon="{ui:SymbolIcon Add24}" Command="{Binding AddNewCommand}" />
-            <ui:Button Margin="0,0,8,4" Content="Delete ticked" Icon="{ui:SymbolIcon Delete24}" Command="{Binding DeleteSelectedCommand}" />
-            <ui:Button Margin="0,0,8,4" Content="Delete all QA plans" Icon="{ui:SymbolIcon Delete24}" Appearance="Danger" Command="{Binding DeleteAllCommand}" />
-        </WrapPanel>
+            <ui:Button DockPanel.Dock="Right" Margin="8,0,0,0" Content="Delete all" Icon="{ui:SymbolIcon Delete24}" Command="{Binding DeleteAllCommand}" />
+            <ui:Button DockPanel.Dock="Right" Margin="8,0,0,0" Content="Delete ticked" Icon="{ui:SymbolIcon Delete24}" Command="{Binding DeleteSelectedCommand}" />
+            <ui:Button DockPanel.Dock="Right" Content="Add more QA plans" Icon="{ui:SymbolIcon Add24}" Command="{Binding AddNewCommand}" />
+        </DockPanel>
 
         <!-- One tab per QA plan -->
         <TabControl Grid.Row="2" ItemsSource="{Binding QaPlans}" SelectedItem="{Binding SelectedQaPlan}">
@@ -81,7 +86,7 @@
                 Background="{DynamicResource ControlFillColorDefaultBrush}"
                 Visibility="{Binding HasProposals, Converter={StaticResource BoolToVis}}">
             <DockPanel>
-                <TextBlock DockPanel.Dock="Top" Style="{StaticResource Section}" Text="Proposed shifts (array relative to patient)" />
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource Section}" Text="Suggested shifts (array moves relative to the patient)" />
                 <TextBlock DockPanel.Dock="Top" Style="{StaticResource Hint}" Margin="0,0,0,6" Text="{Binding ProposalStatus}" />
                 <ScrollViewer MaxHeight="230" VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding Proposals}">

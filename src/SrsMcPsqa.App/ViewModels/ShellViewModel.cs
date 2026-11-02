@@ -13,10 +13,13 @@ namespace SrsMcPsqa.App.ViewModels
     /// <summary>Base for the screens shown in the left navigation.</summary>
     public abstract partial class PageViewModel : ObservableObject
     {
-        protected PageViewModel(ShellViewModel shell, string title, SymbolRegular symbol)
+        protected PageViewModel(ShellViewModel shell, string title, SymbolRegular symbol, int step = 0)
         {
-            Shell = shell; Title = title; Symbol = symbol;
+            Shell = shell; Title = title; Symbol = symbol; Step = step;
         }
+
+        /// <summary>Workflow step number (1-4); 0 for Settings.</summary>
+        public int Step { get; }
 
         public ShellViewModel Shell { get; }
         public PlanningSession Session => Shell.Session;
@@ -24,6 +27,9 @@ namespace SrsMcPsqa.App.ViewModels
         public SymbolRegular Symbol { get; }
 
         [ObservableProperty] private bool _isAvailable = true;
+
+        /// <summary>Step completed (shown as a tick in the navigation).</summary>
+        [ObservableProperty] private bool _isDone;
 
         public virtual void OnNavigatedTo() { }
     }
@@ -110,11 +116,14 @@ namespace SrsMcPsqa.App.ViewModels
             Planning = new PlanningViewModel(this);
             Review = new ReviewViewModel(this);
             Settings = new SettingsViewModel(this);
-            Pages = new ObservableCollection<PageViewModel> { PatientPlan, Ptvs, Planning, Review, Settings };
+            Steps = new ObservableCollection<PageViewModel> { PatientPlan, Ptvs, Planning, Review };
+            Utilities = new ObservableCollection<PageViewModel> { Settings };
             _selectedPage = PatientPlan;
+            _selectedStep = PatientPlan;
             UpdateAvailability();
             Session.PropertyChanged += (_, __) => UpdateAvailability();
             Session.QaPlans.CollectionChanged += (_, __) => UpdateAvailability();
+            Planning.Planes.CollectionChanged += (_, __) => UpdateAvailability();
         }
 
         public PlanningSession Session { get; }
@@ -126,9 +135,29 @@ namespace SrsMcPsqa.App.ViewModels
         public PlanningViewModel Planning { get; }
         public ReviewViewModel Review { get; }
         public SettingsViewModel Settings { get; }
-        public ObservableCollection<PageViewModel> Pages { get; }
+        /// <summary>The numbered workflow steps (left navigation).</summary>
+        public ObservableCollection<PageViewModel> Steps { get; }
+
+        /// <summary>Pages outside the workflow (Settings), shown at the bottom of the navigation.</summary>
+        public ObservableCollection<PageViewModel> Utilities { get; }
 
         [ObservableProperty] private PageViewModel _selectedPage;
+        [ObservableProperty] private PageViewModel? _selectedStep;
+        [ObservableProperty] private PageViewModel? _selectedUtility;
+
+        partial void OnSelectedStepChanged(PageViewModel? value)
+        {
+            if (value == null) return;
+            SelectedUtility = null;
+            SelectedPage = value;
+        }
+
+        partial void OnSelectedUtilityChanged(PageViewModel? value)
+        {
+            if (value == null) return;
+            SelectedStep = null;
+            SelectedPage = value;
+        }
 
         public string WindowTitle => "SRS MapCHECK PSQA Plan Creator" + (IsFake ? " · DEMO DATA" : "");
 
@@ -137,7 +166,7 @@ namespace SrsMcPsqa.App.ViewModels
         public void Navigate(PageViewModel page)
         {
             page.IsAvailable = true;
-            SelectedPage = page;
+            if (Steps.Contains(page)) SelectedStep = page; else SelectedUtility = page;
         }
 
         private void UpdateAvailability()
@@ -146,6 +175,9 @@ namespace SrsMcPsqa.App.ViewModels
             Ptvs.IsAvailable = plan;
             Planning.IsAvailable = plan;
             Review.IsAvailable = Session.QaPlans.Count > 0;
+            PatientPlan.IsDone = plan;
+            Ptvs.IsDone = plan && Planning.Planes.Count > 0;
+            Planning.IsDone = Session.QaPlans.Count > 0;
         }
 
         /// <summary>

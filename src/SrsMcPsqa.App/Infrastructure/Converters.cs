@@ -113,3 +113,16 @@ namespace SrsMcPsqa.App.Infrastructure
             throw new System.NotSupportedException();
     }
 }
+
+namespace SrsMcPsqa.App.Infrastructure
+{
+    /// <summary>true → Primary button appearance (highlight the action to take), false → Secondary.</summary>
+    public sealed class PrimaryIfTrueConverter : System.Windows.Data.IValueConverter
+    {
+        public object Convert(object value, System.Type targetType, object parameter, System.Globalization.CultureInfo culture) =>
+            value is bool b && b ? Wpf.Ui.Controls.ControlAppearance.Primary : Wpf.Ui.Controls.ControlAppearance.Secondary;
+
+        public object ConvertBack(object value, System.Type targetType, object parameter, System.Globalization.CultureInfo culture) =>
+            throw new System.NotSupportedException();
+    }
+}

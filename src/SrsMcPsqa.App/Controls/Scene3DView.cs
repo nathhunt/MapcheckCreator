@@ -19,7 +19,11 @@ namespace SrsMcPsqa.App.Controls
         public bool ShowDiodes { get; set; }
     }
 
-    /// <summary>HelixToolkit 3D overview in patient coordinates (mm), viewed from anterior with superior up. Pure rendering.</summary>
+    /// <summary>
+    /// 3D overview in patient coordinates, labelled with patient directions (L/R, A/P, S/I) instead of x/y/z.
+    /// View buttons: Anterior, Left, Superior, Fit. Pure rendering.
+    /// DICOM HFS: +X = Left, +Y = Posterior, +Z = Superior.
+    /// </summary>
     public sealed class Scene3DView : UserControl
     {
         public static readonly DependencyProperty SceneProperty = DependencyProperty.Register(nameof(Scene), typeof(Scene3D), typeof(Scene3DView),
@@ -29,21 +33,55 @@ namespace SrsMcPsqa.App.Controls
 
         private readonly HelixViewport3D _viewport;
         private readonly ModelVisual3D _content = new ModelVisual3D();
+        private Point3D _centre;
+        private double _distance = 350;
         private bool _cameraSet;
 
         public Scene3DView()
         {
             _viewport = new HelixViewport3D
             {
-                ShowCoordinateSystem = true,
-                ShowViewCube = true,
+                ShowCoordinateSystem = false,
+                ShowViewCube = false,
                 ZoomExtentsWhenLoaded = false,
                 Background = new SolidColorBrush(Color.FromRgb(0x14, 0x16, 0x1A)),
                 IsHeadLightEnabled = true,
             };
             _viewport.Children.Add(new DefaultLights());
             _viewport.Children.Add(_content);
-            Content = _viewport;
+
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(8) };
+            buttons.Children.Add(ViewButton("Anterior", () => SetView(new Vector3D(0, 1, 0), new Vector3D(0, 0, 1))));
+            buttons.Children.Add(ViewButton("Left", () => SetView(new Vector3D(-1, 0, 0), new Vector3D(0, 0, 1))));
+            buttons.Children.Add(ViewButton("Superior", () => SetView(new Vector3D(0, 0, -1), new Vector3D(0, -1, 0))));
+            buttons.Children.Add(ViewButton("Fit", () => _viewport.ZoomExtents(300)));
+
+            var hint = new TextBlock
+            {
+                Text = "Drag to rotate · right-drag to pan · wheel to zoom",
+                Foreground = new SolidColorBrush(Color.FromRgb(0xA0, 0xA0, 0xA0)), FontSize = 11,
+                Margin = new Thickness(10), VerticalAlignment = VerticalAlignment.Bottom, HorizontalAlignment = HorizontalAlignment.Left,
+            };
+
+            var grid = new Grid();
+            grid.Children.Add(_viewport);
+            grid.Children.Add(buttons);
+            grid.Children.Add(hint);
+            Content = grid;
+        }
+
+        private static Button ViewButton(string text, Action action)
+        {
+            var b = new Wpf.Ui.Controls.Button { Content = text, Margin = new Thickness(4, 0, 0, 0), Padding = new Thickness(10, 4, 10, 4), FontSize = 12 };
+            b.Click += (_, __) => action();
+            return b;
+        }
+
+        /// <summary>Look along <paramref name="look"/> at the scene centre with <paramref name="up"/> up.</summary>
+        private void SetView(Vector3D look, Vector3D up)
+        {
+            look.Normalize();
+            _viewport.Camera = new PerspectiveCamera(_centre - look * _distance, look * _distance, up, 45);
         }
 
         private void Rebuild()
@@ -57,7 +95,8 @@ namespace SrsMcPsqa.App.Controls
                 var g = new MeshGeometry3D();
                 foreach (var p in mesh.Positions) g.Positions.Add(new Point3D(p.X, p.Y, p.Z));
                 foreach (var i in mesh.TriangleIndices) g.TriangleIndices.Add(i);
-                var mat = MaterialHelper.CreateMaterial(colour);
+                // Slightly see-through so nested PTVs stay visible.
+                var mat = new DiffuseMaterial(new SolidColorBrush(Color.FromArgb(190, colour.R, colour.G, colour.B)));
                 _content.Children.Add(new ModelVisual3D { Content = new GeometryModel3D(g, mat) { BackMaterial = mat } });
             }
 
@@ -81,14 +120,39 @@ namespace SrsMcPsqa.App.Controls
                 }
             }
 
-            if (!_cameraSet && (s.Meshes.Count > 0 || s.Planes.Count > 0))
+            var all = s.Meshes.SelectMany(m => m.Mesh.Positions).Concat(s.Planes.Select(p => p.Centre)).ToList();
+            if (all.Count == 0) return;
+            var min = new Vec3(all.Min(p => p.X), all.Min(p => p.Y), all.Min(p => p.Z));
+            var max = new Vec3(all.Max(p => p.X), all.Max(p => p.Y), all.Max(p => p.Z));
+            if (s.Planes.Count > 0)
             {
-                var all = s.Meshes.SelectMany(m => m.Mesh.Positions).Concat(s.Planes.Select(p => p.Centre)).ToList();
-                var centre = new Point3D(all.Average(p => p.X), all.Average(p => p.Y), all.Average(p => p.Z));
-                // Anterior view: look along +Y (posterior) with +Z (superior) up, so patient left (+X) is on the right.
-                _viewport.Camera = new PerspectiveCamera(centre + new Vector3D(0, -350, 0), new Vector3D(0, 350, 0), new Vector3D(0, 0, 1), 45);
+                double h = DiodeArray.HalfExtent;
+                min = min - new Vec3(h, h, h); max = max + new Vec3(h, h, h);
+            }
+            _centre = new Point3D((min.X + max.X) / 2, (min.Y + max.Y) / 2, (min.Z + max.Z) / 2);
+            double r = Math.Max(max.X - min.X, Math.Max(max.Y - min.Y, max.Z - min.Z)) / 2 + 15;
+            _distance = Math.Max(150, r * 3.2);
+
+            // Patient-direction labels on each side of the scene.
+            AddLabel("L", _centre + new Vector3D(r, 0, 0));
+            AddLabel("R", _centre + new Vector3D(-r, 0, 0));
+            AddLabel("P", _centre + new Vector3D(0, r, 0));
+            AddLabel("A", _centre + new Vector3D(0, -r, 0));
+            AddLabel("S", _centre + new Vector3D(0, 0, r));
+            AddLabel("I", _centre + new Vector3D(0, 0, -r));
+
+            if (!_cameraSet)
+            {
+                SetView(new Vector3D(0, 1, 0), new Vector3D(0, 0, 1)); // anterior view: patient left on screen right
                 _cameraSet = true;
             }
         }
+
+        private void AddLabel(string text, Point3D at) =>
+            _content.Children.Add(new BillboardTextVisual3D
+            {
+                Text = text, Position = at, FontSize = 18, FontWeight = FontWeights.Bold,
+                Foreground = new SolidColorBrush(Color.FromRgb(0xE6, 0xE6, 0xE6)), Background = Brushes.Transparent,
+            });
     }
 }

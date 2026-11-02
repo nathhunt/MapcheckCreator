@@ -13,9 +13,13 @@ namespace SrsMcPsqa.App.ViewModels
     /// <summary>Screen 2: choose PTVs and check/edit each PTV's prescription.</summary>
     public sealed partial class PtvsViewModel : PageViewModel
     {
-        public PtvsViewModel(ShellViewModel shell) : base(shell, "PTVs", SymbolRegular.TargetArrow24)
+        public PtvsViewModel(ShellViewModel shell) : base(shell, "PTVs", SymbolRegular.TargetArrow24, 2)
         {
-            Session.PlanLoaded += async (_, __) => await ComputeCrossSectionsAsync();
+            Session.PlanLoaded += async (_, __) =>
+            {
+                foreach (var r in Rows) r.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(PtvRowViewModel.Include)) UpdateSummary(); };
+                await ComputeCrossSectionsAsync();
+            };
         }
 
         public ObservableCollection<PtvRowViewModel> Rows => Session.Ptvs;
@@ -25,7 +29,7 @@ namespace SrsMcPsqa.App.ViewModels
         public override void OnNavigatedTo() => UpdateSummary();
 
         private void UpdateSummary() =>
-            Summary = $"{Rows.Count(r => r.Include)} of {Rows.Count} PTVs selected. Prescriptions are read from the PTV ID; edit any value that is wrong.";
+            Summary = $"{Rows.Count(r => r.Include)} of {Rows.Count} PTVs selected.";
 
         /// <summary>Max cross-section per orientation (independent of Rx), computed in the background.</summary>
         private async Task ComputeCrossSectionsAsync()

@@ -11,7 +11,7 @@ namespace SrsMcPsqa.App.ViewModels
     /// <summary>Screen 1: open the patient, choose the clinical plan and the QA course.</summary>
     public sealed partial class PatientPlanViewModel : PageViewModel
     {
-        public PatientPlanViewModel(ShellViewModel shell) : base(shell, "Patient & plan", SymbolRegular.Person24)
+        public PatientPlanViewModel(ShellViewModel shell) : base(shell, "Patient & plan", SymbolRegular.Person24, 1)
         {
             _patientId = shell.Session.Launch.PatientId;
             if (string.IsNullOrEmpty(_patientId) && shell.IsFake) _patientId = "FAKE001";
@@ -62,9 +62,11 @@ namespace SrsMcPsqa.App.ViewModels
                 Session.Patient = patient;
                 PatientText = $"{patient.Id} · {patient.DisplayName}";
                 if (!patient.CanModify)
-                    ModifyError = (patient.ModifyError ?? "The patient can't be modified.") +
-                                  "\n\nYou can still load the plan and plan the arrays. Creating QA plans needs Eclipse to allow changes: " +
-                                  "the app must be approved in Script Approvals, and the patient may need closing in Eclipse. Then click Retry.";
+                {
+                    ModifyError = "Eclipse doesn't allow this app to change the patient: the app isn't approved yet, or the patient is " +
+                                  "locked (close it in Eclipse, then Retry). You can still plan; creating QA plans stays disabled.";
+                    Infrastructure.Log.Info("Read-only: " + patient.ModifyError);
+                }
                 FillCourses(patient);
             });
         }

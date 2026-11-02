@@ -66,10 +66,13 @@ namespace SrsMcPsqa.App.ViewModels
     /// </summary>
     public sealed partial class PlanningSession : ObservableObject
     {
-        public PlanningSession(IPlanningService service, AppSettings settings, LaunchOptions launch, IDialogService dialogs)
+        public PlanningSession(IPlanningService service, AppSettings settings, LaunchOptions launch, IDialogService dialogs, bool isDemo)
         {
-            Service = service; Settings = settings; Launch = launch; Dialogs = dialogs;
+            Service = service; Settings = settings; Launch = launch; Dialogs = dialogs; IsDemo = isDemo;
         }
+
+        /// <summary>Synthetic demo data (no template phantom needed).</summary>
+        public bool IsDemo { get; }
 
         public IPlanningService Service { get; }
         public LaunchOptions Launch { get; }
@@ -88,6 +91,32 @@ namespace SrsMcPsqa.App.ViewModels
         public event EventHandler? PlanLoaded;
 
         public bool HasPlan => ClinicalPlan != null;
+
+        /// <summary>Why QA plans can't be created right now, in plain words; null when they can.</summary>
+        public string? CreateBlockedReason
+        {
+            get
+            {
+                if (!Service.SupportsWriting) return "This version reads plans only. Creating QA plans in Eclipse comes in the next version.";
+                if (Patient == null) return "Open a patient first (step 1).";
+                if (!Patient.CanModify) return "Eclipse doesn't allow changes to this patient yet (the app isn't approved, or the patient is locked). You can still plan.";
+                if (QaCourse == null) return "Choose a QA course in step 1.";
+                if (!IsDemo && !Settings.HasTemplate) return "Set the template phantom in Settings.";
+                return null;
+            }
+        }
+
+        public bool CanCreatePlans => CreateBlockedReason == null;
+
+        partial void OnPatientChanged(PatientSummary? value) => NotifyCreateState();
+        partial void OnQaCourseChanged(CourseSummary? value) => NotifyCreateState();
+        partial void OnSettingsChanged(AppSettings value) => NotifyCreateState();
+
+        private void NotifyCreateState()
+        {
+            OnPropertyChanged(nameof(CreateBlockedReason));
+            OnPropertyChanged(nameof(CanCreatePlans));
+        }
 
         public void SetClinicalPlan(ClinicalPlanData plan)
         {

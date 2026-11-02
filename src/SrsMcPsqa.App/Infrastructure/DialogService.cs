@@ -11,6 +11,9 @@ namespace SrsMcPsqa.App.Infrastructure
         void ShowError(string title, string message, Exception? exception = null);
         void ShowInfo(string title, string message);
         bool Confirm(string title, string message, string confirmText = "OK", bool danger = false);
+
+        /// <summary>"Change plans" dialog for the planning screen; true = re-optimise.</summary>
+        bool ShowChangePlans(object planningViewModel);
     }
 
     public sealed class DialogService : IDialogService
@@ -36,6 +39,9 @@ namespace SrsMcPsqa.App.Infrastructure
 
         public void ShowInfo(string title, string message) =>
             new MessageDialog(title, message, null, MessageDialogKind.Info, "OK", null) { Owner = Owner }.ShowDialog();
+
+        public bool ShowChangePlans(object planningViewModel) =>
+            new ChangePlansDialog { DataContext = planningViewModel, Owner = Owner }.ShowDialog() == true;
 
         public bool Confirm(string title, string message, string confirmText = "OK", bool danger = false)
         {

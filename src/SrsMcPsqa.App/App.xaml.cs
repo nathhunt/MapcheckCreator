@@ -43,7 +43,7 @@ namespace SrsMcPsqa.App
             _service = service;
             Log.Info(fake ? "Using demo data (--fake)." : "Using Eclipse (ESAPI).");
 
-            var session = new PlanningSession(service, settings, launch, dialogs);
+            var session = new PlanningSession(service, settings, launch, dialogs, fake);
             var shell = new ShellViewModel(session, fake);
             var window = new MainWindow { DataContext = shell };
             MainWindow = window;

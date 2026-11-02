@@ -196,7 +196,7 @@ namespace SrsMcPsqa.App.ViewModels
     /// <summary>Screen 5: calculated QA plans, fine-tuning, deletion.</summary>
     public sealed partial class ReviewViewModel : PageViewModel
     {
-        public ReviewViewModel(ShellViewModel shell) : base(shell, "Review & fine-tune", SymbolRegular.CheckmarkCircle24) { }
+        public ReviewViewModel(ShellViewModel shell) : base(shell, "Review & fine-tune", SymbolRegular.CheckmarkCircle24, 4) { }
 
         public ObservableCollection<QaPlanViewModel> QaPlans => Session.QaPlans;
         public ObservableCollection<FineTuneRowViewModel> Proposals { get; } = new ObservableCollection<FineTuneRowViewModel>();
