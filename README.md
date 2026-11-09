@@ -10,7 +10,7 @@ Creates patient-specific QA plans for single-isocentre SRS plans, measured with 
 | 1 | Core: geometry, detector model, scoring, optimisation (+ unit tests) | **Done**: 84 tests passing |
 | 2 | App shell on fake data | **Done**: full UI flow on demo data ([try it](docs/PHASE2_UI_CHECKLIST.md)) |
 | 3 | ESAPI read path | **Done**: tested on Citrix (dose and PTVs match Eclipse) |
-| 4 | ESAPI write path | **Done, to test on Citrix** ([checklist](docs/PHASE4_CHECKLIST.md)) |
+| 4 | ESAPI write path | **Done, tested on Citrix** 2026-11-10 ([checklist](docs/PHASE4_CHECKLIST.md)): 3 plans created, calculated (MUs exact), fine-tuned and deleted |
 | 5 | Hardening, deployment docs | not started |
 
 ## Repository layout (so far)
@@ -89,20 +89,20 @@ Status after the first Citrix run (ESAPI 18.1.0.472, API assembly 1.0.700.247). 
 |---|---|---|
 | V1 | Default `EsapiPath` for v18 | ESAPI DLLs are in the GAC on the Citrix server; set `EsapiPath.user.props` on the dev PC. |
 | V2 | `CopyImageFromOtherPatient` | ✓ tested: ~18 s, new study, user origin kept, BODY with HU 250 comes across. Returns `StructureSet`; there's also an overload taking a target `Study`, and `CanCopyImageFromOtherPatient(...)`. **Whether structures come across is still untested (needs approval).** Template `SRSMC_0_AXB` has one structure, BODY with assigned HU 250. |
-| V3 | `BeginModifications` | ✓ works once approved (2026-11-09). With the patient open in Eclipse: to confirm. |
+| V3 | `BeginModifications` | ✓ works once approved (2026-11-09), also with the patient open in Eclipse. |
 | V4 | `AddExternalPlanSetupAsVerificationPlan` | ✓ creates an empty plan (no beams), links `VerifiedPlan`, **inherits the calculation model** (AcurosXB_1612); ~2 s. |
 | V5 | `PlanSetup.Comment` writable | ✓ `{ get; set; }` |
 | V6 | `ExternalBeamMachineParameters` | ✓ ctor (machine, energy, doseRate, technique, fluence) plus a settable `MLCId`. |
 | V7 | `Add*Beam`, control-point editing | ✓ `AddVMATBeam` + per-control-point jaws/leaves reproduce a 180-CP SRS ARC (6X-FFF, 1400 MU/min, MLC 1934) with identical meterset weights; beam ID settable. |
-| V8 | Calculation model / options | `GetCalculationModel(PhotonVolumeDose)` returns **empty** for the clinical plans; use `PhotonCalculationModel`, else keep the model the verification plan inherits. **Open:** dose calculation on the phantom failed: "material assigned to structure BODY has not been defined in the physical material table selected for the structure set" (see Phase 4 notes). |
-| V9 | `CalculateDoseWithPresetValues` | **Preset MUs are ignored** on v18 verification plans: MU = weight × dose/fraction × MU/Gy, with MU/Gy = 100 (no reference point). ✓ Verified workaround: beam weights = clinical MU ÷ (dose/fraction × 100). Four arcs gave exactly the clinical MUs, on creation and after an isocentre move. The app checks every beam after each calculation. Calculation ~10 min per 4-arc plan (AcurosXB, 1 mm, whole phantom). Exists; `CalculationResult` has **only `Success`**, with no messages, so the app reports beam calculation logs (`Beam.CalculationLogs`) instead. |
+| V8 | Calculation model / options | `GetCalculationModel(PhotonVolumeDose)` returns **empty** for the clinical plans; use `PhotonCalculationModel`, else keep the model the verification plan inherits. The earlier material-table error was a test-data issue, fixed in Eclipse; calculations now succeed. |
+| V9 | `CalculateDoseWithPresetValues` | **Preset MUs are ignored** on v18 verification plans: MU = weight × dose/fraction × MU/Gy, with MU/Gy = 100 (no reference point). ✓ Verified workaround: beam weights = clinical MU ÷ (dose/fraction × 100). Four arcs gave exactly the clinical MUs, on creation and after an isocentre move. The app checks every beam after each calculation. Calculation ~10 min per 4-arc plan (AcurosXB, 1 mm, whole phantom). Exists; `CalculationResult` has **only `Success`**; progress (`Progress N%`, one 0–100 count per plan, ~25 % per beam) and the warnings/errors summary come from Eclipse's .NET trace output (`EclipseTraceListener`). |
 | V10 | `BeamParameters.Isocenter` setter | ✓ moving the isocentre via `GetEditableParameters`/`ApplyParameters` works (tested). |
 | V11 | `Course.RemovePlanSetup` | ✓ tested, plus `CanRemovePlanSetup`. Don't touch the plan object after removal. |
 | V12 | Dose units | ✓ `DoseValuePresentation = Absolute` works even without BeginModifications. Previously: Test plan is `DoseValuePresentation=Relative`, so `VoxelToDoseValue` returns %. Must switch to Absolute (the spike now tests whether that works read-only). `GetVoxels` takes ~190 ms per plane at 468×241, so extraction must read only the z-planes around the PTVs. |
 | V13 | `TotalDose`, `RTPrescription` | ✓ `TotalDose` (30 Gy); `RTPrescription` null for the test plan. |
 | V14 | Launcher | ✓ Passes patient, course and plan to the exe. `Assembly.Location` is **empty** for a single-file plugin, so the config file next to the script can't work; use the constant path or the environment variable. |
 | V15 | ESAPI on a dedicated STA thread | ✓ `CreateApplication` in 1.7 s, calls fine. |
-| V16 | WPF-UI on Citrix | Renders (to be confirmed visually). |
+| V16 | WPF-UI on Citrix | ✓ renders. |
 
 ## Phase 1 design notes and decisions to review
 
