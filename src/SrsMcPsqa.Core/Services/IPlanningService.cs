@@ -129,15 +129,16 @@ namespace SrsMcPsqa.Core.Services
         Task<ClinicalPlanData> LoadClinicalPlanAsync(string courseId, string planId, IProgress<string>? progress = null, CancellationToken ct = default);
 
         Task<IReadOnlyList<PhantomImageInfo>> EnsurePhantomImagesAsync(TemplatePhantomSettings settings, IReadOnlyCollection<ArrayOrientation> orientations,
-            IProgress<string>? progress = null, CancellationToken ct = default);
+            IProgress<string>? progress = null, CancellationToken ct = default, IProgress<QaProgressEvent>? steps = null);
 
         /// <summary>Opens the template patient read-only and checks the configured study/image IDs exist.</summary>
         Task<IReadOnlyList<ValidationMessage>> ValidateTemplateAsync(TemplatePhantomSettings settings, CancellationToken ct = default);
 
-        Task<QaPlanResult> CreateQaPlanAsync(QaPlanRequest request, IProgress<string>? progress = null, CancellationToken ct = default);
+        Task<QaPlanResult> CreateQaPlanAsync(QaPlanRequest request, IProgress<string>? progress = null, CancellationToken ct = default,
+            IProgress<QaProgressEvent>? steps = null);
 
         Task<QaPlanResult> MoveIsocentreAsync(string courseId, string planId, Vec3 newIsocentre, Box3 doseRegion,
-            IProgress<string>? progress = null, CancellationToken ct = default);
+            IProgress<string>? progress = null, CancellationToken ct = default, IProgress<QaProgressEvent>? steps = null);
 
         /// <summary>Lists plans in the course that carry the app's tag.</summary>
         Task<IReadOnlyList<PlanSummary>> ListQaPlansAsync(string courseId, CancellationToken ct = default);

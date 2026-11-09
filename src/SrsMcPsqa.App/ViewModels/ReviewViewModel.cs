@@ -240,21 +240,24 @@ namespace SrsMcPsqa.App.ViewModels
 
             await Shell.RunAsync($"Moving isocentre and recalculating {moves.Count} plan(s)", async (pr, ct) =>
             {
+                pr.ExpectPlans(moves.Select(m => (m.Item1.Plan.PlanId, "move isocentre and recalculate")));
                 foreach (var (row, iso) in moves)
                 {
                     ct.ThrowIfCancellationRequested();
                     var plan = row.Plan;
-                    var step = pr.BeginStep($"{plan.PlanId}: move isocentre, recalculate");
+                    pr.AddLog($"{plan.PlanId}: move isocentre, recalculate");
                     var region = QaPlanRequests.DoseRegion(plan.Orientation, plan.Phantom.UserOrigin);
-                    var result = await Session.Service.MoveIsocentreAsync(plan.CourseId, plan.PlanId, iso, region, pr.Reporter, ct);
-                    step.State = result.CalculationSucceeded ? "Done" : "Failed";
+                    QaPlanResult result;
+                    try { result = await Session.Service.MoveIsocentreAsync(plan.CourseId, plan.PlanId, iso, region, pr.Reporter, ct, pr.Events); }
+                    catch { pr.CompletePlan(plan.PlanId, success: false); throw; }
+                    pr.CompletePlan(plan.PlanId, result.CalculationSucceeded);
                     if (!result.CalculationSucceeded) pr.HasErrors = true;
                     plan.Result = result;
                     plan.Iterations++;
                     await plan.RefreshAsync();
                     Proposals.Remove(row);
                 }
-            });
+            }, keepOpenOnSuccess: true);
             OnPropertyChanged(nameof(HasProposals));
             ProposalStatus = Proposals.Count == 0 ? "Applied. Click Optimise further to check again." : ProposalStatus;
         }

@@ -11,6 +11,7 @@ using SrsMcPsqa.App.Rendering;
 using SrsMcPsqa.Core.Geometry;
 using SrsMcPsqa.Core.Models;
 using SrsMcPsqa.Core.Optimisation;
+using SrsMcPsqa.Core.Services;
 using Wpf.Ui.Controls;
 
 namespace SrsMcPsqa.App.ViewModels
@@ -399,32 +400,41 @@ namespace SrsMcPsqa.App.ViewModels
             var rows = _rows;
             bool ok = await Shell.RunAsync($"Creating {planes.Count} QA plan(s)", async (pr, ct) =>
             {
-                var orientations = planes.Select(p => p.Orientation).Distinct().ToList();
-                var step = pr.BeginStep("Checking phantom images...");
-                var phantoms = await Session.Service.EnsurePhantomImagesAsync(settings.ToTemplate(), orientations, pr.Reporter, ct);
-                foreach (var ph in phantoms) Session.Phantoms[ph.Orientation] = ph;
-                step.State = "Done";
-
+                // Name the plans first so the panel can list them ("Plan k of N") before anything is written.
                 var existing = (await Session.Service.ListQaPlansAsync(course.Id, ct)).Select(x => x.PlanId)
                     .Concat(course.Plans.Select(x => x.PlanId)).Concat(Session.QaPlans.Select(q => q.PlanId)).ToList();
+                var named = new List<(PlanePlanViewModel Plane, string Id)>();
                 int n = 1;
                 foreach (var p in planes)
                 {
-                    ct.ThrowIfCancellationRequested();
                     var id = QaPlanNaming.Generate(settings.PlanNamingPattern, n++, p.Orientation, existing);
                     existing.Add(id);
+                    named.Add((p, id));
+                }
+                pr.ExpectPlans(named.Select(x => (x.Id, $"{x.Plane.OrientationText}, {x.Plane.AssignedIndices.Count} PTV{(x.Plane.AssignedIndices.Count == 1 ? "" : "s")}")));
+
+                var orientations = planes.Select(p => p.Orientation).Distinct().ToList();
+                pr.AddLog("Checking phantom images...");
+                var phantoms = await Session.Service.EnsurePhantomImagesAsync(settings.ToTemplate(), orientations, pr.Reporter, ct, pr.Events);
+                foreach (var ph in phantoms) Session.Phantoms[ph.Orientation] = ph;
+
+                foreach (var (p, id) in named)
+                {
+                    ct.ThrowIfCancellationRequested();
                     var assigned = p.AssignedIndices.Select(k => rows[k]).ToList();
                     var req = QaPlanRequests.Create(p.Evaluation.Plane, plan.Isocentre, Session.Phantoms[p.Orientation], course.Id, id, assigned.Select(r => r.Id));
-                    var s = pr.BeginStep($"{id}: create, copy beams, calculate");
-                    var result = await Session.Service.CreateQaPlanAsync(req, pr.Reporter, ct);
-                    s.State = result.CalculationSucceeded ? "Done" : "Failed";
+                    pr.AddLog($"{id}: create, copy beams, calculate");
+                    QaPlanResult result;
+                    try { result = await Session.Service.CreateQaPlanAsync(req, pr.Reporter, ct, pr.Events); }
+                    catch { pr.CompletePlan(id, success: false); throw; }
+                    pr.CompletePlan(id, result.CalculationSucceeded);
                     if (!result.CalculationSucceeded) pr.HasErrors = true;
                     foreach (var m in result.Messages) pr.AddLog($"{id}: {m}");
                     var qa = new QaPlanViewModel(Session, result, Session.Phantoms[p.Orientation], assigned, rows, _analysis);
                     Session.QaPlans.Add(qa);
                     await qa.RefreshAsync();
                 }
-            }, keepOpenOnSuccess: false);
+            }, keepOpenOnSuccess: true);
             if (Session.QaPlans.Count > 0) Shell.Navigate(Shell.Review);
             if (!ok) Log("Some QA plans were not created; see the progress log.");
         }

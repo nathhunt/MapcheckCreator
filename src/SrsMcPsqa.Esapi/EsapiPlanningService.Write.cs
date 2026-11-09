@@ -94,7 +94,7 @@ namespace SrsMcPsqa.Esapi
 
         // ------------------------------------------------------------------ phantom images
         public Task<IReadOnlyList<PhantomImageInfo>> EnsurePhantomImagesAsync(TemplatePhantomSettings settings, IReadOnlyCollection<ArrayOrientation> orientations,
-            IProgress<string>? progress = null, CancellationToken ct = default) =>
+            IProgress<string>? progress = null, CancellationToken ct = default, IProgress<QaProgressEvent>? steps = null) =>
             _worker.RunAsync<IReadOnlyList<PhantomImageInfo>>("prepare the phantom images", app =>
             {
                 RequireModifiable();
@@ -108,6 +108,7 @@ namespace SrsMcPsqa.Esapi
                     if (existing != null)
                     {
                         progress?.Report($"Phantom image '{existing.Image.Id}' is already in the patient; reusing it.");
+                        steps?.Report(new QaProgressEvent { PlanId = QaSteps.PhantomImages, Step = $"Reuse {existing.Image.Id}", State = QaStepState.Done, Detail = "already in the patient" });
                         result.Add(Info(o, existing, copied: false));
                     }
                     else toCopy.Add(o);
@@ -115,20 +116,24 @@ namespace SrsMcPsqa.Esapi
                 if (toCopy.Count == 0) return result;
 
                 // Studies left empty in Settings are looked up in the template patient (one patient open at a time).
-                var studies = ResolveTemplateStudies(app, settings, toCopy, progress);
+                var studies = QaSteps.Run(steps, QaSteps.PhantomImages, "Find template studies", () => ResolveTemplateStudies(app, settings, toCopy, progress));
                 foreach (var o in toCopy)
                 {
                     ct.ThrowIfCancellationRequested();
                     string imageId = settings.ImageId(o);
                     progress?.Report($"Copying phantom image '{imageId}' from '{settings.PatientId}' (study '{studies[o]}')...");
                     var sw = Stopwatch.StartNew();
-                    var ss = RequirePatient().CopyImageFromOtherPatient(settings.PatientId, studies[o], imageId)
-                             ?? throw new InvalidOperationException($"Copying image '{imageId}' returned no structure set.");
-                    if (!HasBody(ss))
-                        throw new InvalidOperationException($"The copied image '{imageId}' has no BODY/EXTERNAL structure, so it can't be calculated. Check the template patient.");
+                    var ss = QaSteps.Run(steps, QaSteps.PhantomImages, $"Copy {imageId}", () =>
+                    {
+                        var copied = RequirePatient().CopyImageFromOtherPatient(settings.PatientId, studies[o], imageId)
+                                     ?? throw new InvalidOperationException($"Copying image '{imageId}' returned no structure set.");
+                        if (!HasBody(copied))
+                            throw new InvalidOperationException($"The copied image '{imageId}' has no BODY/EXTERNAL structure, so it can't be calculated. Check the template patient.");
+                        return copied;
+                    }, _ => $"from {settings.PatientId}, study {studies[o]}");
                     _log($"Copied phantom image '{imageId}' in {sw.Elapsed.TotalSeconds:F1} s (structure set {ss.Id}, UID {ss.UID}).");
                     result.Add(Info(o, ss, copied: true));
-                    SaveIfAuto(app, $"copying '{imageId}'");
+                    QaSteps.Run(steps, QaSteps.PhantomImages, "Save", () => SaveIfAuto(app, $"copying '{imageId}'"));
                 }
                 return result;
             });
@@ -186,7 +191,8 @@ namespace SrsMcPsqa.Esapi
         }
 
         // ------------------------------------------------------------------ create
-        public Task<QaPlanResult> CreateQaPlanAsync(QaPlanRequest request, IProgress<string>? progress = null, CancellationToken ct = default) =>
+        public Task<QaPlanResult> CreateQaPlanAsync(QaPlanRequest request, IProgress<string>? progress = null, CancellationToken ct = default,
+            IProgress<QaProgressEvent>? steps = null) =>
             _worker.RunAsync($"create QA plan '{request.PlanId}'", app =>
             {
                 RequireModifiable();
@@ -200,10 +206,11 @@ namespace SrsMcPsqa.Esapi
                          ?? throw new InvalidOperationException("The phantom structure set was not found in the patient.");
 
                 progress?.Report($"{request.PlanId}: creating the verification plan on '{ss.Image.Id}'...");
-                var qa = course.AddExternalPlanSetupAsVerificationPlan(ss, clinical);
+                var qa = QaSteps.Run(steps, request.PlanId, "Create verification plan", () => course.AddExternalPlanSetupAsVerificationPlan(ss, clinical),
+                    _ => $"on {ss.Image.Id}, verifies {clinical.Id}");
                 try
                 {
-                    return BuildQaPlan(app, clinical, course, qa, request, progress, ct);
+                    return BuildQaPlan(app, clinical, course, qa, request, progress, ct, steps);
                 }
                 catch (Exception ex) when (!(ex is OperationCanceledException))
                 {
@@ -224,24 +231,32 @@ namespace SrsMcPsqa.Esapi
             });
 
         private QaPlanResult BuildQaPlan(EsapiApplication app, ExternalPlanSetup clinical, Course course, ExternalPlanSetup qa, QaPlanRequest request,
-            IProgress<string>? progress, CancellationToken ct)
+            IProgress<string>? progress, CancellationToken ct, IProgress<QaProgressEvent>? steps)
         {
-                qa.Id = request.PlanId;
-                qa.Comment = new QaPlanTag(clinical.UID, request.Orientation, request.AssignedPtvIds).Format();
-
-                // PSQA: one fraction at the clinical dose per fraction (the clinical MUs are per fraction).
-                qa.SetPrescription(1, clinical.DosePerFraction, clinical.TreatmentPercentage);
-                var messages = new List<string> { $"Prescription 1 × {clinical.DosePerFraction}." };
-                messages.AddRange(MatchCalculationModel(clinical, qa));
+                var messages = new List<string>();
+                QaSteps.Run(steps, request.PlanId, "Set ID, prescription and calculation model", () =>
+                {
+                    qa.Id = request.PlanId;
+                    qa.Comment = new QaPlanTag(clinical.UID, request.Orientation, request.AssignedPtvIds).Format();
+                    // PSQA: one fraction at the clinical dose per fraction (the clinical MUs are per fraction).
+                    qa.SetPrescription(1, clinical.DosePerFraction, clinical.TreatmentPercentage);
+                    messages.Add($"Prescription 1 × {clinical.DosePerFraction}.");
+                    messages.AddRange(MatchCalculationModel(clinical, qa));
+                    return qa.GetCalculationModel(CalculationType.PhotonVolumeDose);
+                }, model => $"1 × {clinical.DosePerFraction}, {model}");
 
                 progress?.Report($"{request.PlanId}: copying beams at isocentre {request.Isocentre}...");
                 var iso = new VVector(request.Isocentre.X, request.Isocentre.Y, request.Isocentre.Z);
-                EsapiBeamCopier.CopyAll(clinical, qa, iso, m => { _log(m); progress?.Report($"{request.PlanId}: {m}"); });
-                SaveIfAuto(app, $"creating '{request.PlanId}'");
+                QaSteps.Run(steps, request.PlanId, "Copy beams", () =>
+                {
+                    EsapiBeamCopier.CopyAll(clinical, qa, iso, m => { _log(m); progress?.Report($"{request.PlanId}: {m}"); });
+                    return qa.Beams.Count(b => !b.IsSetupField);
+                }, n => $"{n} beams, clinical order");
+                QaSteps.Run(steps, request.PlanId, "Save", () => SaveIfAuto(app, $"creating '{request.PlanId}'"));
 
-                messages.AddRange(CalculateWithClinicalMus(clinical, qa, request.PlanId, progress, ct));
-                var dose = ExtractQaDose(qa, request.DoseRegion, progress, ct);
-                SaveIfAuto(app, $"calculating '{request.PlanId}'");
+                messages.AddRange(CalculateWithClinicalMus(clinical, qa, request.PlanId, progress, ct, steps));
+                var dose = QaSteps.Run(steps, request.PlanId, "Read calculated dose", () => ExtractQaDose(qa, request.DoseRegion, progress, ct));
+                QaSteps.Run(steps, request.PlanId, "Save", () => SaveIfAuto(app, $"calculating '{request.PlanId}'"));
                 return new QaPlanResult
                 {
                     CourseId = course.Id, PlanId = qa.Id, Orientation = request.Orientation, Isocentre = request.Isocentre,
@@ -285,7 +300,8 @@ namespace SrsMcPsqa.Esapi
         /// Calculate so that every beam gets exactly its clinical MU: weights = clinical MU ÷ (dose/fraction × 100 MU/Gy),
         /// check after calculation, correct once, else fail. (Preset values are passed too, in case a future version honours them.)
         /// </summary>
-        private IEnumerable<string> CalculateWithClinicalMus(ExternalPlanSetup clinical, ExternalPlanSetup qa, string planId, IProgress<string>? progress, CancellationToken ct)
+        private IEnumerable<string> CalculateWithClinicalMus(ExternalPlanSetup clinical, ExternalPlanSetup qa, string planId, IProgress<string>? progress,
+            CancellationToken ct, IProgress<QaProgressEvent>? steps)
         {
             var clinicalMu = clinical.Beams.Where(b => !b.IsSetupField).ToDictionary(b => b.Id, b => b.Meterset);
             var beams = qa.Beams.Where(b => !b.IsSetupField).ToList();
@@ -298,18 +314,47 @@ namespace SrsMcPsqa.Esapi
             foreach (var b in beams) SetWeight(b, clinicalMu[b.Id].Value / (dpf * 100.0));
 
             var notes = new List<string>();
+            string model = qa.GetCalculationModel(CalculationType.PhotonVolumeDose);
+            int controlPoints = beams.Sum(b => b.ControlPoints.Count());
             for (int pass = 1; pass <= 2; pass++)
             {
                 ct.ThrowIfCancellationRequested();
                 progress?.Report($"{planId}: calculating dose with the clinical MUs{(pass == 2 ? " (correction pass)" : "")}; this can take several minutes and can't be interrupted...");
+                string stepName = pass == 1 ? "Calculate dose" : "Recalculate (MU correction)";
+                string calcDetail = $"{model}, {beams.Count} beams, {controlPoints} control points";
+                steps?.Report(new QaProgressEvent
+                {
+                    PlanId = planId, Step = stepName, State = QaStepState.Running, IsCalculation = true,
+                    Model = model, Beams = beams.Count, ControlPoints = controlPoints, Detail = calcDetail,
+                });
                 var sw = Stopwatch.StartNew();
-                var res = qa.CalculateDoseWithPresetValues(presets);
+                CalculationResult res;
+                try { res = qa.CalculateDoseWithPresetValues(presets); }
+                catch (Exception ex)
+                {
+                    steps?.Report(new QaProgressEvent { PlanId = planId, Step = stepName, State = QaStepState.Failed, IsCalculation = true, Duration = sw.Elapsed, Detail = ex.Message });
+                    throw;
+                }
+                steps?.Report(new QaProgressEvent
+                {
+                    PlanId = planId, Step = stepName, State = res.Success ? QaStepState.Done : QaStepState.Failed, IsCalculation = true,
+                    Model = model, Beams = beams.Count, ControlPoints = controlPoints, Duration = sw.Elapsed,
+                    Detail = res.Success ? calcDetail : "Eclipse reported that the calculation failed",
+                });
                 if (!res.Success) throw new InvalidOperationException($"Eclipse reported that the dose calculation of '{planId}' failed.");
-                _log($"{planId}: calculated in {sw.Elapsed.TotalSeconds:F0} s (pass {pass}).");
+                _log($"{planId}: calculated in {sw.Elapsed.TotalSeconds:F0} s (pass {pass}, {model}, {beams.Count} beams, {controlPoints} CPs).");
 
                 var diffs = beams.Select(b => (b.Id, qa: b.Meterset.Value, clin: clinicalMu[b.Id].Value)).ToList();
                 double worst = diffs.Max(d => double.IsNaN(d.qa) ? double.PositiveInfinity : Math.Abs(d.qa - d.clin));
-                if (worst <= MuTolerance)
+                bool ok = worst <= MuTolerance;
+                steps?.Report(new QaProgressEvent
+                {
+                    PlanId = planId, Step = "Check MUs", State = ok || pass == 1 ? QaStepState.Done : QaStepState.Failed,
+                    Detail = ok ? $"equal to the clinical MUs (max difference {worst:0.000} MU)"
+                                : pass == 1 ? $"off by up to {worst:0.000} MU; correcting the weights" : $"still off by up to {worst:0.000} MU",
+                    MuResults = diffs.Select(d => new BeamMuResult(d.Id, d.qa, d.clin, MuTolerance)).ToList(),
+                });
+                if (ok)
                 {
                     notes.Add($"Calculated in {sw.Elapsed.TotalMinutes:0.0} min. MUs equal the clinical MUs (max difference {worst:0.000} MU): " +
                               string.Join(", ", diffs.Select(d => $"{d.Id} {d.qa:0.00}")) + ".");
@@ -342,7 +387,7 @@ namespace SrsMcPsqa.Esapi
 
         // ------------------------------------------------------------------ move isocentre
         public Task<QaPlanResult> MoveIsocentreAsync(string courseId, string planId, Vec3 newIsocentre, Box3 doseRegion,
-            IProgress<string>? progress = null, CancellationToken ct = default) =>
+            IProgress<string>? progress = null, CancellationToken ct = default, IProgress<QaProgressEvent>? steps = null) =>
             _worker.RunAsync($"move the isocentre of '{planId}'", app =>
             {
                 RequireModifiable();
@@ -353,20 +398,23 @@ namespace SrsMcPsqa.Esapi
 
                 progress?.Report($"{planId}: moving the isocentre to {newIsocentre}...");
                 var iso = new VVector(newIsocentre.X, newIsocentre.Y, newIsocentre.Z);
-                foreach (var b in qa.Beams.ToList())
+                QaSteps.Run(steps, planId, "Move isocentre", () =>
                 {
-                    var ep = b.GetEditableParameters();
-                    ep.Isocenter = iso;
-                    b.ApplyParameters(ep);
-                }
-                var moved = qa.Beams.Where(b => !b.IsSetupField).Select(b => b.IsocenterPosition.ToVec3()).ToList();
-                if (moved.Any(m => !m.ApproxEquals(newIsocentre, 0.01)))
-                    throw new InvalidOperationException($"'{planId}': not all beams are at the new isocentre.");
-                SaveIfAuto(app, $"moving the isocentre of '{planId}'");
+                    foreach (var b in qa.Beams.ToList())
+                    {
+                        var ep = b.GetEditableParameters();
+                        ep.Isocenter = iso;
+                        b.ApplyParameters(ep);
+                    }
+                    var moved = qa.Beams.Where(b => !b.IsSetupField).Select(b => b.IsocenterPosition.ToVec3()).ToList();
+                    if (moved.Any(m => !m.ApproxEquals(newIsocentre, 0.01)))
+                        throw new InvalidOperationException($"'{planId}': not all beams are at the new isocentre.");
+                }, $"to {newIsocentre}");
+                QaSteps.Run(steps, planId, "Save", () => SaveIfAuto(app, $"moving the isocentre of '{planId}'"));
 
-                var messages = CalculateWithClinicalMus(clinical, qa, planId, progress, ct).ToList();
-                var dose = ExtractQaDose(qa, doseRegion, progress, ct);
-                SaveIfAuto(app, $"recalculating '{planId}'");
+                var messages = CalculateWithClinicalMus(clinical, qa, planId, progress, ct, steps).ToList();
+                var dose = QaSteps.Run(steps, planId, "Read calculated dose", () => ExtractQaDose(qa, doseRegion, progress, ct));
+                QaSteps.Run(steps, planId, "Save", () => SaveIfAuto(app, $"recalculating '{planId}'"));
                 return new QaPlanResult
                 {
                     CourseId = course.Id, PlanId = qa.Id, Orientation = tag?.Orientation ?? ArrayOrientation.Deg0, Isocentre = newIsocentre,

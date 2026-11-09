@@ -17,6 +17,54 @@ namespace SrsMcPsqa.Core.Tests
         private readonly ITestOutputHelper _out;
         public FakeWorkflowTests(ITestOutputHelper output) { _out = output; }
 
+        /// <summary>Synchronous IProgress so events are recorded in order (Progress&lt;T&gt; posts asynchronously).</summary>
+        private sealed class Recorder : System.IProgress<QaProgressEvent>
+        {
+            public readonly System.Collections.Generic.List<QaProgressEvent> Events = new System.Collections.Generic.List<QaProgressEvent>();
+            public void Report(QaProgressEvent value) { lock (Events) Events.Add(value); }
+        }
+
+        [Fact]
+        public async Task CreateReportsStepsCalculationAndMus()
+        {
+            var svc = new FakePlanningService { DelayScale = 0 };
+            await svc.OpenPatientAsync("FAKE001");
+            var plan = await svc.LoadClinicalPlanAsync("C1", "SRS_5Mets");
+            var rec = new Recorder();
+            var phantoms = await svc.EnsurePhantomImagesAsync(new TemplatePhantomSettings { PatientId = "TPL", Image0Id = "SMC_0", Image270Id = "SMC_270" },
+                new[] { ArrayOrientation.Deg0 }, steps: rec);
+            Assert.Contains(rec.Events, e => e.PlanId == QaSteps.PhantomImages && e.State == QaStepState.Done);
+
+            var plane = new ArrayPlane(ArrayOrientation.Deg0, plan.Isocentre);
+            var req = QaPlanRequests.Create(plane, plan.Isocentre, phantoms[0], "QA", "SMC1_0", new[] { plan.Ptvs[0].Id });
+            rec.Events.Clear();
+            await svc.CreateQaPlanAsync(req, steps: rec);
+
+            var ev = rec.Events;
+            Assert.All(ev, e => Assert.Equal("SMC1_0", e.PlanId));
+            // Every step that starts also ends, in order, and nothing fails.
+            foreach (var started in ev.Where(e => e.State == QaStepState.Running))
+                Assert.Contains(ev.Skip(ev.IndexOf(started) + 1), e => e.Step == started.Step && e.State == QaStepState.Done && e.Duration.HasValue);
+            Assert.DoesNotContain(ev, e => e.State == QaStepState.Failed);
+
+            var calc = ev.Single(e => e.IsCalculation && e.State == QaStepState.Running);
+            Assert.True(calc.ControlPoints > 0 && calc.Beams > 0 && !string.IsNullOrEmpty(calc.Model));
+            Assert.True(ev.IndexOf(calc) > ev.FindIndex(e => e.Step == "Copy beams" && e.State == QaStepState.Done));
+            var mu = ev.Single(e => e.MuResults != null);
+            Assert.Equal(calc.Beams, mu.MuResults!.Count);
+            Assert.All(mu.MuResults, r => Assert.True(r.Matches));
+        }
+
+        [Fact]
+        public void QaStepsRunReportsFailure()
+        {
+            var rec = new Recorder();
+            Assert.Throws<System.InvalidOperationException>(() =>
+                QaSteps.Run<int>(rec, "P", "Boom", () => throw new System.InvalidOperationException("bad")));
+            Assert.Equal(new[] { QaStepState.Running, QaStepState.Failed }, rec.Events.Select(e => e.State));
+            Assert.Equal("bad", rec.Events[1].Detail);
+        }
+
         [Fact]
         public async Task RecommendCreateFineTuneMoveDelete()
         {

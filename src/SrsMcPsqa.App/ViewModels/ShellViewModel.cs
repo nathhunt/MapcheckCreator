@@ -1,11 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System.Windows.Threading;
 using SrsMcPsqa.App.Infrastructure;
+using SrsMcPsqa.Core.Services;
 using Wpf.Ui.Controls;
 
 namespace SrsMcPsqa.App.ViewModels
@@ -43,10 +46,24 @@ namespace SrsMcPsqa.App.ViewModels
         [ObservableProperty] private string _state = "Running";
     }
 
-    /// <summary>Inline progress panel for long operations (copying images, creating plans, calculating).</summary>
+    /// <summary>
+    /// Progress panel for long operations. Generic operations show a step list and log. QA plan operations also show
+    /// one card per plan with its steps and durations, an estimated calculation progress (Eclipse doesn't report
+    /// progress inside a calculation, so the estimate comes from earlier calculations), an overall estimate and the MU check.
+    /// </summary>
     public sealed partial class ProgressViewModel : ObservableObject
     {
         private CancellationTokenSource? _cts;
+        private readonly DispatcherTimer _timer;
+        private DateTime _started;
+        private readonly CalcTimingStore _timings;
+
+        public ProgressViewModel(CalcTimingStore? timings = null)
+        {
+            _timings = timings ?? CalcTimingStore.Shared;
+            _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            _timer.Tick += (_, __) => Tick();
+        }
 
         [ObservableProperty] private bool _isOpen;
         [ObservableProperty] private bool _isRunning;
@@ -55,19 +72,49 @@ namespace SrsMcPsqa.App.ViewModels
         [ObservableProperty] private bool _cancelRequested;
         [ObservableProperty] private bool _hasErrors;
 
+        // Overall (QA plan operations)
+        [ObservableProperty] private string _elapsedText = "";
+        [ObservableProperty] private string _overallText = "";
+        [ObservableProperty] private string _overallRemainingText = "";
+        [ObservableProperty] private double _overallFraction;
+        [ObservableProperty] private bool _overallHasEstimate;
+        [ObservableProperty] private bool _hasPlans;
+        [ObservableProperty] private string _muTitle = "";
+        [ObservableProperty] private bool _muAllMatch;
+        [ObservableProperty] private bool _hasMu;
+
         public ObservableCollection<ProgressStepViewModel> Steps { get; } = new ObservableCollection<ProgressStepViewModel>();
         public ObservableCollection<string> LogLines { get; } = new ObservableCollection<string>();
+        public ObservableCollection<PlanProgressViewModel> Plans { get; } = new ObservableCollection<PlanProgressViewModel>();
+        public ObservableCollection<MuRowViewModel> MuRows { get; } = new ObservableCollection<MuRowViewModel>();
 
         /// <summary>Reports from services, marshalled to the UI thread (Progress&lt;T&gt; captures the UI context).</summary>
         public IProgress<string> Reporter { get; private set; } = new Progress<string>();
 
+        /// <summary>Structured per-plan step reports, marshalled to the UI thread.</summary>
+        public IProgress<QaProgressEvent> Events { get; private set; } = new Progress<QaProgressEvent>();
+
         public CancellationToken Start(string title)
         {
-            Title = title; Steps.Clear(); LogLines.Clear(); CurrentText = ""; HasErrors = false;
+            Title = title; Steps.Clear(); LogLines.Clear(); Plans.Clear(); MuRows.Clear(); CurrentText = ""; HasErrors = false;
+            ElapsedText = ""; OverallText = ""; OverallRemainingText = ""; OverallFraction = 0; OverallHasEstimate = false;
+            HasPlans = false; MuTitle = ""; MuAllMatch = false; HasMu = false;
             CancelRequested = false; IsRunning = true; IsOpen = true;
             Reporter = new Progress<string>(AddLog);
+            Events = new Progress<QaProgressEvent>(OnPlanEvent);
             _cts = new CancellationTokenSource();
+            _started = DateTime.Now;
+            _timer.Start();
             return _cts.Token;
+        }
+
+        /// <summary>Lists the QA plans about to be processed, so the panel can show "Plan k of N" and estimate the total.</summary>
+        public void ExpectPlans(IEnumerable<(string PlanId, string Label)> plans)
+        {
+            int n = 0;
+            foreach (var (id, label) in plans) Plans.Add(new PlanProgressViewModel(id, label, ++n));
+            HasPlans = Plans.Count > 0;
+            UpdateOverall();
         }
 
         public void AddLog(string line)
@@ -85,10 +132,165 @@ namespace SrsMcPsqa.App.ViewModels
             return s;
         }
 
+        public void OnPlanEvent(QaProgressEvent e)
+        {
+            var plan = Plans.FirstOrDefault(p => string.Equals(p.PlanId, e.PlanId, StringComparison.OrdinalIgnoreCase));
+            if (plan == null)
+            {
+                // Not announced (e.g. "Phantom images"): show it before the numbered plans.
+                plan = new PlanProgressViewModel(e.PlanId, "", 0);
+                Plans.Insert(Plans.Count(p => p.Number == 0), plan);
+                HasPlans = true;
+            }
+            if (plan.State == "Pending")
+            {
+                plan.State = "Running"; plan.Started = DateTime.Now; plan.IsExpanded = true;
+                foreach (var other in Plans.Where(p => p != plan && p.State != "Running")) other.IsExpanded = false;
+            }
+
+            var step = plan.Steps.LastOrDefault(s => s.IsRunning && s.Name == e.Step);
+            if (step == null)
+            {
+                step = new PlanStepViewModel(e.Step);
+                plan.Steps.Add(step);
+            }
+            if (e.Detail != null) step.Detail = e.Detail;
+
+            if (e.IsCalculation)
+            {
+                step.IsCalculation = true;
+                if (e.Model != null) step.Model = e.Model;
+                if (e.ControlPoints > 0) step.ControlPoints = e.ControlPoints;
+                if (e.State == QaStepState.Running)
+                {
+                    step.Restart();
+                    step.Estimate = _timings.Estimate(step.Model, step.ControlPoints);
+                    step.HasEstimate = step.Estimate.HasValue;
+                    step.Fraction = 0;
+                }
+            }
+
+            switch (e.State)
+            {
+                case QaStepState.Running:
+                    step.State = "Running";
+                    Log.Info($"{e.PlanId}: {e.Step}...");
+                    step.Tick();
+                    break;
+                case QaStepState.Done:
+                case QaStepState.Failed:
+                    step.State = e.State == QaStepState.Done ? "Done" : "Failed";
+                    step.FinalDuration = e.Duration ?? step.Elapsed;
+                    step.DurationText = step.FinalDuration.Value.TotalSeconds >= 1 || step.IsCalculation ? PlanStepViewModel.Format(step.FinalDuration.Value) : "";
+                    if (step.IsCalculation)
+                    {
+                        step.Fraction = 1;
+                        step.IsOverdue = false;
+                        step.TimingText = "";
+                        if (e.State == QaStepState.Done) _timings.Record(step.Model, step.ControlPoints, step.FinalDuration.Value);
+                    }
+                    if (e.State == QaStepState.Failed) { plan.State = "Failed"; HasErrors = true; }
+                    Log.Info($"{e.PlanId}: {e.Step} {step.State.ToLowerInvariant()} in {step.FinalDuration.Value.TotalSeconds:0.0} s{(e.Detail != null ? " (" + e.Detail + ")" : "")}.");
+                    break;
+            }
+
+            if (e.MuResults != null && e.MuResults.Count > 0)
+            {
+                MuRows.Clear();
+                foreach (var r in e.MuResults) MuRows.Add(new MuRowViewModel(r));
+                MuAllMatch = e.MuResults.All(r => r.Matches);
+                MuTitle = $"MU check, {e.PlanId}";
+                HasMu = true;
+            }
+            UpdateOverall();
+        }
+
+        /// <summary>Mark a plan finished (called by the caller once the service call returns or throws).</summary>
+        public void CompletePlan(string planId, bool success, string? summary = null)
+        {
+            var plan = Plans.FirstOrDefault(p => string.Equals(p.PlanId, planId, StringComparison.OrdinalIgnoreCase));
+            if (plan == null) return;
+            foreach (var s in plan.Steps.Where(s => s.IsRunning)) { s.State = success ? "Done" : "Failed"; s.TimingText = ""; }
+            plan.State = success && plan.State != "Failed" ? "Done" : "Failed";
+            if (!success) HasErrors = true;
+            if (plan.Started is DateTime t) plan.Duration = DateTime.Now - t;
+            plan.Summary = summary ?? (plan.Duration is TimeSpan d ? $"{plan.State.ToLowerInvariant()} in {PlanStepViewModel.Format(d)}" : plan.State);
+            plan.IsExpanded = !success;
+            UpdateOverall();
+        }
+
+        private void Tick()
+        {
+            if (!IsRunning) return;
+            ElapsedText = PlanStepViewModel.Format(DateTime.Now - _started);
+            foreach (var p in Plans.Where(p => p.State == "Running"))
+                foreach (var s in p.Steps.Where(s => s.IsRunning)) s.Tick();
+            UpdateOverall();
+        }
+
+        private void UpdateOverall()
+        {
+            var numbered = Plans.Where(p => p.Number > 0).ToList();
+            if (numbered.Count == 0) { OverallText = ""; OverallRemainingText = ""; OverallHasEstimate = false; return; }
+
+            int finished = numbered.Count(p => p.State == "Done" || p.State == "Failed");
+            var current = numbered.FirstOrDefault(p => p.State == "Running");
+            int k = current?.Number ?? Math.Min(finished + 1, numbered.Count);
+            OverallText = finished == numbered.Count ? $"{numbered.Count} of {numbered.Count} plans finished" : $"Plan {k} of {numbered.Count}";
+
+            // Typical plan: its calculation estimate plus the measured time of the other steps of finished plans.
+            var calcEstimate = numbered.SelectMany(p => p.Steps).Where(s => s.IsCalculation && s.Estimate.HasValue).Select(s => s.Estimate!.Value)
+                .DefaultIfEmpty(TimeSpan.Zero).Last();
+            var lastCalc = numbered.SelectMany(p => p.Steps).LastOrDefault(s => s.IsCalculation && s.FinalDuration.HasValue);
+            var typicalCalc = calcEstimate > TimeSpan.Zero ? calcEstimate : lastCalc?.FinalDuration ?? TimeSpan.Zero;
+            var done = numbered.Where(p => p.State == "Done").ToList();
+            var overhead = done.Count > 0 ? TimeSpan.FromSeconds(done.Average(p => p.Overhead.TotalSeconds)) : TimeSpan.FromSeconds(20);
+
+            if (typicalCalc <= TimeSpan.Zero || !IsRunning)
+            {
+                OverallHasEstimate = false;
+                OverallFraction = (double)finished / numbered.Count;
+                OverallRemainingText = IsRunning ? "Overall estimate after the first calculation" : "";
+                return;
+            }
+
+            var perPlan = typicalCalc + overhead;
+            int pending = numbered.Count(p => p.State == "Pending");
+            TimeSpan currentLeft = TimeSpan.Zero;
+            double currentFraction = 0;
+            if (current != null)
+            {
+                var calc = current.RunningCalculation;
+                bool calcDone = current.Steps.Any(s => s.IsCalculation && s.State == "Done");
+                if (calc != null)
+                {
+                    currentLeft = (calc.Remaining ?? typicalCalc - calc.Elapsed) + TimeSpan.FromSeconds(overhead.TotalSeconds * 0.3);
+                    currentFraction = calc.HasEstimate ? 0.1 + 0.85 * calc.Fraction : 0.5;
+                }
+                else if (calcDone) { currentLeft = TimeSpan.FromSeconds(overhead.TotalSeconds * 0.3); currentFraction = 0.95; }
+                else { currentLeft = perPlan; currentFraction = 0.05; }
+                if (currentLeft < TimeSpan.Zero) currentLeft = TimeSpan.Zero;
+            }
+            var left = currentLeft + TimeSpan.FromTicks(perPlan.Ticks * pending);
+            OverallHasEstimate = true;
+            OverallFraction = Math.Min(1, (finished + currentFraction) / numbered.Count);
+            OverallRemainingText = $"about {PlanStepViewModel.FormatRemaining(left)} left in total (est.)";
+        }
+
         public void Finish(bool keepOpen)
         {
             IsRunning = false;
+            _timer.Stop();
+            ElapsedText = PlanStepViewModel.Format(DateTime.Now - _started);
             foreach (var s in Steps.Where(s => s.State == "Running")) s.State = HasErrors ? "Failed" : "Done";
+            foreach (var p in Plans.Where(p => p.State == "Running" && p.Number == 0)) p.State = HasErrors ? "Failed" : "Done";
+            foreach (var p in Plans.Where(p => p.State == "Running").ToList()) CompletePlan(p.PlanId, success: !HasErrors);
+            UpdateOverall();
+            if (Plans.Count > 0)
+            {
+                OverallRemainingText = "";
+                if (CancelRequested) OverallText += "; cancelled";
+            }
             if (!keepOpen) IsOpen = false;
         }
 

@@ -99,16 +99,50 @@
         <!-- Progress panel (modal over the content) -->
         <Grid Grid.Row="1" Grid.RowSpan="2" Background="#99000000"
               Visibility="{Binding Progress.IsOpen, Converter={StaticResource BoolToVis}}">
-            <Border Width="640" MaxHeight="560" VerticalAlignment="Center" CornerRadius="8" Padding="20"
+            <Border Width="720" Margin="0,16"
+                    VerticalAlignment="Center" CornerRadius="8" Padding="20"
                     Background="{DynamicResource ApplicationBackgroundBrush}"
                     BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
                 <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Style="{StaticResource Section}" Text="{Binding Progress.Title}" />
-                    <ProgressBar DockPanel.Dock="Top" Height="4" Margin="0,4,0,8" IsIndeterminate="{Binding Progress.IsRunning}" />
-                    <TextBlock DockPanel.Dock="Top" Style="{StaticResource Body}" Text="{Binding Progress.CurrentText}" Margin="0,0,0,8" />
-                    <TextBlock DockPanel.Dock="Top" Style="{StaticResource Hint}" Margin="0,0,0,8"
-                               Text="Eclipse calculations can't be interrupted: Cancel stops after the current step." />
+                    <!-- Title and elapsed time -->
+                    <DockPanel DockPanel.Dock="Top">
+                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource Hint}" VerticalAlignment="Center"
+                                   Visibility="{Binding Progress.HasPlans, Converter={StaticResource BoolToVis}}">
+                            <Run Text="Elapsed" /> <Run Text="{Binding Progress.ElapsedText, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Style="{StaticResource Section}" Text="{Binding Progress.Title}" />
+                    </DockPanel>
 
+                    <!-- Generic operations: indeterminate bar and the latest message -->
+                    <StackPanel DockPanel.Dock="Top" Visibility="{Binding Progress.HasPlans, Converter={StaticResource InverseBoolToVis}}">
+                        <ProgressBar Height="4" Margin="0,4,0,8" IsIndeterminate="{Binding Progress.IsRunning}" />
+                        <TextBlock Style="{StaticResource Body}" Text="{Binding Progress.CurrentText}" Margin="0,0,0,8" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <!-- QA plan operations: overall progress -->
+                    <StackPanel DockPanel.Dock="Top" Margin="0,6,0,10" Visibility="{Binding Progress.HasPlans, Converter={StaticResource BoolToVis}}">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Style="{StaticResource Hint}" Text="{Binding Progress.OverallRemainingText}" />
+                            <TextBlock Style="{StaticResource Label}" Text="{Binding Progress.OverallText}" />
+                        </DockPanel>
+                        <ProgressBar Height="6" Margin="0,4,0,0" Maximum="1" Value="{Binding Progress.OverallFraction, Mode=OneWay}">
+                            <ProgressBar.Style>
+                                <Style TargetType="ProgressBar" BasedOn="{StaticResource {x:Type ProgressBar}}">
+                                    <Style.Triggers>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding Progress.OverallHasEstimate}" Value="False" />
+                                                <Condition Binding="{Binding Progress.IsRunning}" Value="True" />
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="IsIndeterminate" Value="True" />
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ProgressBar.Style>
+                        </ProgressBar>
+                    </StackPanel>
+
+                    <!-- Buttons -->
                     <DockPanel DockPanel.Dock="Bottom" LastChildFill="False" Margin="0,12,0,0">
                         <ui:Button DockPanel.Dock="Right" Content="Close" MinWidth="90" Command="{Binding Progress.CloseCommand}"
                                    Visibility="{Binding Progress.IsRunning, Converter={StaticResource InverseBoolToVis}}" Appearance="Primary" />
@@ -117,7 +151,54 @@
                                    IsEnabled="{Binding Progress.CancelRequested, Converter={StaticResource Not}}" />
                     </DockPanel>
 
-                    <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Progress.Steps}" Margin="0,0,0,8">
+                    <!-- Log -->
+                    <Expander DockPanel.Dock="Bottom" Header="Details (log)" Margin="0,8,0,0"
+                              IsExpanded="{Binding Progress.HasPlans, Mode=OneWay, Converter={StaticResource Not}}">
+                        <ListBox ItemsSource="{Binding Progress.LogLines}" FontFamily="Consolas" FontSize="11" Height="140" />
+                    </Expander>
+
+                    <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Margin="0,8,0,0" TextWrapping="Wrap"
+                               Visibility="{Binding Progress.HasPlans, Converter={StaticResource BoolToVis}}"
+                               Text="Eclipse doesn't report progress during a dose calculation, so calculation progress is estimated from earlier calculations on this computer. A calculation can't be interrupted: Cancel stops after the current step." />
+                    <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Margin="0,8,0,0"
+                               Visibility="{Binding Progress.HasPlans, Converter={StaticResource InverseBoolToVis}}"
+                               Text="Eclipse calculations can't be interrupted: Cancel stops after the current step." />
+
+                    <!-- MU check of the latest calculation -->
+                    <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0" Visibility="{Binding Progress.HasMu, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Style="{StaticResource Label}" Text="{Binding Progress.MuTitle}" Margin="0,0,0,4" />
+                        <Grid Margin="0,0,0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="90" /><ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Style="{StaticResource Hint}" Text="Beam" />
+                            <TextBlock Grid.Column="1" Style="{StaticResource Hint}" Text="QA MU" TextAlignment="Right" />
+                            <TextBlock Grid.Column="2" Style="{StaticResource Hint}" Text="Clinical MU" TextAlignment="Right" />
+                            <TextBlock Grid.Column="3" Style="{StaticResource Hint}" Text="Difference" TextAlignment="Right" />
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding Progress.MuRows}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:MuRowViewModel}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="140" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="90" /><ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Style="{StaticResource Body}" Text="{Binding BeamId}" />
+                                        <TextBlock Grid.Column="1" Style="{StaticResource Body}" Text="{Binding QaMu}" TextAlignment="Right" />
+                                        <TextBlock Grid.Column="2" Style="{StaticResource Body}" Text="{Binding ClinicalMu}" TextAlignment="Right" />
+                                        <TextBlock Grid.Column="3" Style="{StaticResource Body}" Text="{Binding Difference}" TextAlignment="Right" />
+                                        <TextBlock Grid.Column="4" Margin="12,0,0,0" FontWeight="Bold"
+                                                   Text="{Binding Matches, Converter={StaticResource StepGlyph}}"
+                                                   Foreground="{Binding Matches, Converter={StaticResource StatusBrush}}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <!-- Generic step list -->
+                    <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Progress.Steps}" Margin="0,0,0,8"
+                                  Visibility="{Binding Progress.HasPlans, Converter={StaticResource InverseBoolToVis}}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Margin="0,2">
@@ -129,7 +210,80 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <ListBox ItemsSource="{Binding Progress.LogLines}" FontFamily="Consolas" FontSize="11" MinHeight="80" />
+                    <!-- One card per QA plan -->
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding Progress.HasPlans, Converter={StaticResource BoolToVis}}">
+                        <ItemsControl ItemsSource="{Binding Progress.Plans}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:PlanProgressViewModel}">
+                                    <Border Margin="0,0,0,6" Padding="10,6" CornerRadius="6" BorderThickness="1"
+                                            BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                                        <StackPanel>
+                                            <DockPanel>
+                                                <ToggleButton DockPanel.Dock="Right" IsChecked="{Binding IsExpanded}" Padding="6,0" MinHeight="0"
+                                                              Content="Steps" FontSize="11" />
+                                                <TextBlock DockPanel.Dock="Right" Style="{StaticResource Hint}" Margin="0,0,10,0" VerticalAlignment="Center"
+                                                           Text="{Binding Summary}" />
+                                                <TextBlock Width="20" FontWeight="Bold" VerticalAlignment="Center"
+                                                           Text="{Binding State, Converter={StaticResource StepGlyph}}"
+                                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                                <TextBlock Style="{StaticResource Label}" VerticalAlignment="Center" Text="{Binding Header}" />
+                                            </DockPanel>
+                                            <ItemsControl ItemsSource="{Binding Steps}" Margin="20,4,0,0"
+                                                          Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate DataType="{x:Type vm:PlanStepViewModel}">
+                                                        <StackPanel Margin="0,1">
+                                                            <DockPanel>
+                                                                <TextBlock DockPanel.Dock="Right" Style="{StaticResource Hint}" Text="{Binding DurationText}" />
+                                                                <TextBlock Width="20" FontWeight="Bold" Text="{Binding State, Converter={StaticResource StepGlyph}}"
+                                                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                                                <TextBlock Style="{StaticResource Body}" TextTrimming="CharacterEllipsis">
+                                                                    <Run Text="{Binding Name, Mode=OneWay}" />
+                                                                    <Run Text="{Binding Detail, Mode=OneWay}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                                </TextBlock>
+                                                            </DockPanel>
+                                                            <!-- Estimated calculation progress -->
+                                                            <StackPanel Margin="20,3,0,3">
+                                                                <StackPanel.Style>
+                                                                    <Style TargetType="StackPanel">
+                                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                                        <Style.Triggers>
+                                                                            <MultiDataTrigger>
+                                                                                <MultiDataTrigger.Conditions>
+                                                                                    <Condition Binding="{Binding IsCalculation}" Value="True" />
+                                                                                    <Condition Binding="{Binding IsRunning}" Value="True" />
+                                                                                </MultiDataTrigger.Conditions>
+                                                                                <Setter Property="Visibility" Value="Visible" />
+                                                                            </MultiDataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </StackPanel.Style>
+                                                                <ProgressBar Height="6" Maximum="1" Value="{Binding Fraction, Mode=OneWay}"
+                                                                             IsIndeterminate="{Binding HasEstimate, Converter={StaticResource Not}}" />
+                                                                <TextBlock Margin="0,2,0,0" FontSize="12" TextWrapping="Wrap" Text="{Binding TimingText}">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsOverdue}" Value="True">
+                                                                                    <Setter Property="Foreground" Value="{x:Static inf:StatusBrushConverter.Caution}" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
                 </DockPanel>
             </Border>
         </Grid>

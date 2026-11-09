@@ -48,6 +48,33 @@ namespace SrsMcPsqa.Fake
             public QaPlanTag? Tag;
         }
 
+        private const string DemoModel = "AcurosXB (demo)";
+        private const int DemoControlPointsPerArc = 90;
+        private static readonly double[] DemoMus = { 412.37, 398.12, 405.66, 421.09 };
+
+        /// <summary>Simulated calculation time (× <see cref="DelayScale"/>).</summary>
+        public double DemoCalculationSeconds { get; set; } = 6.0;
+
+        private async Task Step(IProgress<QaProgressEvent>? steps, string planId, string step, double seconds, string? detail, CancellationToken ct) =>
+            await StepAsync(steps, planId, step, async () => { await Delay(seconds, ct).ConfigureAwait(false); return true; }, detail).ConfigureAwait(false);
+
+        private static async Task<T> StepAsync<T>(IProgress<QaProgressEvent>? steps, string planId, string step, Func<Task<T>> work, string? detail = null)
+        {
+            steps?.Report(new QaProgressEvent { PlanId = planId, Step = step, State = QaStepState.Running });
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            try
+            {
+                var r = await work().ConfigureAwait(false);
+                steps?.Report(new QaProgressEvent { PlanId = planId, Step = step, State = QaStepState.Done, Duration = sw.Elapsed, Detail = detail });
+                return r;
+            }
+            catch (Exception ex)
+            {
+                steps?.Report(new QaProgressEvent { PlanId = planId, Step = step, State = QaStepState.Failed, Duration = sw.Elapsed, Detail = ex.Message });
+                throw;
+            }
+        }
+
         private Task Delay(double seconds, CancellationToken ct) =>
             DelayScale <= 0 ? Task.CompletedTask : Task.Delay(TimeSpan.FromSeconds(seconds * DelayScale), ct);
 
@@ -123,7 +150,8 @@ namespace SrsMcPsqa.Fake
         }
 
         public async Task<IReadOnlyList<PhantomImageInfo>> EnsurePhantomImagesAsync(TemplatePhantomSettings settings,
-            IReadOnlyCollection<ArrayOrientation> orientations, IProgress<string>? progress = null, CancellationToken ct = default)
+            IReadOnlyCollection<ArrayOrientation> orientations, IProgress<string>? progress = null, CancellationToken ct = default,
+            IProgress<QaProgressEvent>? steps = null)
         {
             var result = new List<PhantomImageInfo>();
             foreach (var o in orientations)
@@ -135,9 +163,13 @@ namespace SrsMcPsqa.Fake
                 if (copy)
                 {
                     progress?.Report($"Copying phantom image '{imageId}' from template patient '{settings.PatientId}'...");
-                    await Delay(1.0, ct).ConfigureAwait(false);
+                    await Step(steps, QaSteps.PhantomImages, $"Copy {imageId}", 1.0, $"from {settings.PatientId}", ct).ConfigureAwait(false);
                 }
-                else progress?.Report($"Phantom image '{imageId}' already in patient; reusing it.");
+                else
+                {
+                    progress?.Report($"Phantom image '{imageId}' already in patient; reusing it.");
+                    steps?.Report(new QaProgressEvent { PlanId = QaSteps.PhantomImages, Step = $"Reuse {imageId}", State = QaStepState.Done, Detail = "already in the patient" });
+                }
                 result.Add(new PhantomImageInfo
                 {
                     Orientation = o, ImageId = imageId, StructureSetId = imageId, UserOrigin = UserOrigins[o], WasCopied = copy,
@@ -162,7 +194,8 @@ namespace SrsMcPsqa.Fake
             return list;
         }
 
-        public async Task<QaPlanResult> CreateQaPlanAsync(QaPlanRequest request, IProgress<string>? progress = null, CancellationToken ct = default)
+        public async Task<QaPlanResult> CreateQaPlanAsync(QaPlanRequest request, IProgress<string>? progress = null, CancellationToken ct = default,
+            IProgress<QaProgressEvent>? steps = null)
         {
             lock (_lock)
             {
@@ -174,9 +207,11 @@ namespace SrsMcPsqa.Fake
                     throw new InvalidOperationException($"Plan ID '{request.PlanId}' is longer than {QaPlanNaming.MaxIdLength} characters.");
             }
             progress?.Report($"{request.PlanId}: creating verification plan...");
-            await Delay(0.4, ct).ConfigureAwait(false);
-            progress?.Report($"{request.PlanId}: copying 6 beams at isocentre {request.Isocentre}...");
-            await Delay(0.6, ct).ConfigureAwait(false);
+            await Step(steps, request.PlanId, "Create verification plan", 0.4, "verifies the demo plan", ct).ConfigureAwait(false);
+            await Step(steps, request.PlanId, "Set ID, prescription and calculation model", 0.2, $"1 × 20 Gy, {DemoModel}", ct).ConfigureAwait(false);
+            progress?.Report($"{request.PlanId}: copying {DemoMus.Length} beams at isocentre {request.Isocentre}...");
+            await Step(steps, request.PlanId, "Copy beams", 0.6, $"{DemoMus.Length} beams, clinical order", ct).ConfigureAwait(false);
+            await Step(steps, request.PlanId, "Save", 0.2, null, ct).ConfigureAwait(false);
             lock (_lock)
             {
                 _plansByCourse[request.QaCourseId].Add(new FakeQaPlan
@@ -185,12 +220,12 @@ namespace SrsMcPsqa.Fake
                     Tag = new QaPlanTag(_patient.PlanUid, request.Orientation, request.AssignedPtvIds),
                 });
             }
-            return await Calculate(request.QaCourseId, request.PlanId, request.Orientation, request.Isocentre, request.DoseRegion, progress, ct)
+            return await Calculate(request.QaCourseId, request.PlanId, request.Orientation, request.Isocentre, request.DoseRegion, progress, ct, steps)
                 .ConfigureAwait(false);
         }
 
         public async Task<QaPlanResult> MoveIsocentreAsync(string courseId, string planId, Vec3 newIsocentre, Box3 doseRegion,
-            IProgress<string>? progress = null, CancellationToken ct = default)
+            IProgress<string>? progress = null, CancellationToken ct = default, IProgress<QaProgressEvent>? steps = null)
         {
             FakeQaPlan plan;
             lock (_lock)
@@ -199,18 +234,38 @@ namespace SrsMcPsqa.Fake
                 plan.Isocentre = newIsocentre;
             }
             progress?.Report($"{planId}: moving isocentre to {newIsocentre}...");
-            await Delay(0.3, ct).ConfigureAwait(false);
-            return await Calculate(courseId, planId, plan.Orientation, newIsocentre, doseRegion, progress, ct).ConfigureAwait(false);
+            await Step(steps, planId, "Move isocentre", 0.3, $"to {newIsocentre}", ct).ConfigureAwait(false);
+            await Step(steps, planId, "Save", 0.2, null, ct).ConfigureAwait(false);
+            return await Calculate(courseId, planId, plan.Orientation, newIsocentre, doseRegion, progress, ct, steps).ConfigureAwait(false);
         }
 
         private async Task<QaPlanResult> Calculate(string courseId, string planId, ArrayOrientation o, Vec3 iso, Box3 region,
-            IProgress<string>? progress, CancellationToken ct)
+            IProgress<string>? progress, CancellationToken ct, IProgress<QaProgressEvent>? steps)
         {
             progress?.Report($"{planId}: calculating dose with clinical MUs (cannot be interrupted)...");
-            await Delay(1.5, ct).ConfigureAwait(false);
+            int cps = DemoMus.Length * DemoControlPointsPerArc;
+            string detail = $"{DemoModel}, {DemoMus.Length} beams, {cps} control points";
+            steps?.Report(new QaProgressEvent
+            {
+                PlanId = planId, Step = "Calculate dose", State = QaStepState.Running, IsCalculation = true,
+                Model = DemoModel, Beams = DemoMus.Length, ControlPoints = cps, Detail = detail,
+            });
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            await Delay(DemoCalculationSeconds, ct).ConfigureAwait(false);
+            steps?.Report(new QaProgressEvent
+            {
+                PlanId = planId, Step = "Calculate dose", State = QaStepState.Done, IsCalculation = true,
+                Model = DemoModel, Beams = DemoMus.Length, ControlPoints = cps, Detail = detail, Duration = sw.Elapsed,
+            });
+            steps?.Report(new QaProgressEvent
+            {
+                PlanId = planId, Step = "Check MUs", State = QaStepState.Done, Detail = "equal to the clinical MUs (max difference 0.000 MU)",
+                MuResults = DemoMus.Select((mu, i) => new BeamMuResult($"Arc{i + 1}", mu, mu, 0.05)).ToList(),
+            });
             var shift = iso - _patient.Isocentre + CalculationOffset;
-            var dose = await Task.Run(() =>
-                DoseGrid.FromFunction(Grid(region, 1.0), q => _patient.Dose(q - shift, sigma: 2.9, scale: 0.985)), ct).ConfigureAwait(false);
+            var dose = await StepAsync(steps, planId, "Read calculated dose", () => Task.Run(() =>
+                DoseGrid.FromFunction(Grid(region, 1.0), q => _patient.Dose(q - shift, sigma: 2.9, scale: 0.985)), ct)).ConfigureAwait(false);
+            await Step(steps, planId, "Save", 0.2, null, ct).ConfigureAwait(false);
             progress?.Report($"{planId}: calculation finished; saved.");
             return new QaPlanResult
             {

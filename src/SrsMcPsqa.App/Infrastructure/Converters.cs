@@ -107,7 +107,7 @@ namespace SrsMcPsqa.App.Infrastructure
     public sealed class StepGlyphConverter : System.Windows.Data.IValueConverter
     {
         public object Convert(object value, System.Type targetType, object parameter, System.Globalization.CultureInfo culture) =>
-            value as string switch { "Done" => "✓", "Failed" => "✗", "Pending" => "○", _ => "…" };
+            value switch { "Done" or true => "✓", "Failed" or false => "✗", "Pending" => "○", "Running" => "●", _ => "…" };
 
         public object ConvertBack(object value, System.Type targetType, object parameter, System.Globalization.CultureInfo culture) =>
             throw new System.NotSupportedException();
