@@ -417,14 +417,26 @@ namespace SrsMcPsqa.Spike
             if (Reflect.TrySetProperty(qa, "Comment", tag, _log))
                 Pass($"Plan Comment set; reads back '{Reflect.TryGet(qa, "Comment")}'.");
 
-            // Calculation model and options.
-            var model = clinical.GetCalculationModel(CalculationType.PhotonVolumeDose);
+            // Calculation model and options. GetCalculationModel can return '' for the clinical plan (seen on v18):
+            // fall back to PhotonCalculationModel, then to the model the verification plan inherited.
             try
             {
-                qa.SetCalculationModel(CalculationType.PhotonVolumeDose, model);
-                Pass($"SetCalculationModel(PhotonVolumeDose, '{model}').");
+                string clinModel = clinical.GetCalculationModel(CalculationType.PhotonVolumeDose);
+                Info($"Clinical GetCalculationModel = '{clinModel}', PhotonCalculationModel = '{clinical.PhotonCalculationModel}'");
+                if (string.IsNullOrEmpty(clinModel)) clinModel = clinical.PhotonCalculationModel;
+                string qaModel = qa.GetCalculationModel(CalculationType.PhotonVolumeDose);
+                if (!string.IsNullOrEmpty(clinModel) && clinModel != qaModel)
+                {
+                    qa.SetCalculationModel(CalculationType.PhotonVolumeDose, clinModel);
+                    Pass($"SetCalculationModel(PhotonVolumeDose, '{clinModel}') (was '{qaModel}').");
+                }
+                string model = string.IsNullOrEmpty(clinModel) ? qaModel : clinModel;
+                Info($"QA plan model = '{qa.GetCalculationModel(CalculationType.PhotonVolumeDose)}'");
+
+                var clinOpts = clinical.PhotonCalculationOptions ?? new Dictionary<string, string>();
+                if (clinOpts.Count == 0 && !string.IsNullOrEmpty(model)) clinOpts = clinical.GetCalculationOptions(model);
                 var qaOpts = qa.GetCalculationOptions(model);
-                foreach (var kv in clinical.GetCalculationOptions(model))
+                foreach (var kv in clinOpts)
                 {
                     qaOpts.TryGetValue(kv.Key, out var current);
                     if (current == kv.Value) { Info($"  option {kv.Key} already '{kv.Value}'"); continue; }
@@ -534,27 +546,29 @@ namespace SrsMcPsqa.Spike
         // ------------------------------------------------------------------------------------------------
         public int DeleteSessionPlans(EsapiApplication app, SpikeInputs inp)
         {
-            Step("CLEANUP - Delete QA plans created in this session");
+            Step("CLEANUP - Delete spike QA plans (tagged SRSMC-SPIKE in the QA course, from any session)");
             if (!RequirePatient()) return 0;
+            var course = _patient!.Courses.FirstOrDefault(c => c.Id == inp.QaCourseId);
+            if (course == null) { Fail($"QA course '{inp.QaCourseId}' not found."); return 0; }
             int removed = 0;
-            foreach (var (courseId, planId) in _createdPlans.ToList())
+            foreach (var plan in course.PlanSetups.ToList())
             {
-                var course = _patient!.Courses.FirstOrDefault(c => c.Id == courseId);
-                var plan = course?.PlanSetups.FirstOrDefault(p => p.Id == planId);
-                if (course == null || plan == null) { Info($"'{courseId}/{planId}' not found (already gone?)"); _createdPlans.Remove((courseId, planId)); continue; }
                 var comment = Reflect.TryGet(plan, "Comment") as string ?? "";
-                if (!comment.StartsWith(SpikeTag)) Warn($"'{planId}' has no spike tag in Comment ('{comment}'); deleting because it was created in this session.");
+                if (!comment.StartsWith(SpikeTag)) continue;
+                string id = plan.Id;
                 try
                 {
+                    if (!course.CanRemovePlanSetup(plan)) { Fail($"CanRemovePlanSetup('{id}') = false."); continue; }
                     course.RemovePlanSetup(plan);
-                    Pass($"RemovePlanSetup('{planId}') succeeded.");
-                    _createdPlans.Remove((courseId, planId));
+                    Pass($"RemovePlanSetup('{id}') succeeded.");
                     removed++;
-                    if (_qaPlan != null && _qaPlan.Id == planId) _qaPlan = null;
+                    if (_qaPlan != null && _qaPlan.Id == id) _qaPlan = null;
                 }
-                catch (Exception ex) { Fail($"RemovePlanSetup('{planId}') threw: {ex.Message}"); }
+                catch (Exception ex) { Fail($"RemovePlanSetup('{id}') threw: {ex.Message}"); }
             }
-            if (removed > 0) SaveIf(app, inp, "delete");
+            _createdPlans.Clear();
+            if (removed == 0) Info("No spike-tagged plans found in this course.");
+            else SaveIf(app, inp, "delete");
             return removed;
         }
 

@@ -89,14 +89,14 @@ Status after the first Citrix run (ESAPI 18.1.0.472, API assembly 1.0.700.247). 
 |---|---|---|
 | V1 | Default `EsapiPath` for v18 | ESAPI DLLs are in the GAC on the Citrix server; set `EsapiPath.user.props` on the dev PC. |
 | V2 | `CopyImageFromOtherPatient` | Returns `StructureSet`; there's also an overload taking a target `Study`, and `CanCopyImageFromOtherPatient(...)`. **Whether structures come across is still untested (needs approval).** Template `SRSMC_0_AXB` has one structure, BODY with assigned HU 250. |
-| V3 | `BeginModifications` with patient open in Eclipse | **Pending:** blocked by script approval (`UnauthorizedScriptingAPIAccessException`). |
-| V4 | `AddExternalPlanSetupAsVerificationPlan` | Exists. Behaviour pending approval. |
+| V3 | `BeginModifications` | ✓ works once approved (2026-11-09). With the patient open in Eclipse: to confirm. |
+| V4 | `AddExternalPlanSetupAsVerificationPlan` | ✓ creates an empty plan (no beams), links `VerifiedPlan`, **inherits the calculation model** (AcurosXB_1612); ~2 s. |
 | V5 | `PlanSetup.Comment` writable | ✓ `{ get; set; }` |
 | V6 | `ExternalBeamMachineParameters` | ✓ ctor (machine, energy, doseRate, technique, fluence) plus a settable `MLCId`. |
-| V7 | `Add*Beam`, control-point editing | ✓ all present. `ControlPointParameters.MetersetWeight` and `GantryAngle` are settable. |
-| V8 | Calculation model / options | `GetCalculationModel(PhotonVolumeDose)` returned **empty** for the test plan; the spike now also reports `PhotonCalculationModel`/`PhotonCalculationOptions`. |
+| V7 | `Add*Beam`, control-point editing | ✓ `AddVMATBeam` + per-control-point jaws/leaves reproduce a 180-CP SRS ARC (6X-FFF, 1400 MU/min, MLC 1934) with identical meterset weights; beam ID settable. |
+| V8 | Calculation model / options | `GetCalculationModel(PhotonVolumeDose)` returns **empty** for the clinical plans; use `PhotonCalculationModel`, else keep the model the verification plan inherits. **Open:** dose calculation on the phantom failed: "material assigned to structure BODY has not been defined in the physical material table selected for the structure set" (see Phase 4 notes). |
 | V9 | `CalculateDoseWithPresetValues` | ✓ exists. `CalculationResult` has **only `Success`**, with no messages, so the app reports beam calculation logs (`Beam.CalculationLogs`) instead. |
-| V10 | `BeamParameters.Isocenter` setter | ✓ `{ get; set; }`, so no beam re-creation should be needed. |
+| V10 | `BeamParameters.Isocenter` setter | ✓ moving the isocentre via `GetEditableParameters`/`ApplyParameters` works (tested). |
 | V11 | `Course.RemovePlanSetup` | ✓, plus `CanRemovePlanSetup`. |
 | V12 | Dose units | Test plan is `DoseValuePresentation=Relative`, so `VoxelToDoseValue` returns %. Must switch to Absolute (the spike now tests whether that works read-only). `GetVoxels` takes ~190 ms per plane at 468×241, so extraction must read only the z-planes around the PTVs. |
 | V13 | `TotalDose`, `RTPrescription` | ✓ `TotalDose` (30 Gy); `RTPrescription` null for the test plan. |

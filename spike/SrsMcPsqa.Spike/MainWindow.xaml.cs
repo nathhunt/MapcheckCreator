@@ -161,7 +161,7 @@ namespace SrsMcPsqa.Spike
 
         private async void Delete_Click(object sender, RoutedEventArgs e)
         {
-            if (System.Windows.MessageBox.Show(this, "Delete the QA plans created by the spike in this session?",
+            if (System.Windows.MessageBox.Show(this, "Delete all spike QA plans (Comment starts with SRSMC-SPIKE) in the QA course?",
                     "Delete spike plans", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK) return;
             await RunStep("Delete spike plans", (app, inp) => _runner.DeleteSessionPlans(app, inp), 0);
         }
