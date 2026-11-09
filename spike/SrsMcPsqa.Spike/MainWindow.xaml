@@ -74,7 +74,8 @@
                     <TextBlock Style="{StaticResource Label}" Text="Beam ID to copy (blank = first treatment beam)" />
                     <ui:TextBox x:Name="BeamIdBox" PlaceholderText="beam" />
                     <CheckBox x:Name="CopyAllBox" Margin="0,6,0,0" Content="Copy all treatment beams" />
-                    <CheckBox x:Name="SetRxBox" Margin="0,4,0,0" Content="Also set plan prescription from clinical plan" />
+                    <CheckBox x:Name="SetRxBox" Margin="0,4,0,0" Content="Also set plan prescription (1 fraction, clinical dose/fraction)" />
+                    <CheckBox x:Name="NormBox" Margin="0,4,0,0" Content="Set plan normalisation value to 100% before calculating" />
                     <TextBlock Style="{StaticResource Label}" Text="Step 3 isocentre: offset from phantom user origin, DICOM x, y, z (mm)" />
                     <ui:TextBox x:Name="Iso1Box" />
                     <TextBlock Style="{StaticResource Label}" Text="Step 3b isocentre: offset from phantom user origin, DICOM x, y, z (mm)" />

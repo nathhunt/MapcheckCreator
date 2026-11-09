@@ -88,17 +88,17 @@ Status after the first Citrix run (ESAPI 18.1.0.472, API assembly 1.0.700.247). 
 | # | Item | Result |
 |---|---|---|
 | V1 | Default `EsapiPath` for v18 | ESAPI DLLs are in the GAC on the Citrix server; set `EsapiPath.user.props` on the dev PC. |
-| V2 | `CopyImageFromOtherPatient` | Returns `StructureSet`; there's also an overload taking a target `Study`, and `CanCopyImageFromOtherPatient(...)`. **Whether structures come across is still untested (needs approval).** Template `SRSMC_0_AXB` has one structure, BODY with assigned HU 250. |
+| V2 | `CopyImageFromOtherPatient` | ✓ tested: ~18 s, new study, user origin kept, BODY with HU 250 comes across. Returns `StructureSet`; there's also an overload taking a target `Study`, and `CanCopyImageFromOtherPatient(...)`. **Whether structures come across is still untested (needs approval).** Template `SRSMC_0_AXB` has one structure, BODY with assigned HU 250. |
 | V3 | `BeginModifications` | ✓ works once approved (2026-11-09). With the patient open in Eclipse: to confirm. |
 | V4 | `AddExternalPlanSetupAsVerificationPlan` | ✓ creates an empty plan (no beams), links `VerifiedPlan`, **inherits the calculation model** (AcurosXB_1612); ~2 s. |
 | V5 | `PlanSetup.Comment` writable | ✓ `{ get; set; }` |
 | V6 | `ExternalBeamMachineParameters` | ✓ ctor (machine, energy, doseRate, technique, fluence) plus a settable `MLCId`. |
 | V7 | `Add*Beam`, control-point editing | ✓ `AddVMATBeam` + per-control-point jaws/leaves reproduce a 180-CP SRS ARC (6X-FFF, 1400 MU/min, MLC 1934) with identical meterset weights; beam ID settable. |
 | V8 | Calculation model / options | `GetCalculationModel(PhotonVolumeDose)` returns **empty** for the clinical plans; use `PhotonCalculationModel`, else keep the model the verification plan inherits. **Open:** dose calculation on the phantom failed: "material assigned to structure BODY has not been defined in the physical material table selected for the structure set" (see Phase 4 notes). |
-| V9 | `CalculateDoseWithPresetValues` | ✓ exists. `CalculationResult` has **only `Success`**, with no messages, so the app reports beam calculation logs (`Beam.CalculationLogs`) instead. |
+| V9 | `CalculateDoseWithPresetValues` | **Open: MUs not preserved** (all beams 500 MU, probably prescription normalisation; being tested). Calculation ~10 min per 4-arc plan (AcurosXB, 1 mm, whole phantom). Exists; `CalculationResult` has **only `Success`**, with no messages, so the app reports beam calculation logs (`Beam.CalculationLogs`) instead. |
 | V10 | `BeamParameters.Isocenter` setter | ✓ moving the isocentre via `GetEditableParameters`/`ApplyParameters` works (tested). |
-| V11 | `Course.RemovePlanSetup` | ✓, plus `CanRemovePlanSetup`. |
-| V12 | Dose units | Test plan is `DoseValuePresentation=Relative`, so `VoxelToDoseValue` returns %. Must switch to Absolute (the spike now tests whether that works read-only). `GetVoxels` takes ~190 ms per plane at 468×241, so extraction must read only the z-planes around the PTVs. |
+| V11 | `Course.RemovePlanSetup` | ✓ tested, plus `CanRemovePlanSetup`. Don't touch the plan object after removal. |
+| V12 | Dose units | ✓ `DoseValuePresentation = Absolute` works even without BeginModifications. Previously: Test plan is `DoseValuePresentation=Relative`, so `VoxelToDoseValue` returns %. Must switch to Absolute (the spike now tests whether that works read-only). `GetVoxels` takes ~190 ms per plane at 468×241, so extraction must read only the z-planes around the PTVs. |
 | V13 | `TotalDose`, `RTPrescription` | ✓ `TotalDose` (30 Gy); `RTPrescription` null for the test plan. |
 | V14 | Launcher | ✓ Passes patient, course and plan to the exe. `Assembly.Location` is **empty** for a single-file plugin, so the config file next to the script can't work; use the constant path or the environment variable. |
 | V15 | ESAPI on a dedicated STA thread | ✓ `CreateApplication` in 1.7 s, calls fine. |
@@ -135,3 +135,9 @@ These are choices I made where the brief left room. Each is easy to change.
 - **Validation blocks the plan** (instead of just warning) for: no valid dose, more than one isocentre, non-HFS, non-photon beams, or no non-empty PTV.
 - **Template check.** **Settings → Validate** closes your patient, opens the template read-only and re-opens your patient. ESAPI allows only one open patient.
 - **Members not in the probe.** The ESAPI code also relies on `VVector.x/y/z`, `DoseValue.Dose`/`UnitAsString` and the standard enums. These weren't in the probe dump but are used the same way in the spike, which compiled on Citrix.
+
+## Phase 4 notes (from the spike runs)
+
+- **QA plan prescription.** 1 fraction at the clinical dose per fraction (confirmed). The clinical MUs are per fraction.
+- **Phantom material.** Calculation needs the phantom BODY's material to be in the structure set's physical material table. This is a data setup item for the template phantom, fixed in Eclipse, not by the app.
+- **Calculation time.** About 10 min per 4-arc plan on Citrix, so the progress panel must say so, and fine-tune iterations are expensive.

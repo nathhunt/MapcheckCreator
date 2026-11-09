@@ -450,8 +450,9 @@ namespace SrsMcPsqa.Spike
             {
                 try
                 {
-                    qa.SetPrescription(clinical.NumberOfFractions ?? 1, clinical.DosePerFraction, clinical.TreatmentPercentage);
-                    Pass($"SetPrescription({clinical.NumberOfFractions}, {clinical.DosePerFraction}, {clinical.TreatmentPercentage}).");
+                    // PSQA plan: one fraction at the clinical dose per fraction (clinical MUs are per fraction).
+                    qa.SetPrescription(1, clinical.DosePerFraction, clinical.TreatmentPercentage);
+                    Pass($"SetPrescription(1, {clinical.DosePerFraction}, {clinical.TreatmentPercentage}).");
                 }
                 catch (Exception ex) { Fail("SetPrescription threw: " + ex.Message); }
             }
@@ -463,6 +464,11 @@ namespace SrsMcPsqa.Spike
                 catch (Exception ex) { Fail($"Copying beam '{b.Id}' threw:\n{ex}"); return qa.Id; }
             }
 
+            if (inp.NormalizeTo100)
+            {
+                try { qa.PlanNormalizationValue = 100; Pass("PlanNormalizationValue set to 100 before calculating."); }
+                catch (Exception ex) { Fail("Setting PlanNormalizationValue = 100 threw: " + ex.Message); }
+            }
             Calculate(qa, clinical);
             SaveIf(app, inp, "plan creation + calc");
             return qa.Id;
@@ -517,6 +523,9 @@ namespace SrsMcPsqa.Spike
 
         private void Calculate(ExternalPlanSetup qa, ExternalPlanSetup clinical)
         {
+            LogNormalisation("before calculation", qa);
+            Info($"  Clinical: normalisation method '{clinical.PlanNormalizationMethod}', value {clinical.PlanNormalizationValue}, " +
+                 $"target '{clinical.TargetVolumeID}', Rx {clinical.NumberOfFractions} × {clinical.DosePerFraction}");
             var ids = qa.Beams.Where(b => !b.IsSetupField).Select(b => b.Id).ToList();
             var presets = BeamCopier.PresetMus(clinical.Beams, ids);
             Info($"Preset MUs: {string.Join(", ", presets.Select(p => $"{p.Key}={p.Value.Value:F2} {p.Value.Unit}"))}");
@@ -535,6 +544,7 @@ namespace SrsMcPsqa.Spike
                 var c = clinical.Beams.FirstOrDefault(x => x.Id == b.Id);
                 Info($"  Beam '{b.Id}': QA MU={b.Meterset.Value:F2}, clinical MU={c?.Meterset.Value:F2}, iso={V(b.IsocenterPosition)}");
             }
+            LogNormalisation("after calculation", qa);
             var d = qa.Dose;
             if (d != null)
                 Info($"  QA dose grid {d.XSize}x{d.YSize}x{d.ZSize}, res {d.XRes:F2}/{d.YRes:F2}/{d.ZRes:F2} (clinical {clinical.Dose?.XRes:F2}/{clinical.Dose?.YRes:F2}/{clinical.Dose?.ZRes:F2}); DoseMax3D={d.DoseMax3D}");
@@ -559,10 +569,10 @@ namespace SrsMcPsqa.Spike
                 try
                 {
                     if (!course.CanRemovePlanSetup(plan)) { Fail($"CanRemovePlanSetup('{id}') = false."); continue; }
+                    if (ReferenceEquals(_qaPlan, plan)) _qaPlan = null; // don't touch the plan object after removal
                     course.RemovePlanSetup(plan);
                     Pass($"RemovePlanSetup('{id}') succeeded.");
                     removed++;
-                    if (_qaPlan != null && _qaPlan.Id == id) _qaPlan = null;
                 }
                 catch (Exception ex) { Fail($"RemovePlanSetup('{id}') threw: {ex.Message}"); }
             }
@@ -570,6 +580,17 @@ namespace SrsMcPsqa.Spike
             if (removed == 0) Info("No spike-tagged plans found in this course.");
             else SaveIf(app, inp, "delete");
             return removed;
+        }
+
+        private void LogNormalisation(string when, ExternalPlanSetup qa)
+        {
+            try
+            {
+                Info($"  QA plan {when}: normalisation method '{qa.PlanNormalizationMethod}', value {qa.PlanNormalizationValue}, " +
+                     $"target '{qa.TargetVolumeID}', Rx {qa.NumberOfFractions} × {qa.DosePerFraction}, " +
+                     $"MUs [{string.Join(", ", qa.Beams.Where(b => !b.IsSetupField).Select(b => $"{b.Id}={b.Meterset.Value:F2}"))}]");
+            }
+            catch (Exception ex) { Warn($"Could not read normalisation {when}: {ex.Message}"); }
         }
 
         public void Save(EsapiApplication app)

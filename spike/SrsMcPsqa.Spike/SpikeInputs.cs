@@ -23,6 +23,8 @@ namespace SrsMcPsqa.Spike
         public bool CopyAllBeams { get; set; }
         public bool ForceCopyImage { get; set; }
         public bool SetPrescription { get; set; }
+        /// <summary>Set PlanNormalizationValue = 100 before calculating (MU-preservation test).</summary>
+        public bool NormalizeTo100 { get; set; }
         public bool SaveAfterWrite { get; set; } = true;
         /// <summary>QA isocentre for step 3, in mm relative to the phantom user origin (DICOM axes).</summary>
         public double[] IsoOffset1 { get; set; } = { 10, 0, 5 };

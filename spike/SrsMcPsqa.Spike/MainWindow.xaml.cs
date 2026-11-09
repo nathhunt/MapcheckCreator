@@ -93,6 +93,7 @@ namespace SrsMcPsqa.Spike
                 CopyAllBeams = CopyAllBox.IsChecked == true,
                 ForceCopyImage = ForceCopyBox.IsChecked == true,
                 SetPrescription = SetRxBox.IsChecked == true,
+                NormalizeTo100 = NormBox.IsChecked == true,
                 SaveAfterWrite = AutoSaveBox.IsChecked == true,
                 IsoOffset1 = iso1,
                 IsoOffset2 = iso2,
