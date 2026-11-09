@@ -39,7 +39,7 @@ namespace SrsMcPsqa.Esapi
     /// Eclipse implementation of <see cref="IPlanningService"/>. Phase 3: read path only. Every ESAPI call goes
     /// through <see cref="EsapiWorker"/>; only Core DTOs are returned. Fields below are touched on the ESAPI thread only.
     /// </summary>
-    public sealed class EsapiPlanningService : IPlanningService, IDisposable
+    public sealed partial class EsapiPlanningService : IPlanningService, IDisposable
     {
         /// <summary>Dose crop margin around the PTVs, enough to slide a 77 mm array (section 4.3).</summary>
         public const double DoseMarginMm = 45.0;
@@ -51,6 +51,8 @@ namespace SrsMcPsqa.Esapi
         private string? _patientId;
         private bool _canModify;
         private string? _modifyError;
+        private string? _clinicalCourseId;
+        private string? _clinicalPlanId;
 
         public EsapiPlanningService(Action<string> log)
         {
@@ -127,6 +129,8 @@ namespace SrsMcPsqa.Esapi
                 progress?.Report("Checking the plan...");
                 var validation = EsapiExtraction.Validate(plan);
                 var totalGy = EsapiExtraction.TotalDoseGy(plan);
+                _clinicalCourseId = courseId;
+                _clinicalPlanId = planId;
                 var data = new ClinicalPlanData
                 {
                     CourseId = courseId, PlanId = planId, PlanUid = plan.UID, PlanTotalDoseGy = totalGy,
@@ -241,26 +245,9 @@ namespace SrsMcPsqa.Esapi
                 }
             });
 
-        // ------------------------------------------------------------------ write path (Phase 4)
-        private static Exception NotYet(string what) =>
-            new NotSupportedException($"{what} in Eclipse is added in Phase 4. This build reads plans only.");
-
-        public Task<IReadOnlyList<PhantomImageInfo>> EnsurePhantomImagesAsync(TemplatePhantomSettings settings, IReadOnlyCollection<ArrayOrientation> orientations,
-            IProgress<string>? progress = null, CancellationToken ct = default) => Task.FromException<IReadOnlyList<PhantomImageInfo>>(NotYet("Copying phantom images"));
-
-        public Task<QaPlanResult> CreateQaPlanAsync(QaPlanRequest request, IProgress<string>? progress = null, CancellationToken ct = default) =>
-            Task.FromException<QaPlanResult>(NotYet("Creating QA plans"));
-
-        public Task<QaPlanResult> MoveIsocentreAsync(string courseId, string planId, Vec3 newIsocentre, Box3 doseRegion,
-            IProgress<string>? progress = null, CancellationToken ct = default) => Task.FromException<QaPlanResult>(NotYet("Moving isocentres"));
-
-        public Task DeleteQaPlansAsync(string courseId, IReadOnlyCollection<string> planIds, IProgress<string>? progress = null, CancellationToken ct = default) =>
-            Task.FromException(NotYet("Deleting QA plans"));
-
         public bool IsBusy => _worker.IsBusy;
 
-        /// <summary>Phase 3: read path only.</summary>
-        public bool SupportsWriting => false;
+        public bool SupportsWriting => true;
 
         public void Dispose() => _worker.Dispose();
     }

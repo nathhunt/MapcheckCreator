@@ -41,6 +41,7 @@ namespace SrsMcPsqa.App
                 ? new FakePlanningService()
                 : new EsapiPlanningService(m => Log.Info("ESAPI: " + m));
             _service = service;
+            if (service is EsapiPlanningService esapi) esapi.AutoSave = settings.AutoSave;
             Log.Info(fake ? "Using demo data (--fake)." : "Using Eclipse (ESAPI).");
 
             var session = new PlanningSession(service, settings, launch, dialogs, fake);
@@ -55,7 +56,12 @@ namespace SrsMcPsqa.App
 
         protected override void OnExit(ExitEventArgs e)
         {
-            // Closes the patient and disposes the ESAPI Application on its own thread (ends the session).
+            // With auto-save off, save once now; then close the patient and dispose ESAPI on its own thread.
+            if (_service is EsapiPlanningService esapi && !esapi.AutoSave)
+            {
+                try { esapi.SaveAsync().Wait(TimeSpan.FromMinutes(2)); Log.Info("Saved changes on exit."); }
+                catch (Exception ex) { Log.Error("Saving on exit failed", ex); }
+            }
             try { (_service as IDisposable)?.Dispose(); }
             catch (Exception ex) { Log.Error("Closing Eclipse connection", ex); }
             Log.Info("Exit.");

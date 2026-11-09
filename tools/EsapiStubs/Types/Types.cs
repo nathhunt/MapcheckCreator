@@ -20,9 +20,29 @@ namespace VMS.TPS.Common.Model.Types
         public string UnitAsString => throw new NotImplementedException();
     }
 
+    public enum DosimeterUnit { Null, MU, Minute, Second }
+
     public struct MetersetValue
     {
-        public double Value => throw new NotImplementedException();
+        public MetersetValue(double value, DosimeterUnit unit) { Value = value; Unit = unit; }
+        public double Value { get; }
+        public DosimeterUnit Unit { get; }
+    }
+
+    public struct VRect<T>
+    {
+        public VRect(T x1, T y1, T x2, T y2) { X1 = x1; Y1 = y1; X2 = x2; Y2 = y2; }
+        public T X1 { get; }
+        public T Y1 { get; }
+        public T X2 { get; }
+        public T Y2 { get; }
+    }
+
+    public class ExternalBeamMachineParameters
+    {
+        public ExternalBeamMachineParameters(string machineId, string energyModeId, int doseRate, string techniqueId, string primaryFluenceModeId) { }
+        public ExternalBeamMachineParameters(string machineId) { }
+        public string MLCId { get; set; }
     }
 
     public enum CalculationType { PhotonVolumeDose }

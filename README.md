@@ -6,11 +6,11 @@ Creates patient-specific QA plans for single-isocentre SRS plans, measured with 
 
 | Phase | Content | State |
 |---|---|---|
-| 0 | Spike: test the risky ESAPI behaviour on Citrix | **Read-only part done**; write steps wait for script approval ([checklist](spike/SPIKE_CHECKLIST.md)) |
+| 0 | Spike: test the risky ESAPI behaviour on Citrix | **Done**: all questions answered on Citrix (2026-11-09) |
 | 1 | Core: geometry, detector model, scoring, optimisation (+ unit tests) | **Done**: 84 tests passing |
 | 2 | App shell on fake data | **Done**: full UI flow on demo data ([try it](docs/PHASE2_UI_CHECKLIST.md)) |
-| 3 | ESAPI read path | **Done, to test on Citrix** ([checklist](docs/PHASE3_CHECKLIST.md)) |
-| 4 | ESAPI write path | not started |
+| 3 | ESAPI read path | **Done**: tested on Citrix (dose and PTVs match Eclipse) |
+| 4 | ESAPI write path | **Done, to test on Citrix** ([checklist](docs/PHASE4_CHECKLIST.md)) |
 | 5 | Hardening, deployment docs | not started |
 
 ## Repository layout (so far)
@@ -95,7 +95,7 @@ Status after the first Citrix run (ESAPI 18.1.0.472, API assembly 1.0.700.247). 
 | V6 | `ExternalBeamMachineParameters` | ✓ ctor (machine, energy, doseRate, technique, fluence) plus a settable `MLCId`. |
 | V7 | `Add*Beam`, control-point editing | ✓ `AddVMATBeam` + per-control-point jaws/leaves reproduce a 180-CP SRS ARC (6X-FFF, 1400 MU/min, MLC 1934) with identical meterset weights; beam ID settable. |
 | V8 | Calculation model / options | `GetCalculationModel(PhotonVolumeDose)` returns **empty** for the clinical plans; use `PhotonCalculationModel`, else keep the model the verification plan inherits. **Open:** dose calculation on the phantom failed: "material assigned to structure BODY has not been defined in the physical material table selected for the structure set" (see Phase 4 notes). |
-| V9 | `CalculateDoseWithPresetValues` | **Preset MUs are ignored** on v18 verification plans: MU = weight × dose/fraction × MU/Gy, with MU/Gy = 100 (no reference point). Workaround being tested: set beam weights = clinical MU ÷ (dose/fraction × 100), verify every beam's MU after calculation, correct once, else stop. Calculation ~10 min per 4-arc plan (AcurosXB, 1 mm, whole phantom). Exists; `CalculationResult` has **only `Success`**, with no messages, so the app reports beam calculation logs (`Beam.CalculationLogs`) instead. |
+| V9 | `CalculateDoseWithPresetValues` | **Preset MUs are ignored** on v18 verification plans: MU = weight × dose/fraction × MU/Gy, with MU/Gy = 100 (no reference point). ✓ Verified workaround: beam weights = clinical MU ÷ (dose/fraction × 100). Four arcs gave exactly the clinical MUs, on creation and after an isocentre move. The app checks every beam after each calculation. Calculation ~10 min per 4-arc plan (AcurosXB, 1 mm, whole phantom). Exists; `CalculationResult` has **only `Success`**, with no messages, so the app reports beam calculation logs (`Beam.CalculationLogs`) instead. |
 | V10 | `BeamParameters.Isocenter` setter | ✓ moving the isocentre via `GetEditableParameters`/`ApplyParameters` works (tested). |
 | V11 | `Course.RemovePlanSetup` | ✓ tested, plus `CanRemovePlanSetup`. Don't touch the plan object after removal. |
 | V12 | Dose units | ✓ `DoseValuePresentation = Absolute` works even without BeginModifications. Previously: Test plan is `DoseValuePresentation=Relative`, so `VoxelToDoseValue` returns %. Must switch to Absolute (the spike now tests whether that works read-only). `GetVoxels` takes ~190 ms per plane at 468×241, so extraction must read only the z-planes around the PTVs. |
@@ -141,5 +141,9 @@ These are choices I made where the brief left room. Each is easy to change.
 - **QA plan prescription.** 1 fraction at the clinical dose per fraction (confirmed). The clinical MUs are per fraction.
 - **Phantom material.** Calculation needs the phantom BODY's material to be in the structure set's physical material table. This is a data setup item for the template phantom, fixed in Eclipse, not by the app.
 - **MUs.** See V9: beam weights reproduce the clinical MUs; the app verifies every beam's MU after each calculation and stops with an error if any differs by more than 0.05 MU.
+- **Beam order.** The QA plan keeps the clinical treatment order (`BeamsInTreatmentOrder` → `SetTreatmentOrder`, checked). Setup fields aren't copied.
+- **Phantom reuse.** An image in the patient with the template image ID and a structure set with BODY is reused (the most recent if several). Each plan records the exact structure set by UID.
+- **Template study lookup.** If a study ID is empty, the app saves, closes the patient, opens the template read-only to find the image's study, then re-opens the patient (cached per session).
+- **Failures.** If anything fails after a plan was created, the incomplete plan is removed (or the message says to delete it).
 - **Route.** Use the verification plan (`AddExternalPlanSetupAsVerificationPlan` + `AddVMATBeam` etc.). `Course.CopyPlanSetup` onto the phantom is refused: "Cannot copy to an image that is not registered nor has same frame of reference".
 - **Calculation time.** About 10 min per 4-arc plan on Citrix, so the progress panel must say so, and fine-tune iterations are expensive.

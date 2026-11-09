@@ -23,6 +23,7 @@ namespace SrsMcPsqa.Core.Models
                 QaCourseId = courseId,
                 PlanId = planId,
                 Orientation = plane.Orientation,
+                StructureSetUid = phantom.StructureSetUid,
                 AssignedPtvIds = assignedPtvIds.ToList(),
                 Isocentre = IsoGeometry.QaIsocentre(phantom.UserOrigin, clinicalIso, plane.Centre),
                 DoseRegion = DoseRegion(plane.Orientation, phantom.UserOrigin),

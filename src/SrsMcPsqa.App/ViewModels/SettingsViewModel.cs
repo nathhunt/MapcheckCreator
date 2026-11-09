@@ -48,6 +48,7 @@ namespace SrsMcPsqa.App.ViewModels
                 SettingsStore.SaveUser(Edit);
                 var applied = Edit.Clone();
                 Session.Settings = applied;
+                if (Session.Service is Esapi.EsapiPlanningService esapi) esapi.AutoSave = applied.AutoSave;
                 Edit = applied.Clone();
                 Log.Initialise(Edit.LogLevel);
                 ApplyTheme(Edit.Theme);

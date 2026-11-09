@@ -66,6 +66,8 @@ namespace SrsMcPsqa.Core.Services
         public ArrayOrientation Orientation { get; set; }
         public string ImageId { get; set; } = "";
         public string StructureSetId { get; set; } = "";
+        /// <summary>UID of the exact structure set (several copies of the phantom can share the same IDs).</summary>
+        public string StructureSetUid { get; set; } = "";
         /// <summary>User origin = array centre (DICOM).</summary>
         public Vec3 UserOrigin { get; set; }
         public bool WasCopied { get; set; }
@@ -76,6 +78,8 @@ namespace SrsMcPsqa.Core.Services
         public string QaCourseId { get; set; } = "";
         public string PlanId { get; set; } = "";
         public ArrayOrientation Orientation { get; set; }
+        /// <summary>Phantom structure set to plan on (<see cref="PhantomImageInfo.StructureSetUid"/>).</summary>
+        public string StructureSetUid { get; set; } = "";
         /// <summary>PTVs this plane is for (written to the plan tag).</summary>
         public IReadOnlyList<string> AssignedPtvIds { get; set; } = Array.Empty<string>();
         /// <summary>QA isocentre in phantom DICOM coordinates (<see cref="IsoGeometry.QaIsocentre"/>).</summary>
