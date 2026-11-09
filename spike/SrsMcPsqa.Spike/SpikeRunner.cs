@@ -545,6 +545,7 @@ namespace SrsMcPsqa.Spike
                 Info($"  Beam '{b.Id}': QA MU={b.Meterset.Value:F2}, clinical MU={c?.Meterset.Value:F2}, iso={V(b.IsocenterPosition)}");
             }
             LogNormalisation("after calculation", qa);
+            LogAbsoluteDose(qa, clinical);
             var d = qa.Dose;
             if (d != null)
                 Info($"  QA dose grid {d.XSize}x{d.YSize}x{d.ZSize}, res {d.XRes:F2}/{d.YRes:F2}/{d.ZRes:F2} (clinical {clinical.Dose?.XRes:F2}/{clinical.Dose?.YRes:F2}/{clinical.Dose?.ZRes:F2}); DoseMax3D={d.DoseMax3D}");
@@ -580,6 +581,98 @@ namespace SrsMcPsqa.Spike
             if (removed == 0) Info("No spike-tagged plans found in this course.");
             else SaveIf(app, inp, "delete");
             return removed;
+        }
+
+        /// <summary>
+        /// Absolute dose of the QA plan (max and at its isocentre). Comparing runs shows which MUs the dose was
+        /// really calculated with, whatever the MU display says.
+        /// </summary>
+        private void LogAbsoluteDose(ExternalPlanSetup qa, ExternalPlanSetup clinical)
+        {
+            try
+            {
+                try { qa.DoseValuePresentation = DoseValuePresentation.Absolute; }
+                catch (Exception ex) { Warn("Could not switch QA plan to absolute dose: " + ex.Message); }
+                var d = qa.Dose;
+                if (d == null) { Warn("QA plan has no dose."); return; }
+                var iso = qa.Beams.First(b => !b.IsSetupField).IsocenterPosition;
+                Info($"  QA ABSOLUTE DOSE: max {d.DoseMax3D}, at isocentre {d.GetDoseToPoint(iso)}");
+                var mus = qa.Beams.Where(b => !b.IsSetupField).Select(b => $"{b.Id}: QA {b.Meterset.Value:F2} MU / clinical {clinical.Beams.FirstOrDefault(c => c.Id == b.Id)?.Meterset.Value:F2} MU, MU/Gy {b.MetersetPerGy:F1}, weight {b.WeightFactor:F3}");
+                foreach (var m in mus) Info("  " + m);
+            }
+            catch (Exception ex) { Warn("Absolute dose check failed: " + ex.Message); }
+        }
+
+        // ------------------------------------------------------------------------------------------------
+        // Step 3c: alternative route. Copy the whole clinical plan onto the phantom (CopyPlanSetup), move the
+        // isocentre, 1-fraction prescription, calculate with preset MUs.
+        // ------------------------------------------------------------------------------------------------
+        public string? CopyPlanRoute(EsapiApplication app, SpikeInputs inp)
+        {
+            Step("STEP 3c - Copy clinical plan onto phantom (CopyPlanSetup), move isocentre, calculate with preset MUs");
+            if (!RequirePatient()) return null;
+            var clinical = FindClinicalPlan(inp);
+            if (clinical == null) return null;
+            var qaCourse = _patient!.Courses.FirstOrDefault(c => c.Id == inp.QaCourseId);
+            if (qaCourse == null) { Fail($"QA course '{inp.QaCourseId}' not found."); return null; }
+            var ss = _phantomSs;
+            if (!string.IsNullOrWhiteSpace(inp.PhantomStructureSetId))
+                ss = _patient.StructureSets.FirstOrDefault(s => s.Id == inp.PhantomStructureSetId && s.Image != null) ?? ss;
+            if (ss?.Image == null) { Fail("No phantom structure set/image. Run step 2 first or enter the structure set ID."); return null; }
+
+            var sb = new System.Text.StringBuilder();
+            var sw = Stopwatch.StartNew();
+            ExternalPlanSetup? qa;
+            try { qa = qaCourse.CopyPlanSetup(clinical, ss, sb) as ExternalPlanSetup; }
+            catch (Exception ex) { Fail("CopyPlanSetup threw:\n" + ex); return null; }
+            if (sb.Length > 0) Info("  CopyPlanSetup diagnostics: " + sb.ToString().Replace(Environment.NewLine, " | "));
+            if (qa == null) { Fail("CopyPlanSetup returned no external plan."); return null; }
+            Pass($"CopyPlanSetup created '{qa.Id}' in {sw.ElapsedMilliseconds} ms on structure set '{ss.Id}'.");
+            _qaPlan = qa;
+            _createdPlans.Add((qaCourse.Id, qa.Id));
+            Info($"  Copy: model '{qa.GetCalculationModel(CalculationType.PhotonVolumeDose)}', Rx {qa.NumberOfFractions} × {qa.DosePerFraction}, " +
+                 $"MUs [{string.Join(", ", qa.Beams.Where(b => !b.IsSetupField).Select(b => $"{b.Id}={b.Meterset.Value:F2}"))}], " +
+                 $"verified plan {(Reflect.TryGet(qa, "VerifiedPlan") as PlanSetup)?.Id ?? "none"}");
+
+            var existingIds = new HashSet<string>(qaCourse.PlanSetups.Where(p => p != qa).Select(p => p.Id));
+            string id = Enumerable.Range(1, 99).Select(n => PlanIdPrefix + n).First(x => !existingIds.Contains(x));
+            try { qa.Id = id; _createdPlans[_createdPlans.Count - 1] = (qaCourse.Id, qa.Id); Pass($"Plan ID set to '{qa.Id}'."); }
+            catch (Exception ex) { Fail($"Setting plan ID threw: {ex.Message}"); }
+            Reflect.TrySetProperty(qa, "Comment", $"{SpikeTag}|src={clinical.UID}|orient=spike-copy", _log);
+
+            // Keep only the selected beam(s) for speed.
+            var tx = qa.Beams.Where(b => !b.IsSetupField).ToList();
+            var keep = !string.IsNullOrWhiteSpace(inp.BeamId) ? tx.Where(b => b.Id == inp.BeamId).ToList()
+                     : inp.CopyAllBeams ? tx : tx.Take(1).ToList();
+            foreach (var b in tx.Where(b => !keep.Contains(b)).ToList())
+            {
+                try { qa.RemoveBeam(b); } catch (Exception ex) { Warn($"RemoveBeam('{b.Id}') threw: {ex.Message}"); }
+            }
+            Info($"  Treatment beams kept: {string.Join(", ", qa.Beams.Where(b => !b.IsSetupField).Select(b => b.Id))}");
+
+            var iso = ss.Image.UserOrigin + new VVector(inp.IsoOffset1[0], inp.IsoOffset1[1], inp.IsoOffset1[2]);
+            foreach (var b in qa.Beams.ToList())
+            {
+                try
+                {
+                    var ep = b.GetEditableParameters();
+                    ep.Isocenter = iso;
+                    b.ApplyParameters(ep);
+                }
+                catch (Exception ex) { Fail($"Moving isocentre of '{b.Id}' threw: {ex.Message}"); }
+            }
+            Info($"  Isocentre moved to {V(iso)} (phantom user origin + offset).");
+
+            try
+            {
+                qa.SetPrescription(1, clinical.DosePerFraction, clinical.TreatmentPercentage);
+                Pass($"SetPrescription(1, {clinical.DosePerFraction}, {clinical.TreatmentPercentage}).");
+            }
+            catch (Exception ex) { Fail("SetPrescription threw: " + ex.Message); }
+
+            Calculate(qa, clinical);
+            SaveIf(app, inp, "copy-plan route");
+            return qa.Id;
         }
 
         private void LogNormalisation(string when, ExternalPlanSetup qa)

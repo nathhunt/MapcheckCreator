@@ -90,6 +90,7 @@
                         <ui:Button Margin="0,4,6,0" Content="2a. Inspect template" Icon="{ui:SymbolIcon Search24}" Click="Inspect_Click" />
                         <ui:Button Margin="0,4,6,0" Content="3. Create QA plan + calc" Icon="{ui:SymbolIcon Add24}" Click="Create_Click" />
                         <ui:Button Margin="0,4,6,0" Content="3b. Move iso + recalc" Icon="{ui:SymbolIcon ArrowMove24}" Click="Move_Click" />
+                        <ui:Button Margin="0,4,6,0" Content="3c. Copy-plan route" Icon="{ui:SymbolIcon Copy24}" Click="CopyPlan_Click" />
                         <ui:Button Margin="0,4,6,0" Content="Save" Icon="{ui:SymbolIcon Save24}" Click="Save_Click" />
                         <ui:Button Margin="0,4,6,0" Content="Delete spike plans" Icon="{ui:SymbolIcon Delete24}" Click="Delete_Click" />
                     </WrapPanel>

@@ -154,6 +154,9 @@ namespace SrsMcPsqa.Spike
         private async void Create_Click(object sender, RoutedEventArgs e) =>
             await RunStep("Create QA plan", (app, inp) => _runner.CreateQaPlan(app, inp), null);
 
+        private async void CopyPlan_Click(object sender, RoutedEventArgs e) =>
+            await RunStep("Copy-plan route", (app, inp) => _runner.CopyPlanRoute(app, inp), null);
+
         private async void Move_Click(object sender, RoutedEventArgs e) =>
             await RunStep("Move isocentre", (app, inp) => _runner.MoveIso(app, inp), false);
 
