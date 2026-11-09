@@ -531,13 +531,38 @@ namespace SrsMcPsqa.Spike
             Info($"Preset MUs: {string.Join(", ", presets.Select(p => $"{p.Key}={p.Value.Value:F2} {p.Value.Unit}"))}");
             if (presets.Count != ids.Count) Warn("Not every QA beam ID matched a clinical beam ID.");
 
-            Info("Calculating dose (cannot be cancelled)...");
-            var sw = Stopwatch.StartNew();
-            CalculationResult res;
-            try { res = qa.CalculateDoseWithPresetValues(presets); }
-            catch (Exception ex) { Fail("CalculateDoseWithPresetValues threw:\n" + ex); return; }
-            (res.Success ? (Action<string>)Pass : Fail)($"CalculateDoseWithPresetValues: Success={res.Success} in {sw.Elapsed.TotalSeconds:F1} s");
-            Info($"  CalculationResult: {Reflect.DescribeProperties(res)}");
+            // Preset MUs are ignored on v18 verification plans (MU = weight × dose/fraction × MU/Gy, MU/Gy = 100 without a
+            // reference point). Set beam weights so Eclipse's own MU calculation gives the clinical MUs, then verify.
+            var target = presets.ToDictionary(p => p.Key, p => p.Value.Value);
+            double dpf = ToGy(qa.DosePerFraction);
+            if (dpf > 0)
+            {
+                foreach (var b in qa.Beams.Where(b => !b.IsSetupField && target.ContainsKey(b.Id)))
+                    SetWeight(b, target[b.Id] / (dpf * 100.0));
+                Info($"  Beam weights set from clinical MUs (assuming 100 MU/Gy at {dpf:0.###} Gy/fraction).");
+            }
+            else Warn("QA plan has no dose per fraction (no prescription): MUs can't be matched by weights.");
+
+            CalculationResult? res = null;
+            for (int pass = 1; pass <= 2; pass++)
+            {
+                Info($"Calculating dose, pass {pass} (cannot be cancelled)...");
+                var sw = Stopwatch.StartNew();
+                try { res = qa.CalculateDoseWithPresetValues(presets); }
+                catch (Exception ex) { Fail("CalculateDoseWithPresetValues threw:\n" + ex); return; }
+                (res.Success ? (Action<string>)Pass : Fail)($"CalculateDoseWithPresetValues: Success={res.Success} in {sw.Elapsed.TotalSeconds:F1} s");
+                if (!res.Success || dpf <= 0) break;
+
+                // Verify MUs; correct weights proportionally and recalculate once if needed.
+                double worst = 0;
+                foreach (var b in qa.Beams.Where(b => !b.IsSetupField && target.ContainsKey(b.Id)))
+                    worst = Math.Max(worst, Math.Abs(b.Meterset.Value - target[b.Id]));
+                if (worst <= 0.05) { Pass($"All beam MUs match the clinical MUs (max |ΔMU| = {worst:F3})."); break; }
+                if (pass == 2) { Fail($"Beam MUs still differ from clinical after correction (max |ΔMU| = {worst:F3})."); break; }
+                Warn($"Beam MUs differ (max |ΔMU| = {worst:F3}); correcting weights and recalculating.");
+                foreach (var b in qa.Beams.Where(b => !b.IsSetupField && target.ContainsKey(b.Id)))
+                    if (b.Meterset.Value > 0) SetWeight(b, b.WeightFactor * target[b.Id] / b.Meterset.Value);
+            }
 
             foreach (var b in qa.Beams.Where(b => !b.IsSetupField))
             {
@@ -673,6 +698,21 @@ namespace SrsMcPsqa.Spike
             Calculate(qa, clinical);
             SaveIf(app, inp, "copy-plan route");
             return qa.Id;
+        }
+
+        private void SetWeight(Beam b, double weight)
+        {
+            var ep = b.GetEditableParameters();
+            ep.WeightFactor = weight;
+            b.ApplyParameters(ep);
+        }
+
+        private static double ToGy(DoseValue dv)
+        {
+            var u = (dv.UnitAsString ?? "").Trim();
+            if (u.Equals("Gy", StringComparison.OrdinalIgnoreCase)) return dv.Dose;
+            if (u.Equals("cGy", StringComparison.OrdinalIgnoreCase)) return dv.Dose / 100.0;
+            return double.NaN;
         }
 
         private void LogNormalisation(string when, ExternalPlanSetup qa)
