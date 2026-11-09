@@ -44,3 +44,54 @@ namespace SrsMcPsqa.Core.Services
         }
     }
 }
+
+namespace SrsMcPsqa.Core.Services
+{
+    /// <summary>
+    /// Turns TraceListener Write/WriteLine calls into complete lines. Text from Write is held until a line break or
+    /// WriteLine, except that a complete "Progress ... N%" message sent through Write alone is passed on at once
+    /// (Eclipse may write progress that way; the Gateway Scripts example handles Write messages immediately).
+    /// Not thread-safe: the caller locks.
+    /// </summary>
+    public sealed class TraceLineBuffer
+    {
+        private readonly System.Text.StringBuilder _partial = new System.Text.StringBuilder();
+
+        public System.Collections.Generic.IReadOnlyList<string> Write(string? text)
+        {
+            var lines = new System.Collections.Generic.List<string>();
+            if (string.IsNullOrEmpty(text)) return lines;
+            _partial.Append(text);
+            TakeCompleteLines(lines);
+            if (_partial.Length > 0 && EclipseTrace.ProgressPercent(_partial.ToString()) != null)
+            {
+                lines.Add(_partial.ToString());
+                _partial.Clear();
+            }
+            return lines;
+        }
+
+        public System.Collections.Generic.IReadOnlyList<string> WriteLine(string? text)
+        {
+            var lines = new System.Collections.Generic.List<string>();
+            _partial.Append(text).Append('\n');
+            TakeCompleteLines(lines);
+            return lines;
+        }
+
+        private void TakeCompleteLines(System.Collections.Generic.List<string> lines)
+        {
+            var s = _partial.ToString();
+            int start = 0;
+            for (int i = 0; i < s.Length; i++)
+            {
+                if (s[i] != '\n' && s[i] != '\r') continue;
+                var line = s.Substring(start, i - start);
+                if (!string.IsNullOrWhiteSpace(line)) lines.Add(line);
+                start = i + 1;
+            }
+            _partial.Clear();
+            if (start < s.Length) _partial.Append(s, start, s.Length - start);
+        }
+    }
+}

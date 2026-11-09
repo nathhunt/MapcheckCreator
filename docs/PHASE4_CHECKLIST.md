@@ -32,6 +32,6 @@ As in Phase 3: `git pull`, build `src/SrsMcPsqa.App` in Release, copy the output
 
 - Anything that differs from "Expect / check", with screenshots.
 - The log `%LOCALAPPDATA%\SrsMcPsqa\logs\srsmcpsqa-<date>.log`, which records each step and its timing.
-- **Eclipse trace output:** search the log for `Eclipse trace` and for the line `Eclipse wrote N trace line(s) during the calculation, M with a progress percentage` (or `Eclipse wrote no trace output`). Send a sample of those lines even if the panel showed no Eclipse percentage: if Eclipse uses a different wording, I can adjust the parser.
+- **Eclipse trace output:** search the log for `Eclipse trace` and for the line `Eclipse wrote N trace line(s) during the calculation, M with a progress percentage` (or `Eclipse wrote no trace output`). Send a sample of those lines even if the panel showed no Eclipse percentage: if Eclipse uses a different wording, I can adjust the parser. (The Gateway Scripts example that showed this runs as a plugin inside Eclipse; our app is a standalone exe, so "no trace output" is a possible and useful answer.)
 - Whether the time estimates were reasonable from the second plan on. Timings are kept in `%LOCALAPPDATA%\SrsMcPsqa\calc-timing.json` (seconds per control point per computer and model); delete it to start afresh.
 - If a step fails: the error dialog text (**Copy details**). If a plan fails partway, the app removes the incomplete plan and says so.

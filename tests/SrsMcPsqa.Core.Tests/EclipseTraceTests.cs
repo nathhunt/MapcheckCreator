@@ -32,3 +32,36 @@ namespace SrsMcPsqa.Core.Tests
         }
     }
 }
+
+namespace SrsMcPsqa.Core.Tests
+{
+    public class TraceLineBufferTests
+    {
+        [Fact]
+        public void JoinsPartialWritesUntilWriteLine()
+        {
+            var b = new TraceLineBuffer();
+            Assert.Empty(b.Write("Calculating "));
+            Assert.Empty(b.Write("field Arc1"));
+            Assert.Equal(new[] { "Calculating field Arc1 done" }, b.WriteLine(" done"));
+        }
+
+        [Fact]
+        public void PassesProgressWrittenWithWriteAtOnce()
+        {
+            var b = new TraceLineBuffer();
+            Assert.Equal(new[] { "Progress 10%" }, b.Write("Progress 10%"));
+            Assert.Equal(new[] { "Progress 20%" }, b.Write("Progress 20%"));
+            Assert.Empty(b.Write("Progress 3"));
+            Assert.Equal(new[] { "Progress 30%" }, b.Write("0%"));
+        }
+
+        [Fact]
+        public void SplitsOnLineBreaksAndCarriageReturns()
+        {
+            var b = new TraceLineBuffer();
+            Assert.Equal(new[] { "a", "b" }, b.Write("a\r\nb\rc"));
+            Assert.Equal(new[] { "c" }, b.WriteLine(null));
+        }
+    }
+}
