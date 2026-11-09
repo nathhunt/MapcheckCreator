@@ -140,4 +140,5 @@ These are choices I made where the brief left room. Each is easy to change.
 
 - **QA plan prescription.** 1 fraction at the clinical dose per fraction (confirmed). The clinical MUs are per fraction.
 - **Phantom material.** Calculation needs the phantom BODY's material to be in the structure set's physical material table. This is a data setup item for the template phantom, fixed in Eclipse, not by the app.
+- **Route.** Use the verification plan (`AddExternalPlanSetupAsVerificationPlan` + `AddVMATBeam` etc.). `Course.CopyPlanSetup` onto the phantom is refused: "Cannot copy to an image that is not registered nor has same frame of reference".
 - **Calculation time.** About 10 min per 4-arc plan on Citrix, so the progress panel must say so, and fine-tune iterations are expensive.
