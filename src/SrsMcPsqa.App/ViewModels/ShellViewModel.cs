@@ -156,6 +156,16 @@ namespace SrsMcPsqa.App.ViewModels
             }
             if (e.Detail != null) step.Detail = e.Detail;
 
+            if (e.IsCalculation && e.State == QaStepState.Running && (e.EclipsePercent.HasValue || e.EclipseMessage != null))
+            {
+                // Live update from Eclipse's trace output during the calculation.
+                if (e.EclipsePercent.HasValue) step.EclipsePercent = e.EclipsePercent;
+                if (e.EclipseMessage != null) step.EclipseText = e.EclipseMessage;
+                step.Tick();
+                UpdateOverall();
+                return;
+            }
+
             if (e.IsCalculation)
             {
                 step.IsCalculation = true;
@@ -167,6 +177,8 @@ namespace SrsMcPsqa.App.ViewModels
                     step.Estimate = _timings.Estimate(step.Model, step.ControlPoints);
                     step.HasEstimate = step.Estimate.HasValue;
                     step.Fraction = 0;
+                    step.EclipsePercent = null;
+                    step.EclipseText = null;
                 }
             }
 
@@ -187,6 +199,7 @@ namespace SrsMcPsqa.App.ViewModels
                         step.Fraction = 1;
                         step.IsOverdue = false;
                         step.TimingText = "";
+                        step.EclipseText = null;
                         if (e.State == QaStepState.Done) _timings.Record(step.Model, step.ControlPoints, step.FinalDuration.Value);
                     }
                     if (e.State == QaStepState.Failed) { plan.State = "Failed"; HasErrors = true; }

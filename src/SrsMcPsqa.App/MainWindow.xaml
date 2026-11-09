@@ -159,7 +159,7 @@
 
                     <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Margin="0,8,0,0" TextWrapping="Wrap"
                                Visibility="{Binding Progress.HasPlans, Converter={StaticResource BoolToVis}}"
-                               Text="Eclipse doesn't report progress during a dose calculation, so calculation progress is estimated from earlier calculations on this computer. A calculation can't be interrupted: Cancel stops after the current step." />
+                               Text="Calculation progress comes from Eclipse's messages when it provides them (&quot;Eclipse: 43%&quot;); otherwise it is estimated from earlier calculations on this computer. A calculation can't be interrupted: Cancel stops after the current step." />
                     <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Margin="0,8,0,0"
                                Visibility="{Binding Progress.HasPlans, Converter={StaticResource InverseBoolToVis}}"
                                Text="Eclipse calculations can't be interrupted: Cancel stops after the current step." />
@@ -268,6 +268,18 @@
                                                                             <Style.Triggers>
                                                                                 <DataTrigger Binding="{Binding IsOverdue}" Value="True">
                                                                                     <Setter Property="Foreground" Value="{x:Static inf:StatusBrushConverter.Caution}" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                                <TextBlock Margin="0,1,0,0" FontSize="11" TextTrimming="CharacterEllipsis"
+                                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding EclipseText}">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding EclipseText}" Value="{x:Null}">
+                                                                                    <Setter Property="Visibility" Value="Collapsed" />
                                                                                 </DataTrigger>
                                                                             </Style.Triggers>
                                                                         </Style>

@@ -49,6 +49,7 @@ namespace SrsMcPsqa.Fake
         }
 
         private const string DemoModel = "AcurosXB (demo)";
+        private int _calculations;
         private const int DemoControlPointsPerArc = 90;
         private static readonly double[] DemoMus = { 412.37, 398.12, 405.66, 421.09 };
 
@@ -251,7 +252,19 @@ namespace SrsMcPsqa.Fake
                 Model = DemoModel, Beams = DemoMus.Length, ControlPoints = cps, Detail = detail,
             });
             var sw = System.Diagnostics.Stopwatch.StartNew();
-            await Delay(DemoCalculationSeconds, ct).ConfigureAwait(false);
+            // Every other demo calculation imitates Eclipse writing progress to its trace output, so both panel modes can be seen.
+            bool eclipseProgress = System.Threading.Interlocked.Increment(ref _calculations) % 2 == 0;
+            const int ticks = 20;
+            for (int i = 1; i <= ticks; i++)
+            {
+                await Delay(DemoCalculationSeconds / ticks, ct).ConfigureAwait(false);
+                if (eclipseProgress && i < ticks)
+                    steps?.Report(new QaProgressEvent
+                    {
+                        PlanId = planId, Step = "Calculate dose", State = QaStepState.Running, IsCalculation = true,
+                        EclipsePercent = 100.0 * i / ticks, EclipseMessage = $"Progress: calculating field Arc{1 + (i - 1) * DemoMus.Length / ticks} {100 * i / ticks}%",
+                    });
+            }
             steps?.Report(new QaProgressEvent
             {
                 PlanId = planId, Step = "Calculate dose", State = QaStepState.Done, IsCalculation = true,

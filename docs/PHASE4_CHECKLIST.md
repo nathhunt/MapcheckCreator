@@ -19,7 +19,7 @@ As in Phase 3: `git pull`, build `src/SrsMcPsqa.App` in Release, copy the output
 | 1 | Launch from Eclipse on `Phys_MapCheck_test` / `BRN HA multi`, with the patient open in Eclipse. | No yellow "Read-only" note. |
 | 2 | Load the plan → PTVs → Array planning. Note the plans, e.g. 1 × 0° and 2 × 270°. | The footer button reads **Create N QA plans** and is enabled. |
 | 3 | **Create N QA plans**, then confirm. | Progress panel: "Plan 1 of N" with an overall bar and elapsed time. A **Phantom images** card shows the 0° image **reused** and the 270° image **copied** (if its study ID is empty, the app briefly closes and re-opens the patient to look it up). Then one card per plan with its steps and their durations: create, prescription and model, copy beams, save, **Calculate dose**, Check MUs, read dose, save. |
-| 3a | Watch the first **Calculate dose**. | It shows the model, beams and control points, and an elapsed timer with "no estimate yet" (the app hasn't timed this model on this computer yet). The bar moves without a percentage. |
+| 3a | Watch the first **Calculate dose**. **Key question:** does Eclipse report its own progress? | If yes: the bar shows **"Eclipse: 43% · … elapsed · about X left"** with Eclipse's latest message underneath. If not: an elapsed timer with "no estimate yet" (the app hasn't timed this model on this computer yet) and a bar without a percentage. Either way, the log records what Eclipse wrote (see below). |
 | 3b | Watch the second plan's calculation. | Now it shows an estimated bar and "about X min left (est.)", and the overall line shows the time left in total. If it runs over 125 % of the estimate it says "taking longer than usual" in amber. |
 | 3c | When all plans are done. | The panel stays open: every card has a tick and its total time, and the **MU check** table lists each beam's QA MU, clinical MU and difference with ticks. **Close** opens Review. |
 | 4 | When done, the app opens **Review**. | One tab per plan with the calculated dose (green "CALCULATED"). |
@@ -32,5 +32,6 @@ As in Phase 3: `git pull`, build `src/SrsMcPsqa.App` in Release, copy the output
 
 - Anything that differs from "Expect / check", with screenshots.
 - The log `%LOCALAPPDATA%\SrsMcPsqa\logs\srsmcpsqa-<date>.log`, which records each step and its timing.
+- **Eclipse trace output:** search the log for `Eclipse trace` and for the line `Eclipse wrote N trace line(s) during the calculation, M with a progress percentage` (or `Eclipse wrote no trace output`). Send a sample of those lines even if the panel showed no Eclipse percentage: if Eclipse uses a different wording, I can adjust the parser.
 - Whether the time estimates were reasonable from the second plan on. Timings are kept in `%LOCALAPPDATA%\SrsMcPsqa\calc-timing.json` (seconds per control point per computer and model); delete it to start afresh.
 - If a step fails: the error dialog text (**Copy details**). If a plan fails partway, the app removes the incomplete plan and says so.

@@ -25,6 +25,10 @@ namespace SrsMcPsqa.App.ViewModels
         [ObservableProperty] private double _fraction;
         [ObservableProperty] private string _timingText = "";
         [ObservableProperty] private bool _isOverdue;
+        /// <summary>Progress Eclipse reported in its trace output (0-100), when it does.</summary>
+        [ObservableProperty] private double? _eclipsePercent;
+        /// <summary>Latest Eclipse message during the calculation.</summary>
+        [ObservableProperty] private string? _eclipseText;
 
         public string? Model { get; set; }
         public int ControlPoints { get; set; }
@@ -37,7 +41,17 @@ namespace SrsMcPsqa.App.ViewModels
 
         public TimeSpan Elapsed => DateTime.Now - Started;
 
-        public TimeSpan? Remaining => Estimate is TimeSpan e && IsRunning ? (e - Elapsed > TimeSpan.Zero ? e - Elapsed : TimeSpan.Zero) : (TimeSpan?)null;
+        public TimeSpan? Remaining
+        {
+            get
+            {
+                if (!IsRunning) return null;
+                // Eclipse's own percentage, extrapolated linearly, once it's far enough along to mean something.
+                if (EclipsePercent is double p && p >= 5) return TimeSpan.FromSeconds(Elapsed.TotalSeconds * (100 - p) / p);
+                if (Estimate is TimeSpan e) return e - Elapsed > TimeSpan.Zero ? e - Elapsed : TimeSpan.Zero;
+                return null;
+            }
+        }
 
         public void Restart() { Started = DateTime.Now; }
 
@@ -51,7 +65,15 @@ namespace SrsMcPsqa.App.ViewModels
                 DurationText = elapsed.TotalSeconds >= 2 ? Format(elapsed) : "";
                 return;
             }
-            if (Estimate is TimeSpan est && est > TimeSpan.Zero)
+            if (EclipsePercent is double pct)
+            {
+                Fraction = pct / 100.0;
+                HasEstimate = true;
+                IsOverdue = false;
+                TimingText = $"Eclipse: {pct:0}% · {Format(elapsed)} elapsed" +
+                             (Remaining is TimeSpan left && pct >= 5 && pct < 100 ? $" · about {FormatRemaining(left)} left" : "");
+            }
+            else if (Estimate is TimeSpan est && est > TimeSpan.Zero)
             {
                 double f = elapsed.TotalSeconds / est.TotalSeconds;
                 // Hold short of 100 % until Eclipse says it's finished: this is an estimate, not Eclipse's progress.

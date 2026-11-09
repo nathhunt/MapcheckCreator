@@ -47,7 +47,7 @@ namespace SrsMcPsqa.Core.Tests
                 Assert.Contains(ev.Skip(ev.IndexOf(started) + 1), e => e.Step == started.Step && e.State == QaStepState.Done && e.Duration.HasValue);
             Assert.DoesNotContain(ev, e => e.State == QaStepState.Failed);
 
-            var calc = ev.Single(e => e.IsCalculation && e.State == QaStepState.Running);
+            var calc = ev.Single(e => e.IsCalculation && e.State == QaStepState.Running && e.EclipsePercent == null && e.EclipseMessage == null);
             Assert.True(calc.ControlPoints > 0 && calc.Beams > 0 && !string.IsNullOrEmpty(calc.Model));
             Assert.True(ev.IndexOf(calc) > ev.FindIndex(e => e.Step == "Copy beams" && e.State == QaStepState.Done));
             var mu = ev.Single(e => e.MuResults != null);

@@ -41,6 +41,11 @@ namespace SrsMcPsqa.Core.Services
         public int ControlPoints { get; set; }
 
         public IReadOnlyList<BeamMuResult>? MuResults { get; set; }
+
+        /// <summary>Progress Eclipse wrote to its trace output during the calculation (0-100), if any.</summary>
+        public double? EclipsePercent { get; set; }
+        /// <summary>Latest Eclipse trace message during the calculation, if any.</summary>
+        public string? EclipseMessage { get; set; }
     }
 
     /// <summary>Helper for services: report a step as running, then done (with duration) or failed.</summary>

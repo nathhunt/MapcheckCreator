@@ -329,12 +329,18 @@ namespace SrsMcPsqa.Esapi
                 });
                 var sw = Stopwatch.StartNew();
                 CalculationResult res;
-                try { res = qa.CalculateDoseWithPresetValues(presets); }
+                var trace = new CalculationTrace(planId, stepName, steps, _log);
+                try
+                {
+                    using (EclipseTraceListener.Attach(trace.OnLine))
+                        res = qa.CalculateDoseWithPresetValues(presets);
+                }
                 catch (Exception ex)
                 {
                     steps?.Report(new QaProgressEvent { PlanId = planId, Step = stepName, State = QaStepState.Failed, IsCalculation = true, Duration = sw.Elapsed, Detail = ex.Message });
                     throw;
                 }
+                finally { trace.LogSummary(); }
                 steps?.Report(new QaProgressEvent
                 {
                     PlanId = planId, Step = stepName, State = res.Success ? QaStepState.Done : QaStepState.Failed, IsCalculation = true,
@@ -368,6 +374,65 @@ namespace SrsMcPsqa.Esapi
                     if (b.Meterset.Value > 0) SetWeight(b, b.WeightFactor * clinicalMu[b.Id].Value / b.Meterset.Value);
             }
             return notes;
+        }
+
+        /// <summary>
+        /// Turns Eclipse's trace output during a calculation into progress events (throttled) and writes every line to
+        /// the log, so the format can be checked (whether dose calculation reports progress this way is unconfirmed).
+        /// </summary>
+        private sealed class CalculationTrace
+        {
+            private const int MaxLoggedLines = 2000;
+            private readonly string _planId, _step;
+            private readonly IProgress<QaProgressEvent>? _steps;
+            private readonly Action<string> _log;
+            private readonly object _lock = new object();
+            private int _lines, _progressLines;
+            private double _lastPercent = -1;
+            private string? _lastMessage;
+            private DateTime _lastReport = DateTime.MinValue;
+
+            public CalculationTrace(string planId, string step, IProgress<QaProgressEvent>? steps, Action<string> log)
+            {
+                _planId = planId; _step = step; _steps = steps; _log = log;
+            }
+
+            public void OnLine(string line)
+            {
+                if (EclipseTrace.IsNoise(line)) return;
+                double? pct = EclipseTrace.ProgressPercent(line);
+                string? msg = EclipseTrace.DisplayMessage(line);
+                bool report;
+                lock (_lock)
+                {
+                    _lines++;
+                    if (pct.HasValue) _progressLines++;
+                    if (_lines <= MaxLoggedLines) _log($"Eclipse trace ({_planId}): {line.Trim()}");
+                    else if (_lines == MaxLoggedLines + 1) _log($"Eclipse trace ({_planId}): more lines not logged.");
+
+                    var now = DateTime.UtcNow;
+                    bool percentMoved = pct.HasValue && Math.Abs(pct.Value - _lastPercent) >= 1;
+                    bool messageChanged = msg != null && msg != _lastMessage && (now - _lastReport).TotalSeconds >= 0.5;
+                    report = percentMoved || messageChanged;
+                    if (pct.HasValue) _lastPercent = pct.Value;
+                    if (msg != null) _lastMessage = msg;
+                    if (report) _lastReport = now;
+                }
+                if (report)
+                    _steps?.Report(new QaProgressEvent
+                    {
+                        PlanId = _planId, Step = _step, State = QaStepState.Running, IsCalculation = true,
+                        EclipsePercent = pct, EclipseMessage = msg,
+                    });
+            }
+
+            public void LogSummary()
+            {
+                lock (_lock)
+                    _log(_lines == 0
+                        ? $"{_planId}: Eclipse wrote no trace output during the calculation (progress was estimated)."
+                        : $"{_planId}: Eclipse wrote {_lines} trace line(s) during the calculation, {_progressLines} with a progress percentage.");
+            }
         }
 
         private static void SetWeight(Beam b, double weight)
