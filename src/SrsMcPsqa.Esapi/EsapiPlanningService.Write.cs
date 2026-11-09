@@ -401,7 +401,8 @@ namespace SrsMcPsqa.Esapi
             {
                 if (EclipseTrace.IsNoise(line)) return;
                 double? pct = EclipseTrace.ProgressPercent(line);
-                string? msg = EclipseTrace.DisplayMessage(line);
+                // A "Progress N%" line is shown as the percentage, not repeated as a message.
+                string? msg = pct.HasValue ? null : EclipseTrace.DisplayMessage(line);
                 bool report;
                 lock (_lock)
                 {

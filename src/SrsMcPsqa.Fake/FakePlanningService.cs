@@ -262,7 +262,7 @@ namespace SrsMcPsqa.Fake
                     steps?.Report(new QaProgressEvent
                     {
                         PlanId = planId, Step = "Calculate dose", State = QaStepState.Running, IsCalculation = true,
-                        EclipsePercent = 100.0 * i / ticks, EclipseMessage = $"Progress: calculating field Arc{1 + (i - 1) * DemoMus.Length / ticks} {100 * i / ticks}%",
+                        EclipsePercent = 100.0 * i / ticks, EclipseMessage = i % 5 == 1 ? $"Calculating field Arc{1 + (i - 1) * DemoMus.Length / ticks}" : null,
                     });
             }
             steps?.Report(new QaProgressEvent

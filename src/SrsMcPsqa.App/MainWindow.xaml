@@ -227,7 +227,8 @@
                                                 <TextBlock Width="20" FontWeight="Bold" VerticalAlignment="Center"
                                                            Text="{Binding State, Converter={StaticResource StepGlyph}}"
                                                            Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                                                <TextBlock Style="{StaticResource Label}" VerticalAlignment="Center" Text="{Binding Header}" />
+                                                <TextBlock FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" Text="{Binding Header}"
+                                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                                             </DockPanel>
                                             <ItemsControl ItemsSource="{Binding Steps}" Margin="20,4,0,0"
                                                           Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}">

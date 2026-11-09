@@ -145,6 +145,13 @@ namespace SrsMcPsqa.App.ViewModels
             if (plan.State == "Pending")
             {
                 plan.State = "Running"; plan.Started = DateTime.Now; plan.IsExpanded = true;
+                // A finished group before this plan (e.g. "Phantom images") is done once the next plan starts.
+                foreach (var g in Plans.Where(p => p.Number == 0 && p.State == "Running" && p != plan && p.Steps.All(s => s.State == "Done")).ToList())
+                {
+                    g.State = "Done";
+                    g.IsExpanded = false;
+                    g.Summary = $"{g.Steps.Count} step{(g.Steps.Count == 1 ? "" : "s")} done";
+                }
                 foreach (var other in Plans.Where(p => p != plan && p.State != "Running")) other.IsExpanded = false;
             }
 
@@ -256,6 +263,10 @@ namespace SrsMcPsqa.App.ViewModels
                 .DefaultIfEmpty(TimeSpan.Zero).Last();
             var lastCalc = numbered.SelectMany(p => p.Steps).LastOrDefault(s => s.IsCalculation && s.FinalDuration.HasValue);
             var typicalCalc = calcEstimate > TimeSpan.Zero ? calcEstimate : lastCalc?.FinalDuration ?? TimeSpan.Zero;
+            // Prefer the running calculation's own projection from Eclipse's percentage (same beams on every plan).
+            var running = current?.RunningCalculation;
+            if (running?.EclipsePercent is double pct && pct >= 5)
+                typicalCalc = TimeSpan.FromSeconds(running.Elapsed.TotalSeconds * 100 / pct);
             var done = numbered.Where(p => p.State == "Done").ToList();
             var overhead = done.Count > 0 ? TimeSpan.FromSeconds(done.Average(p => p.Overhead.TotalSeconds)) : TimeSpan.FromSeconds(20);
 
