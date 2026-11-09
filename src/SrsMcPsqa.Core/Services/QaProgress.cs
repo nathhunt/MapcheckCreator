@@ -46,6 +46,8 @@ namespace SrsMcPsqa.Core.Services
         public double? EclipsePercent { get; set; }
         /// <summary>Latest Eclipse trace message during the calculation, if any.</summary>
         public string? EclipseMessage { get; set; }
+        /// <summary>Warnings/errors Eclipse reported for the calculation (summarised), on the step's Done event.</summary>
+        public IReadOnlyList<string>? Warnings { get; set; }
     }
 
     /// <summary>Helper for services: report a step as running, then done (with duration) or failed.</summary>

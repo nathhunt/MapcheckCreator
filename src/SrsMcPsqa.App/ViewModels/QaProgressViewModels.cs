@@ -29,6 +29,8 @@ namespace SrsMcPsqa.App.ViewModels
         [ObservableProperty] private double? _eclipsePercent;
         /// <summary>Latest Eclipse message during the calculation.</summary>
         [ObservableProperty] private string? _eclipseText;
+        /// <summary>Warnings Eclipse reported for the calculation, one per line.</summary>
+        [ObservableProperty] private string? _warningsText;
 
         public string? Model { get; set; }
         public int ControlPoints { get; set; }

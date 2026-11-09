@@ -209,6 +209,7 @@ namespace SrsMcPsqa.App.ViewModels
                         step.EclipseText = null;
                         if (e.State == QaStepState.Done) _timings.Record(step.Model, step.ControlPoints, step.FinalDuration.Value);
                     }
+                    if (e.Warnings != null && e.Warnings.Count > 0) step.WarningsText = string.Join(Environment.NewLine, e.Warnings);
                     if (e.State == QaStepState.Failed) { plan.State = "Failed"; HasErrors = true; }
                     Log.Info($"{e.PlanId}: {e.Step} {step.State.ToLowerInvariant()} in {step.FinalDuration.Value.TotalSeconds:0.0} s{(e.Detail != null ? " (" + e.Detail + ")" : "")}.");
                     break;
@@ -322,7 +323,7 @@ namespace SrsMcPsqa.App.ViewModels
         private void Cancel()
         {
             CancelRequested = true;
-            AddLog("Cancel requested: stops after the current step (an Eclipse calculation can't be interrupted).");
+            AddLog("Cancel requested: stops after the current plan is finished (an Eclipse calculation can't be interrupted).");
             _cts?.Cancel();
         }
 

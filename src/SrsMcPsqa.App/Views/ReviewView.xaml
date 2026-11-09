@@ -6,6 +6,7 @@
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:vm="clr-namespace:SrsMcPsqa.App.ViewModels"
              xmlns:controls="clr-namespace:SrsMcPsqa.App.Controls"
+             xmlns:inf="clr-namespace:SrsMcPsqa.App.Infrastructure"
              mc:Ignorable="d" d:DataContext="{d:DesignInstance Type=vm:ReviewViewModel}">
     <Grid Margin="16,12">
         <Grid.RowDefinitions>
@@ -57,6 +58,9 @@
                                 <TextBlock Style="{StaticResource Body}" Text="{Binding ArrayText}" />
                                 <TextBlock Style="{StaticResource Body}" Text="{Binding IsoText}" />
                                 <TextBlock Style="{StaticResource Body}" Text="{Binding CalcText}" Foreground="{Binding CalcOk, Converter={StaticResource StatusBrush}}" />
+                                <TextBlock FontSize="12" TextWrapping="Wrap" Margin="0,2,0,2" Text="{Binding WarningsText}"
+                                           Foreground="{x:Static inf:StatusBrushConverter.Caution}"
+                                           Visibility="{Binding HasWarnings, Converter={StaticResource BoolToVis}}" />
                                 <TextBlock Style="{StaticResource Hint}" Text="{Binding Iterations, StringFormat='Fine-tune iterations applied: {0}'}" />
                                 <CheckBox Margin="0,6,0,6" Content="Show diodes" IsChecked="{Binding ShowDiodes}" />
                             </StackPanel>

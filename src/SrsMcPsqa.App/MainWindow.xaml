@@ -146,7 +146,7 @@
                     <DockPanel DockPanel.Dock="Bottom" LastChildFill="False" Margin="0,12,0,0">
                         <ui:Button DockPanel.Dock="Right" Content="Close" MinWidth="90" Command="{Binding Progress.CloseCommand}"
                                    Visibility="{Binding Progress.IsRunning, Converter={StaticResource InverseBoolToVis}}" Appearance="Primary" />
-                        <ui:Button DockPanel.Dock="Right" Content="Cancel after current step" Command="{Binding Progress.CancelCommand}"
+                        <ui:Button DockPanel.Dock="Right" Content="Cancel after current plan" Command="{Binding Progress.CancelCommand}"
                                    Visibility="{Binding Progress.IsRunning, Converter={StaticResource BoolToVis}}"
                                    IsEnabled="{Binding Progress.CancelRequested, Converter={StaticResource Not}}" />
                     </DockPanel>
@@ -159,7 +159,7 @@
 
                     <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Margin="0,8,0,0" TextWrapping="Wrap"
                                Visibility="{Binding Progress.HasPlans, Converter={StaticResource BoolToVis}}"
-                               Text="Calculation progress comes from Eclipse's messages when it provides them (&quot;Eclipse: 43%&quot;); otherwise it is estimated from earlier calculations on this computer. A calculation can't be interrupted: Cancel stops after the current step." />
+                               Text="Calculation progress comes from Eclipse's messages when it provides them (&quot;Eclipse: 43%&quot;); otherwise it is estimated from earlier calculations on this computer. A calculation can't be interrupted: Cancel stops once the current plan is finished and saved." />
                     <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Margin="0,8,0,0"
                                Visibility="{Binding Progress.HasPlans, Converter={StaticResource InverseBoolToVis}}"
                                Text="Eclipse calculations can't be interrupted: Cancel stops after the current step." />
@@ -244,6 +244,19 @@
                                                                     <Run Text="{Binding Detail, Mode=OneWay}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                                                 </TextBlock>
                                                             </DockPanel>
+                                                            <!-- Eclipse's warnings for this calculation -->
+                                                            <TextBlock Margin="20,1,0,2" FontSize="11" TextWrapping="Wrap" Text="{Binding WarningsText}"
+                                                                       Foreground="{x:Static inf:StatusBrushConverter.Caution}">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding WarningsText}" Value="{x:Null}">
+                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
                                                             <!-- Estimated calculation progress -->
                                                             <StackPanel Margin="20,3,0,3">
                                                                 <StackPanel.Style>

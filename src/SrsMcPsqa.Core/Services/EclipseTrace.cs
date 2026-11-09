@@ -34,12 +34,42 @@ namespace SrsMcPsqa.Core.Services
             return p >= 0 && p <= 100 ? p : (double?)null;
         }
 
+        private static readonly Regex Issue = new Regex(@"\b(Warning|Error):\s*(?:\[(?<beam>[^\]]+)\]\s*)?(?<text>.+)$", RegexOptions.Compiled);
+
+        /// <summary>
+        /// A warning or error from Eclipse's end-of-calculation summary, e.g.
+        /// "Warnings Warning: [COUCH 45] The field exits the body in a region where the CT data ends. ...".
+        /// </summary>
+        public static CalculationIssue? ParseIssue(string? line)
+        {
+            if (IsNoise(line)) return null;
+            var m = Issue.Match(line!.Trim());
+            if (!m.Success) return null;
+            return new CalculationIssue(m.Groups[1].Value.Equals("Error", StringComparison.OrdinalIgnoreCase),
+                m.Groups["beam"].Success ? m.Groups["beam"].Value.Trim() : null, m.Groups["text"].Value.Trim());
+        }
+
+        /// <summary>One line per distinct message, listing the beams it applies to.</summary>
+        public static System.Collections.Generic.IReadOnlyList<string> Summarise(System.Collections.Generic.IEnumerable<CalculationIssue> issues)
+        {
+            var list = new System.Collections.Generic.List<string>();
+            foreach (var g in System.Linq.Enumerable.GroupBy(issues, i => (i.IsError, i.Text)))
+            {
+                var beams = System.Linq.Enumerable.ToList(System.Linq.Enumerable.Distinct(
+                    System.Linq.Enumerable.Where(System.Linq.Enumerable.Select(g, i => i.Beam), b => b != null)));
+                list.Add($"Eclipse {(g.Key.IsError ? "error" : "warning")}{(beams.Count > 0 ? " (" + string.Join(", ", beams) + ")" : "")}: {g.Key.Text}");
+            }
+            return list;
+        }
+
         /// <summary>A message worth showing under the calculation bar (not "Information" chatter or noise), trimmed.</summary>
         public static string? DisplayMessage(string? line)
         {
             if (IsNoise(line)) return null;
             var t = line!.Trim();
-            if (t.StartsWith("Information", StringComparison.OrdinalIgnoreCase)) return null;
+            if (t.StartsWith("Information", StringComparison.OrdinalIgnoreCase) || t.IndexOf("Information:", StringComparison.OrdinalIgnoreCase) >= 0) return null;
+            // Section headers of Eclipse's end-of-calculation summary.
+            if (Regex.IsMatch(t, @"^(Errors|Warnings|Messages)$|^Success\b", RegexOptions.IgnoreCase)) return null;
             return t.Length > 140 ? t.Substring(0, 140) + "…" : t;
         }
     }
@@ -47,6 +77,14 @@ namespace SrsMcPsqa.Core.Services
 
 namespace SrsMcPsqa.Core.Services
 {
+    public sealed class CalculationIssue
+    {
+        public CalculationIssue(bool isError, string? beam, string text) { IsError = isError; Beam = beam; Text = text; }
+        public bool IsError { get; }
+        public string? Beam { get; }
+        public string Text { get; }
+    }
+
     /// <summary>
     /// Turns TraceListener Write/WriteLine calls into complete lines. Text from Write is held until a line break or
     /// WriteLine, except that a complete "Progress ... N%" message sent through Write alone is passed on at once

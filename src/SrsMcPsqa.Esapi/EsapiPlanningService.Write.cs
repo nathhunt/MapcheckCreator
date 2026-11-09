@@ -233,6 +233,9 @@ namespace SrsMcPsqa.Esapi
         private QaPlanResult BuildQaPlan(EsapiApplication app, ExternalPlanSetup clinical, Course course, ExternalPlanSetup qa, QaPlanRequest request,
             IProgress<string>? progress, CancellationToken ct, IProgress<QaProgressEvent>? steps)
         {
+                // Once the plan exists, finish it (calculate, read, save): Cancel takes effect between plans, so it
+                // never leaves an uncalculated or unsaved plan behind.
+                ct = CancellationToken.None;
                 var messages = new List<string>();
                 QaSteps.Run(steps, request.PlanId, "Set ID, prescription and calculation model", () =>
                 {
@@ -341,12 +344,15 @@ namespace SrsMcPsqa.Esapi
                     throw;
                 }
                 finally { trace.LogSummary(); }
+                var warnings = trace.Issues;
                 steps?.Report(new QaProgressEvent
                 {
                     PlanId = planId, Step = stepName, State = res.Success ? QaStepState.Done : QaStepState.Failed, IsCalculation = true,
                     Model = model, Beams = beams.Count, ControlPoints = controlPoints, Duration = sw.Elapsed,
                     Detail = res.Success ? calcDetail : "Eclipse reported that the calculation failed",
+                    Warnings = warnings.Count > 0 ? warnings : null,
                 });
+                foreach (var w in warnings) { _log($"{planId}: {w}"); if (!notes.Contains(w)) notes.Add(w); }
                 if (!res.Success) throw new InvalidOperationException($"Eclipse reported that the dose calculation of '{planId}' failed.");
                 _log($"{planId}: calculated in {sw.Elapsed.TotalSeconds:F0} s (pass {pass}, {model}, {beams.Count} beams, {controlPoints} CPs).");
 
@@ -382,12 +388,12 @@ namespace SrsMcPsqa.Esapi
         /// </summary>
         private sealed class CalculationTrace
         {
-            private const int MaxLoggedLines = 2000;
             private readonly string _planId, _step;
             private readonly IProgress<QaProgressEvent>? _steps;
             private readonly Action<string> _log;
             private readonly object _lock = new object();
-            private int _lines, _progressLines;
+            private readonly List<CalculationIssue> _issues = new List<CalculationIssue>();
+            private int _lines, _progressLines, _infoLines;
             private double _lastPercent = -1;
             private string? _lastMessage;
             private DateTime _lastReport = DateTime.MinValue;
@@ -397,33 +403,39 @@ namespace SrsMcPsqa.Esapi
                 _planId = planId; _step = step; _steps = steps; _log = log;
             }
 
+            /// <summary>Eclipse's warnings and errors for this calculation, one line per distinct message.</summary>
+            public IReadOnlyList<string> Issues { get { lock (_lock) return EclipseTrace.Summarise(_issues); } }
+
             public void OnLine(string line)
             {
                 if (EclipseTrace.IsNoise(line)) return;
                 double? pct = EclipseTrace.ProgressPercent(line);
+                var issue = pct.HasValue ? null : EclipseTrace.ParseIssue(line);
                 // A "Progress N%" line is shown as the percentage, not repeated as a message.
                 string? msg = pct.HasValue ? null : EclipseTrace.DisplayMessage(line);
                 bool report;
                 lock (_lock)
                 {
                     _lines++;
-                    if (pct.HasValue) _progressLines++;
-                    if (_lines <= MaxLoggedLines) _log($"Eclipse trace ({_planId}): {line.Trim()}");
-                    else if (_lines == MaxLoggedLines + 1) _log($"Eclipse trace ({_planId}): more lines not logged.");
+                    if (issue != null) _issues.Add(issue);
+                    // Log progress every 10 %, warnings/errors and other messages; count the per-beam "Information" lines only.
+                    if (pct.HasValue) { _progressLines++; if (pct.Value % 10 == 0) _log($"Eclipse ({_planId}): {line.Trim()}"); }
+                    else if (issue == null && msg == null) _infoLines++;
+                    else if (issue == null) _log($"Eclipse ({_planId}): {line.Trim()}");
 
                     var now = DateTime.UtcNow;
                     bool percentMoved = pct.HasValue && Math.Abs(pct.Value - _lastPercent) >= 1;
-                    bool messageChanged = msg != null && msg != _lastMessage && (now - _lastReport).TotalSeconds >= 0.5;
+                    bool messageChanged = msg != null && issue == null && msg != _lastMessage && (now - _lastReport).TotalSeconds >= 0.5;
                     report = percentMoved || messageChanged;
                     if (pct.HasValue) _lastPercent = pct.Value;
-                    if (msg != null) _lastMessage = msg;
+                    if (msg != null && issue == null) _lastMessage = msg;
                     if (report) _lastReport = now;
                 }
                 if (report)
                     _steps?.Report(new QaProgressEvent
                     {
                         PlanId = _planId, Step = _step, State = QaStepState.Running, IsCalculation = true,
-                        EclipsePercent = pct, EclipseMessage = msg,
+                        EclipsePercent = pct, EclipseMessage = issue == null ? msg : null,
                     });
             }
 
@@ -432,7 +444,7 @@ namespace SrsMcPsqa.Esapi
                 lock (_lock)
                     _log(_lines == 0
                         ? $"{_planId}: Eclipse wrote no trace output during the calculation (progress was estimated)."
-                        : $"{_planId}: Eclipse wrote {_lines} trace line(s) during the calculation, {_progressLines} with a progress percentage.");
+                        : $"{_planId}: Eclipse wrote {_lines} trace line(s): {_progressLines} progress, {_issues.Count} warning/error, {_infoLines} information (not logged).");
             }
         }
 
@@ -461,6 +473,8 @@ namespace SrsMcPsqa.Esapi
                 var course = RequireCourse(courseId);
                 var qa = RequireTaggedPlan(course, planId);
                 QaPlanTag.TryParse(qa.Comment, out var tag);
+                ct.ThrowIfCancellationRequested();
+                ct = CancellationToken.None; // from here on, finish this plan (see BuildQaPlan)
 
                 progress?.Report($"{planId}: moving the isocentre to {newIsocentre}...");
                 var iso = new VVector(newIsocentre.X, newIsocentre.Y, newIsocentre.Z);

@@ -1,3 +1,4 @@
+using System.Linq;
 using SrsMcPsqa.Core.Services;
 using Xunit;
 
@@ -63,5 +64,44 @@ namespace SrsMcPsqa.Core.Tests
             Assert.Equal(new[] { "a", "b" }, b.Write("a\r\nb\rc"));
             Assert.Equal(new[] { "c" }, b.WriteLine(null));
         }
+    }
+}
+
+namespace SrsMcPsqa.Core.Tests
+{
+    public class EclipseIssueTests
+    {
+        // Lines as seen on Citrix (v18.1, AcurosXB 16.1), end-of-calculation summary.
+        private const string W1 = "Warnings Warning: [COUCH 0] The field exits the body in a region where the CT data ends. This will reduce the dose calculation accuracy.";
+        private const string W2 = "Warning: [COUCH 45] The field exits the body in a region where the CT data ends. This will reduce the dose calculation accuracy.";
+        private const string W3 = "Warning: [COUCH 0] The field enters the body in a region where the CT data ends.";
+
+        [Fact]
+        public void ParsesWarningsWithBeam()
+        {
+            var i = EclipseTrace.ParseIssue(W1)!;
+            Assert.False(i.IsError);
+            Assert.Equal("COUCH 0", i.Beam);
+            Assert.StartsWith("The field exits the body", i.Text);
+            Assert.Null(EclipseTrace.ParseIssue("Messages Information: [COUCH 0] Imaging Device: ID=Aquilion LB CT"));
+            Assert.Null(EclipseTrace.ParseIssue("Progress 40%"));
+            Assert.Null(EclipseTrace.ParseIssue("Errors"));
+        }
+
+        [Fact]
+        public void SummarisesByMessage()
+        {
+            var s = EclipseTrace.Summarise(new[] { W1, W2, W3 }.Select(l => EclipseTrace.ParseIssue(l)!));
+            Assert.Equal(2, s.Count);
+            Assert.StartsWith("Eclipse warning (COUCH 0, COUCH 45): The field exits", s[0]);
+            Assert.StartsWith("Eclipse warning (COUCH 0): The field enters", s[1]);
+        }
+
+        [Theory]
+        [InlineData("Errors")]
+        [InlineData("Warnings")]
+        [InlineData("Success True")]
+        [InlineData("Messages Information: [COUCH 0] Imaging Device")]
+        public void SummaryHeadersAreNotDisplayed(string line) => Assert.Null(EclipseTrace.DisplayMessage(line));
     }
 }

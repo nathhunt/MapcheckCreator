@@ -41,7 +41,7 @@ namespace SrsMcPsqa.App.ViewModels
         public IReadOnlyList<PtvRowViewModel> Rows { get; }
         public ObservableCollection<MetricRowViewModel> Metrics { get; } = new ObservableCollection<MetricRowViewModel>();
 
-        [ObservableProperty] [NotifyPropertyChangedFor(nameof(PlanId), nameof(Isocentre), nameof(ArrayCentre), nameof(IsoText), nameof(ArrayText), nameof(CalcText), nameof(CalcOk))]
+        [ObservableProperty] [NotifyPropertyChangedFor(nameof(PlanId), nameof(Isocentre), nameof(ArrayCentre), nameof(IsoText), nameof(ArrayText), nameof(CalcText), nameof(CalcOk), nameof(WarningsText), nameof(HasWarnings))]
         private QaPlanResult _result;
         [ObservableProperty] private bool _isChecked;
         [ObservableProperty] private int _iterations;
@@ -64,6 +64,10 @@ namespace SrsMcPsqa.App.ViewModels
         public string ArrayText => "Array centre in patient: " + ArrayCentre;
         public bool CalcOk => Result.CalculationSucceeded && Result.Dose != null;
         public string CalcText => CalcOk ? "Dose calculated with the clinical MUs." : "Calculation failed: " + string.Join(" ", Result.Messages);
+
+        /// <summary>Warnings Eclipse reported when calculating this plan (empty if none).</summary>
+        public string WarningsText => string.Join(Environment.NewLine, Result.Messages.Where(m => m.StartsWith("Eclipse warning") || m.StartsWith("Eclipse error")));
+        public bool HasWarnings => WarningsText.Length > 0;
 
         partial void OnShowDiodesChanged(bool value) => UpdateOverlay();
 

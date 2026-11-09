@@ -207,6 +207,8 @@ namespace SrsMcPsqa.Fake
                 if (request.PlanId.Length > QaPlanNaming.MaxIdLength)
                     throw new InvalidOperationException($"Plan ID '{request.PlanId}' is longer than {QaPlanNaming.MaxIdLength} characters.");
             }
+            ct.ThrowIfCancellationRequested();
+            ct = CancellationToken.None; // like Eclipse: once a plan is started it is finished; Cancel acts between plans
             progress?.Report($"{request.PlanId}: creating verification plan...");
             await Step(steps, request.PlanId, "Create verification plan", 0.4, "verifies the demo plan", ct).ConfigureAwait(false);
             await Step(steps, request.PlanId, "Set ID, prescription and calculation model", 0.2, $"1 × 20 Gy, {DemoModel}", ct).ConfigureAwait(false);
@@ -234,6 +236,8 @@ namespace SrsMcPsqa.Fake
                 plan = Find(courseId, planId) ?? throw new InvalidOperationException($"QA plan '{courseId}/{planId}' not found.");
                 plan.Isocentre = newIsocentre;
             }
+            ct.ThrowIfCancellationRequested();
+            ct = CancellationToken.None;
             progress?.Report($"{planId}: moving isocentre to {newIsocentre}...");
             await Step(steps, planId, "Move isocentre", 0.3, $"to {newIsocentre}", ct).ConfigureAwait(false);
             await Step(steps, planId, "Save", 0.2, null, ct).ConfigureAwait(false);
