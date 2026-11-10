@@ -48,7 +48,8 @@ namespace SrsMcPsqa.App.ViewModels
             : FineTune.WillMove ? "Shift pending: " + FineTune.ChosenMoveShort : "Keep current position";
 
         partial void OnIterationsChanged(int value) => OnPropertyChanged(nameof(FineTuneBadge));
-        public void NotifyFineTuneChanged() => OnPropertyChanged(nameof(FineTuneBadge));
+        partial void OnFineTuneChanged(FineTuneRowViewModel? value) { ShowPreview = true; _ = UpdatePreviewAsync(); }
+        public void NotifyFineTuneChanged() { OnPropertyChanged(nameof(FineTuneBadge)); _ = UpdatePreviewAsync(); }
 
         /// <summary>QA isocentre relative to the MapCHECK user origin (anatomical directions).</summary>
         public string IsoFromOriginText => ShiftLabels.Describe(Isocentre - Phantom.UserOrigin);
@@ -91,12 +92,36 @@ namespace SrsMcPsqa.App.ViewModels
 
         partial void OnShowDiodesChanged(bool value) => UpdateOverlay();
 
+        // Calculated view (current position) and, when a move is chosen, an approximate preview after the move.
+        private DoseGrid? _patientDose;
+        private (PlaneScene Scene, List<MetricRowViewModel> Metrics, Vec3 Centre)? _current, _preview;
+        private int _previewVersion;
+
+        /// <summary>Show the preview of the chosen move instead of the calculated position.</summary>
+        [ObservableProperty] [NotifyPropertyChangedFor(nameof(ShowingPreview), nameof(MetricsCaption), nameof(ShowCurrent))] private bool _showPreview = true;
+        public bool ShowCurrent { get => !ShowPreview; set => ShowPreview = !value; }
+        public bool CanPreview => FineTune?.WillMove == true;
+        public bool ShowingPreview => ShowPreview && CanPreview && _preview != null;
+        public string MetricsCaption => ShowingPreview
+            ? "Predicted after the move (approximate: the calculated dose kept in place on the patient, array moved). Rx per fraction."
+            : "PTVs on this plan, calculated. Rx is per fraction, to match the one-fraction QA dose.";
+
+        partial void OnShowPreviewChanged(bool value) => ApplyDisplay();
+
         /// <summary>Recompute metrics and the 2D view from the calculated dose (in patient coordinates).</summary>
         public async Task RefreshAsync()
         {
-            if (!CalcOk) { Metrics.Clear(); Scene = null; Overlay = null; return; }
-            var dose = QaPlanRequests.DoseInPatientFrame(Result.Dose!, Isocentre, ClinicalIso);
-            var plane = new ArrayPlane(Orientation, ArrayCentre);
+            _preview = null;
+            if (!CalcOk) { _current = null; _patientDose = null; Metrics.Clear(); Scene = null; Overlay = null; return; }
+            _patientDose = QaPlanRequests.DoseInPatientFrame(Result.Dose!, Isocentre, ClinicalIso);
+            _current = await BuildViewAsync(ArrayCentre, $"{PlanId} · {Orientation.Label()} · calculated QA dose on the array plane", null);
+            await UpdatePreviewAsync();
+        }
+
+        private async Task<(PlaneScene, List<MetricRowViewModel>, Vec3)> BuildViewAsync(Vec3 centre, string caption, string? banner)
+        {
+            var dose = _patientDose!;
+            var plane = new ArrayPlane(Orientation, centre);
             var rows = Rows;
             var settings = _settings;
             var best = _bestScores;
@@ -109,21 +134,58 @@ namespace SrsMcPsqa.App.ViewModels
                 var reference = best != null && best.Length == targets.Count ? new CoverageReference(best, new bool[targets.Count]) : null;
                 var eval = model.Evaluate(plane, settings, reference);
                 var scene = PlaneRenderBuilder.BuildScene(plane.Orientation, plane.Depth, plane.U, plane.V, dose,
-                    rows.Select(r => (r.ToTarget(rxScale), r.Colour)).ToList(), calculated: true,
-                    $"{PlanId} · {plane.Orientation.Label()} · calculated QA dose on the array plane", referenceGy);
+                    rows.Select(r => (r.ToTarget(rxScale), r.Colour)).ToList(), calculated: banner == null, caption, referenceGy);
+                scene.Banner = banner;
                 return (eval, scene);
             });
+            var metrics = built.eval.Targets.Where(t => t.AreaInSquare > 0 || AssignedRows.Any(a => a.Id == t.TargetId))
+                .Select(m => new MetricRowViewModel(m, rows[m.TargetIndex].Brush)).ToList();
+            return (built.scene, metrics, centre);
+        }
+
+        /// <summary>Rebuild the preview for the chosen fine-tune move (called when the choice or the custom move changes).</summary>
+        public async Task UpdatePreviewAsync()
+        {
+            int version = ++_previewVersion;
+            OnPropertyChanged(nameof(CanPreview));
+            _preview = null;
+            var iso = FineTune?.NewIsocentre(out _);
+            if (_patientDose != null && CanPreview && iso != null)
+            {
+                var centre = IsoGeometry.ArrayCentreInPatient(Phantom.UserOrigin, ClinicalIso, iso.Value);
+                var view = await BuildViewAsync(centre,
+                    $"{PlanId} · {Orientation.Label()} · after moving the array {FineTune!.ChosenMoveShort}",
+                    "PREVIEW (approximate: calculated dose, array moved; recalculate for the exact dose)");
+                if (version != _previewVersion) return; // a newer change is being built
+                _preview = view;
+            }
+            ApplyDisplay();
+        }
+
+        private void ApplyDisplay()
+        {
+            var v = ShowPreview && CanPreview && _preview != null ? _preview : _current;
             Metrics.Clear();
-            foreach (var m in built.eval.Targets.Where(t => t.AreaInSquare > 0 || AssignedRows.Any(a => a.Id == t.TargetId)))
-                Metrics.Add(new MetricRowViewModel(m, rows[m.TargetIndex].Brush));
-            Scene = built.scene;
-            UpdateOverlay();
+            if (v == null) { Scene = null; Overlay = null; }
+            else
+            {
+                foreach (var m in v.Value.Metrics) Metrics.Add(m);
+                Scene = v.Value.Scene;
+                UpdateOverlay();
+            }
+            OnPropertyChanged(nameof(ShowingPreview));
+            OnPropertyChanged(nameof(MetricsCaption));
         }
 
         private void UpdateOverlay()
         {
-            if (Scene == null) { Overlay = null; return; }
-            Overlay = PlaneRenderBuilder.BuildOverlay(Scene, Orientation.U(ArrayCentre), Orientation.V(ArrayCentre), _settings.UsableHalfWidth, ShowDiodes);
+            var v = ShowPreview && CanPreview && _preview != null ? _preview : _current;
+            if (Scene == null || v == null) { Overlay = null; return; }
+            var c = v.Value.Centre;
+            var overlay = PlaneRenderBuilder.BuildOverlay(Scene, Orientation.U(c), Orientation.V(c), _settings.UsableHalfWidth, ShowDiodes);
+            // In the preview, outline where the array is now (the calculated position).
+            if (ShowingPreview) overlay.GhostArray = (Orientation.U(ArrayCentre), Orientation.V(ArrayCentre));
+            Overlay = overlay;
         }
 
         public FineTuneProposal Propose()
@@ -194,7 +256,7 @@ namespace SrsMcPsqa.App.ViewModels
         }
 
         public string SuggestionHeadline => HasSuggestion
-            ? "Suggested array move: " + Proposal.ArrayMoveDescription
+            ? "Suggested: move the array from its current position " + Proposal.ArrayMoveDescription
             : "No better position found. The current position is the best the search found.";
 
         /// <summary>Predicted change per PTV, one line each.</summary>

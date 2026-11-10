@@ -86,7 +86,13 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <DockPanel Grid.Row="0" Margin="0,0,0,6" LastChildFill="False">
-                    <TextBlock DockPanel.Dock="Left" Style="{StaticResource Label}" Margin="0" VerticalAlignment="Center" Text="Calculated QA dose on the array (one fraction)" />
+                    <TextBlock DockPanel.Dock="Left" Style="{StaticResource Label}" Margin="0" VerticalAlignment="Center" Text="QA dose on the array (one fraction)"
+                               Visibility="{Binding CanPreview, Converter={StaticResource InverseBoolToVis}}" />
+                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Visibility="{Binding CanPreview, Converter={StaticResource BoolToVis}}"
+                                ToolTip="Preview of the chosen move: the calculated dose stays where it is on the patient and the array moves. Approximate until recalculated.">
+                        <RadioButton GroupName="{Binding PlanId, StringFormat='view-{0}'}" MinWidth="0" Margin="0,0,16,0" Content="Calculated (now)" IsChecked="{Binding ShowCurrent}" />
+                        <RadioButton GroupName="{Binding PlanId, StringFormat='view-{0}'}" MinWidth="0" Content="After the move (preview)" IsChecked="{Binding ShowPreview}" />
+                    </StackPanel>
                     <CheckBox DockPanel.Dock="Right" Content="Show diodes" IsChecked="{Binding ShowDiodes}" />
                 </DockPanel>
                 <Grid Grid.Row="1">
@@ -99,7 +105,7 @@
                     <TextBlock FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4" Text="{Binding WarningsText}"
                                Foreground="{x:Static inf:StatusBrushConverter.Caution}"
                                Visibility="{Binding HasWarnings, Converter={StaticResource BoolToVis}}" />
-                    <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4" Text="PTVs on this plan. Rx is per fraction, to match the one-fraction QA dose." />
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4" TextWrapping="Wrap" Text="{Binding MetricsCaption}" />
                     <DataGrid MaxHeight="150" ItemsSource="{Binding Metrics}" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" FontSize="12">
                         <DataGrid.Columns>
                             <DataGridTemplateColumn Header="" Width="22">
@@ -160,12 +166,12 @@
 
                         <TextBlock Style="{StaticResource Label}" Margin="0,12,0,4" Text="2 · Choose what to do" />
                         <RadioButton Content="Use the suggested move" IsChecked="{Binding UseSuggested}" IsEnabled="{Binding HasSuggestion}" Margin="0,2" />
-                        <RadioButton Content="Enter my own array move" IsChecked="{Binding UseCustom}" Margin="0,2" />
+                        <RadioButton Content="Enter my own move from the current position" IsChecked="{Binding UseCustom}" Margin="0,2" />
                         <Grid Margin="26,2,0,4" Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                             <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
                             <TextBlock Grid.ColumnSpan="2" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,2" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                       Text="Array move relative to the patient, mm" />
+                                       Text="How far to move the array from where it is now, in mm (in patient directions). The view shows a preview." />
                             <TextBlock Grid.Row="1" VerticalAlignment="Center" Margin="0,0,6,0" Text="+L / −R" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                             <ui:TextBox Grid.Row="1" Grid.Column="1" Margin="0,2" Text="{Binding CustomX, UpdateSourceTrigger=PropertyChanged}" />
                             <TextBlock Grid.Row="2" VerticalAlignment="Center" Margin="0,0,6,0" Text="+P / −A" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />

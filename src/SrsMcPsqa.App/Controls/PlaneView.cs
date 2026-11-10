@@ -55,6 +55,7 @@ namespace SrsMcPsqa.App.Controls
         private static readonly Brush DimText = Frozen(new SolidColorBrush(Color.FromRgb(0xA0, 0xA0, 0xA0)));
         private static readonly Pen ArrayPen = Frozen(new Pen(Brushes.White, 1.6));
         private static readonly Pen UsablePen = Frozen(new Pen(new SolidColorBrush(Color.FromArgb(200, 255, 255, 255)), 1) { DashStyle = DashStyles.Dash });
+        private static readonly Pen GhostPen = Frozen(new Pen(new SolidColorBrush(Color.FromArgb(150, 255, 200, 0)), 1.2) { DashStyle = DashStyles.Dot });
         private static readonly Pen TickPen = Frozen(new Pen(new SolidColorBrush(Color.FromArgb(160, 255, 255, 255)), 1));
         private static readonly Typeface Face = new Typeface("Segoe UI");
 
@@ -113,8 +114,8 @@ namespace SrsMcPsqa.App.Controls
             DrawOrientationLabels(dc, s);
 
             DrawText(dc, s.Caption, new Point(10, 8), 12, TextBrush);
-            DrawText(dc, s.IsCalculated ? "CALCULATED" : "APPROXIMATION (clinical dose, before QA calculation)",
-                new Point(10, 26), 11, s.IsCalculated ? StatusBrush(true) : StatusBrush(false));
+            DrawText(dc, s.Banner ?? (s.IsCalculated ? "CALCULATED" : "APPROXIMATION (clinical dose, before QA calculation)"),
+                new Point(10, 26), 11, s.IsCalculated && s.Banner == null ? StatusBrush(true) : StatusBrush(false));
             if (s.DoseMaxGy > 0)
                 DrawText(dc, string.Format(CultureInfo.InvariantCulture, "Colour wash {0:0}–{1:0}% (100% = {2:0.##} Gy) · solid = PTV · dashed = PTV 100% Rx",
                     lower, upper, s.ReferenceGy), new Point(10, ActualHeight - 22), 11, DimText);
@@ -124,6 +125,14 @@ namespace SrsMcPsqa.App.Controls
         private void DrawArray(DrawingContext dc, PlaneScene s, PlaneOverlay o, double lower, double upper)
         {
             double h = DiodeArray.HalfExtent;
+            if (o.GhostArray is { } g)
+            {
+                dc.DrawRectangle(null, GhostPen, new Rect(ToScreen(g.U - h, g.V + h), ToScreen(g.U + h, g.V - h)));
+                var gc = ToScreen(g.U, g.V);
+                dc.DrawLine(GhostPen, new Point(gc.X - 5, gc.Y), new Point(gc.X + 5, gc.Y));
+                dc.DrawLine(GhostPen, new Point(gc.X, gc.Y - 5), new Point(gc.X, gc.Y + 5));
+                DrawText(dc, "current", ToScreen(g.U - h, g.V + h) + new Vector(2, -15), 10, DimText);
+            }
             dc.DrawRectangle(null, ArrayPen, new Rect(ToScreen(o.ArrayU - h, o.ArrayV + h), ToScreen(o.ArrayU + h, o.ArrayV - h)));
             dc.DrawRectangle(null, UsablePen, new Rect(ToScreen(o.ArrayU - o.UsableHalf, o.ArrayV + o.UsableHalf), ToScreen(o.ArrayU + o.UsableHalf, o.ArrayV - o.UsableHalf)));
 

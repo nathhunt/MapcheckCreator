@@ -46,6 +46,8 @@ namespace SrsMcPsqa.App.Rendering
         public double MaxPercent => ReferenceGy > 0 ? 100 * DoseMaxGy / ReferenceGy : 0;
         public IReadOnlyList<ContourLayer> Layers { get; set; } = Array.Empty<ContourLayer>();
         public bool IsCalculated { get; set; }
+        /// <summary>Status line shown instead of CALCULATED / APPROXIMATION (e.g. for a preview).</summary>
+        public string? Banner { get; set; }
         public string Caption { get; set; } = "";
         /// <summary>Dose used for diode colouring (patient frame); may be null.</summary>
         public DoseGrid? Dose { get; set; }
@@ -68,6 +70,8 @@ namespace SrsMcPsqa.App.Rendering
         public double UsableHalf { get; set; }
         public IReadOnlyList<DiodeDot> Diodes { get; set; } = Array.Empty<DiodeDot>();
         public bool ShowDiodes { get; set; } = true;
+        /// <summary>Array centre to outline faintly (e.g. the current position in a move preview).</summary>
+        public (double U, double V)? GhostArray { get; set; }
     }
 
     /// <summary>Drag gesture from <see cref="Controls.PlaneView"/>: total in-plane movement since the drag started.</summary>

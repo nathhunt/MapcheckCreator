@@ -11,3 +11,11 @@ Try it first with demo data (`SrsMcPsqa.exe --fake`), then on Citrix with a test
 | 5 | Review & fine-tune unclear and cramped | Reworked like the planning page: plans on the left, dose in the middle, **Fine-tune** panel on the right with steps (1 check, 2 choose: suggested / own move / keep, 3 recalculate) and one main button in the footer. Deleting is per plan (**Delete plan**) or **Delete all**. | The next step is always obvious; the footer button reads "Move isocentres and recalculate N plans" only when something will move. |
 
 Also fixed: Review compared the one-fraction QA dose with the whole-course Rx. It now uses Rx ÷ number of fractions (no change for single-fraction plans).
+
+## Round 1b
+
+| # | Feedback | Change | Check |
+|---|---|---|---|
+| 6 | Open maximised | The main window starts maximised. | |
+| 7 | "Array move relative to the patient" unclear | Now "Enter my own move from the current position": how far to move the array from where it is now (mm, patient directions). The suggestion reads "move the array from its current position …". | |
+| 8 | Visualise the shift | When a plan is set to move, Review shows **After the move (preview)**: the calculated dose stays where it is on the patient and the array moves (dotted outline = current position); the PTV table shows the predicted values. Switch back with **Calculated (now)**. Approximate until recalculated. | Typing a custom move updates the preview. |

@@ -12,6 +12,7 @@
                  Title="{Binding WindowTitle}"
                  Width="1340" Height="740" MinWidth="1100" MinHeight="620"
                  WindowStartupLocation="CenterScreen"
+                 WindowState="Maximized"
                  ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="None"
                  Background="{DynamicResource ApplicationBackgroundBrush}">
