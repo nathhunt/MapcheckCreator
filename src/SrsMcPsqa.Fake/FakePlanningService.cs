@@ -147,10 +147,10 @@ namespace SrsMcPsqa.Fake
                     Beams = new[]
                     {
                         // Like the test plan: a full arc at couch 0 and three half arcs with couch kicks.
-                        new Core.Collision.BeamGeometry("Arc1", 0, Arc(181, 179, clockwise: true)),
-                        new Core.Collision.BeamGeometry("Arc2", 315, Arc(179, 0, clockwise: false)),
-                        new Core.Collision.BeamGeometry("Arc3", 45, Arc(181, 0, clockwise: true)),
-                        new Core.Collision.BeamGeometry("Arc4", 90, Arc(181, 0, clockwise: true)),
+                        new Core.Collision.BeamGeometry("Arc1", 0, Arc(181, 179, clockwise: true), Core.Collision.ArcDirection.Clockwise),
+                        new Core.Collision.BeamGeometry("Arc2", 315, Arc(179, 0, clockwise: false), Core.Collision.ArcDirection.CounterClockwise),
+                        new Core.Collision.BeamGeometry("Arc3", 45, Arc(181, 0, clockwise: true), Core.Collision.ArcDirection.Clockwise),
+                        new Core.Collision.BeamGeometry("Arc4", 90, Arc(181, 0, clockwise: true), Core.Collision.ArcDirection.Clockwise),
                     },
                     Ptvs = ptvs,
                     Dose = dose,

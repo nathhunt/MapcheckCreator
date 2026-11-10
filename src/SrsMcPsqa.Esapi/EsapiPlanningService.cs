@@ -138,7 +138,10 @@ namespace SrsMcPsqa.Esapi
                     Beams = plan.Beams.Where(b => !b.IsSetupField).Select(b =>
                     {
                         var cps = b.ControlPoints.ToList();
-                        return new Core.Collision.BeamGeometry(b.Id, cps.Count > 0 ? cps[0].PatientSupportAngle : 0, cps.Select(c => c.GantryAngle).ToList());
+                        var dir = b.GantryDirection == GantryDirection.Clockwise ? Core.Collision.ArcDirection.Clockwise
+                            : b.GantryDirection == GantryDirection.CounterClockwise ? Core.Collision.ArcDirection.CounterClockwise
+                            : Core.Collision.ArcDirection.None;
+                        return new Core.Collision.BeamGeometry(b.Id, cps.Count > 0 ? cps[0].PatientSupportAngle : 0, cps.Select(c => c.GantryAngle).ToList(), dir);
                     }).ToList(),
                     Validation = validation,
                 };

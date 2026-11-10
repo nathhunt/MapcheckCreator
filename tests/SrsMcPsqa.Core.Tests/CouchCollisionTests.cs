@@ -82,6 +82,47 @@ namespace SrsMcPsqa.Core.Tests
             Assert.Equal(-50, s.OffsetMm, 0);
         }
 
+        [Theory]
+        [InlineData(120, 30)]
+        [InlineData(240, 315)]
+        [InlineData(60, 90)]
+        [InlineData(200, 10)]
+        public void HeadPositionMatchesOtherEsapiCollisionScripts(double gantry, double couch)
+        {
+            // LDClark/PlanCheck (CollisionCalculator.AddCylinderToMesh), in patient coordinates (HFS), with couch angle φ and
+            // gantry θ: head face centre = iso + d·(cos φ sin θ, −cos θ, −sin φ sin θ). zackmorelli/CollisionCheck uses the
+            // same source position (1000·sin θ, −1000·cos θ) and couch rotation. Put a 2 mm "couch" on that point: it must
+            // touch the head face here, and be far away with the couch angle mirrored.
+            double d = 415, t = gantry * System.Math.PI / 180, p = couch * System.Math.PI / 180;
+            var c = new Vec3(d * System.Math.Cos(p) * System.Math.Sin(t), -d * System.Math.Cos(t), -d * System.Math.Sin(p) * System.Math.Sin(t));
+            CollisionSettings Box(Vec3 centre) => new CollisionSettings
+            {
+                CouchWidthMm = 2, CouchThicknessMm = 2, CouchLengthMm = 2,
+                PhantomLateralOffsetMm = -centre.X, OriginAboveCouchMm = centre.Y - 1, CouchHeadEndSupMm = centre.Z + 1,
+            };
+            // The test box sits above the origin for some angles (negative height); allow that here.
+            var s = Box(c);
+            var at = CouchCollision.Check(Vec3.Zero, new[] { Static(gantry, couch) }, s, s.PhantomLateralOffsetMm);
+            Assert.InRange(at.MinClearanceMm, -1.8, 0.5); // a 2 mm cube straddling the face: overlap at most √3 mm
+            var mirrored = CouchCollision.Check(Vec3.Zero, new[] { Static(gantry, -couch) }, s, s.PhantomLateralOffsetMm);
+            if (System.Math.Abs(System.Math.Sin(p) * System.Math.Sin(t)) > 0.2) Assert.True(mirrored.MinClearanceMm > 100);
+        }
+
+        [Fact]
+        public void ConformalArcWithOnlyStartAndStopFollowsItsDirection()
+        {
+            // 181° → 179° clockwise passes 270° (couch edge 150 mm away); taken the short way it would only see ~180°.
+            var cw = new BeamGeometry("DCA", 0, new[] { 181.0, 179.0 }, ArcDirection.Clockwise);
+            var r = CouchCollision.Check(new Vec3(140, 0, 0), new[] { cw }, S());
+            Assert.Equal(ClearanceLevel.Risk, r.Level);
+            var shortWay = new BeamGeometry("DCA", 0, new[] { 181.0, 179.0 });
+            Assert.True(CouchCollision.Check(new Vec3(140, 0, 0), new[] { shortWay }, S()).MinClearanceMm > r.MinClearanceMm + 50);
+            // Counter-clockwise from 90° to 270° goes over the top (through 0°): never under the couch.
+            var ccw = new BeamGeometry("DCA", 0, new[] { 90.0, 270.0 }, ArcDirection.CounterClockwise);
+            Assert.InRange(CouchCollision.Check(Vec3.Zero, new[] { ccw }, S()).Worst!.GantryAtMin, 0, 360);
+            Assert.Equal(150, CouchCollision.Check(Vec3.Zero, new[] { ccw }, S()).MinClearanceMm, 0);
+        }
+
         [Fact]
         public void NotConfiguredUntilTheOriginHeightIsSet()
         {

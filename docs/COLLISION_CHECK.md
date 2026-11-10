@@ -16,13 +16,29 @@ y = posterior (down), z = superior (towards the gantry).
   phantom (unless offset), from *E* superior of the origin to 2 m towards the feet. It rotates with the couch angle φ
   about the vertical axis through the isocentre, counter-clockwise seen from above for positive φ (IEC 61217).
 - **Not modelled:** the phantom, the imaging arms (assumed retracted), couch rails and accessories.
-- The head surface is sampled (25 mm face grid, rings every 6°), gantry angles every 1°; clearances are approximate to a
-  few mm, which the warning margins absorb.
+- Distance: head surface samples (25 mm face grid, rings every 6°) against the couch box, plus couch edge samples (10 mm)
+  against the head cylinder computed exactly; the smaller wins. Gantry angles every 1° between control points, in the
+  arc's direction (a conformal arc may have only start and stop control points).
 
 Clearance per beam = smallest gap between head and couch over its gantry angles. Below **Warning** (default 50 mm):
 amber; below **Risk** (default 20 mm) or overlapping: red. When below Warning, the app tries lateral phantom offsets in
 5 mm steps up to ±*max* (default 50 mm) and suggests the smallest one that clears the warning level, or the best one
 available.
+
+## Verification (2026-11-10)
+
+- **Conventions match two independent ESAPI collision scripts.** Head face centre in patient coordinates (HFS) for
+  gantry θ and couch φ: iso + d·(cos φ·sin θ, −cos θ, −sin φ·sin θ), exactly as in LDClark/PlanCheck
+  (`CollisionCalculator.AddCylinderToMesh`); zackmorelli/CollisionCheck uses the same source position
+  (1000·sin θ, −1000·cos θ) and couch-rotation sign. Unit test `HeadPositionMatchesOtherEsapiCollisionScripts` places a
+  2 mm box at that point for four gantry/couch pairs and checks it touches the head (and is far away with φ mirrored).
+- **Accuracy of the distance:** against a brute-force reference (2 mm face grid, 0.5° rings) over 140 random isocentre
+  shifts, gantry and couch angles: within +0.6 / −0.1 mm when clear, and the same collide/clear verdict in every
+  overlapping case.
+- **Hand-calculated cases** (unit tests): lateral and posterior fields, lateral/posterior shifts, couch kicks, conformal
+  arcs with two control points, lateral offset suggestions.
+- **Not verifiable here:** the machine dimensions (see below) and the couch rotation direction on your machine; compare
+  with a known case.
 
 ## Settings (Settings → Gantry–couch collision check; department file `Collision*` fields)
 

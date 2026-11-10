@@ -51,17 +51,25 @@ namespace SrsMcPsqa.Core.Collision
         public CollisionSettings Clone() => (CollisionSettings)MemberwiseClone();
     }
 
+    /// <summary>Arc rotation direction (IEC 61217: clockwise = increasing gantry angle).</summary>
+    public enum ArcDirection { None, Clockwise, CounterClockwise }
+
     /// <summary>Couch angle and the gantry angles (control points) of one beam, IEC 61217 scales.</summary>
     public sealed class BeamGeometry
     {
-        public BeamGeometry(string id, double couchAngle, IReadOnlyList<double> gantryAngles)
+        public BeamGeometry(string id, double couchAngle, IReadOnlyList<double> gantryAngles, ArcDirection direction = ArcDirection.None)
         {
-            Id = id; CouchAngle = couchAngle; GantryAngles = gantryAngles;
+            Id = id; CouchAngle = couchAngle; GantryAngles = gantryAngles; Direction = direction;
         }
 
         public string Id { get; }
         public double CouchAngle { get; }
         public IReadOnlyList<double> GantryAngles { get; }
+        /// <summary>
+        /// Needed for arcs with few control points (a conformal arc can have just start and stop): the gantry travels this
+        /// way between them. None = static field, or take the shorter way between control points.
+        /// </summary>
+        public ArcDirection Direction { get; }
     }
 
     public enum ClearanceLevel { Clear, Warning, Risk }
@@ -147,19 +155,23 @@ namespace SrsMcPsqa.Core.Collision
             double offset = lateralOffsetMm ?? s.PhantomLateralOffsetMm;
             var head = HeadArrays.From(HeadPoints(s));
             var couch = CouchBox(isoFromOrigin, s, offset);
+            var edges = HeadArrays.From(EdgeSamples(couch, s));
             // Bounding sphere of the head (centre on the beam axis) for a quick lower bound per gantry angle.
             double centreDepth = s.HeadClearanceMm + s.HeadDepthMm / 2;
             double sphere = Math.Sqrt(s.HeadRadiusMm * s.HeadRadiusMm + s.HeadDepthMm * s.HeadDepthMm / 4);
+            var centrePoint = HeadArrays.From(new[] { new Vec3(0, -centreDepth, 0) });
             var results = new List<BeamClearance>();
             foreach (var b in beams)
             {
                 double best = double.PositiveInfinity, gantryAtBest = double.NaN;
-                foreach (var g in Densify(b.GantryAngles))
+                foreach (var g in Densify(b.GantryAngles, b.Direction))
                 {
                     // Skip angles where even the bounding sphere is farther from the couch than the best so far.
-                    double lowerBound = Clearance(new[] { new Vec3(0, -centreDepth, 0) }, g, b.CouchAngle, couch) - sphere;
+                    double lowerBound = Clearance(centrePoint, g, b.CouchAngle, couch) - sphere;
                     if (lowerBound >= best) continue;
-                    double c = Clearance(head, g, b.CouchAngle, couch);
+                    // Head surface samples → couch box, and couch edge samples → head cylinder (exact for the cylinder):
+                    // together they catch face-to-face, rim-to-face and edge-to-face contacts.
+                    double c = Math.Min(Clearance(head, g, b.CouchAngle, couch), EdgeClearance(edges, g, b.CouchAngle, s));
                     if (c < best) { best = c; gantryAtBest = g; }
                 }
                 if (double.IsNaN(gantryAtBest)) continue;
@@ -289,14 +301,67 @@ namespace SrsMcPsqa.Core.Collision
             return best;
         }
 
-        /// <summary>Control-point gantry angles with gaps filled at ≤ 1°, following each step's shorter direction.</summary>
-        private static IEnumerable<double> Densify(IReadOnlyList<double> angles)
+        /// <summary>Points along the couch box edges (10 mm apart) that the head could reach, in the couch frame.</summary>
+        private static List<Vec3> EdgeSamples(Box b, CollisionSettings s)
+        {
+            double reach = Math.Sqrt(Math.Pow(s.HeadClearanceMm + s.HeadDepthMm, 2) + s.HeadRadiusMm * s.HeadRadiusMm) + 2 * s.WarningMm;
+            var xs = new[] { b.Min.X, b.Max.X }; var ys = new[] { b.Min.Y, b.Max.Y }; var zs = new[] { b.Min.Z, b.Max.Z };
+            var pts = new List<Vec3>();
+            void Line(Vec3 p, Vec3 q)
+            {
+                int n = Math.Max(1, (int)Math.Ceiling((q - p).Length / 10.0));
+                for (int k = 0; k <= n; k++)
+                {
+                    var v = p + (q - p) * ((double)k / n);
+                    if (v.Length <= reach) pts.Add(v);
+                }
+            }
+            foreach (var y in ys) foreach (var z in zs) Line(new Vec3(xs[0], y, z), new Vec3(xs[1], y, z));
+            foreach (var x in xs) foreach (var z in zs) Line(new Vec3(x, ys[0], z), new Vec3(x, ys[1], z));
+            foreach (var x in xs) foreach (var y in ys) Line(new Vec3(x, y, zs[0]), new Vec3(x, y, zs[1]));
+            return pts;
+        }
+
+        /// <summary>Smallest signed distance from couch edge samples (couch frame) to the solid head cylinder.</summary>
+        private static double EdgeClearance(HeadArrays pts, double gantryDeg, double couchDeg, CollisionSettings s)
+        {
+            double g = gantryDeg * Math.PI / 180, cg = Math.Cos(g), sg = Math.Sin(g);
+            double c = couchDeg * Math.PI / 180, cc = Math.Cos(c), sc = Math.Sin(c);
+            double d0 = s.HeadClearanceMm, d1 = s.HeadClearanceMm + s.HeadDepthMm, r0 = s.HeadRadiusMm;
+            double best = double.PositiveInfinity;
+            for (int i = 0; i < pts.X.Length; i++)
+            {
+                // Couch frame → room (couch rotation R(φ)), then room → head frame at gantry 0 (inverse gantry rotation).
+                double xr = pts.X[i] * cc - pts.Z[i] * sc, zr = pts.X[i] * sc + pts.Z[i] * cc, yr = pts.Y[i];
+                double hx = xr * cg + yr * sg, hy = -xr * sg + yr * cg;
+                double a = -hy; // distance from the isocentre along the beam axis towards the source
+                double r = Math.Sqrt(hx * hx + zr * zr);
+                double d;
+                if (a >= d0 && a <= d1 && r <= r0) d = -Math.Min(r0 - r, Math.Min(a - d0, d1 - a));
+                else
+                {
+                    double dr = Math.Max(r - r0, 0), da = a < d0 ? d0 - a : a > d1 ? a - d1 : 0;
+                    d = Math.Sqrt(dr * dr + da * da);
+                }
+                if (d < best) best = d;
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// Control-point gantry angles with gaps filled at ≤ 1°: in the arc's direction when known (clockwise = increasing
+        /// angle), otherwise the shorter way between control points.
+        /// </summary>
+        private static IEnumerable<double> Densify(IReadOnlyList<double> angles, ArcDirection direction)
         {
             if (angles.Count == 0) yield break;
             yield return angles[0];
             for (int i = 1; i < angles.Count; i++)
             {
-                double a = angles[i - 1], delta = ((angles[i] - a) % 360 + 540) % 360 - 180;
+                double a = angles[i - 1], fwd = ((angles[i] - a) % 360 + 360) % 360;
+                double delta = direction == ArcDirection.Clockwise ? fwd
+                    : direction == ArcDirection.CounterClockwise ? (fwd == 0 ? 0 : fwd - 360)
+                    : ((angles[i] - a) % 360 + 540) % 360 - 180;
                 int n = Math.Max(1, (int)Math.Ceiling(Math.Abs(delta) / GantryStepDeg));
                 for (int k = 1; k <= n; k++) yield return a + delta * k / n;
             }
