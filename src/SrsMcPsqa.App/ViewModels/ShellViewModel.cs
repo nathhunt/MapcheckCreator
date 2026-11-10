@@ -386,7 +386,8 @@ namespace SrsMcPsqa.App.ViewModels
             SelectedPage = value;
         }
 
-        public string WindowTitle => "SRS MapCHECK PSQA Plan Creator" + (IsFake ? " · DEMO DATA" : "");
+        public static string Version { get; } = typeof(ShellViewModel).Assembly.GetName().Version?.ToString(3) ?? "";
+        public string WindowTitle => $"SRS MapCHECK PSQA Plan Creator {Version}" + (IsFake ? " · DEMO DATA" : "");
 
         partial void OnSelectedPageChanged(PageViewModel value) => value?.OnNavigatedTo();
 

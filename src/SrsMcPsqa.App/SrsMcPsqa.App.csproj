@@ -15,7 +15,7 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <RootNamespace>SrsMcPsqa.App</RootNamespace>
     <AssemblyName>SrsMcPsqa</AssemblyName>
-    <Version>0.2.0</Version>
+    <Version>0.9.0</Version>
     <Product>SRS MapCHECK PSQA Plan Creator</Product>
   </PropertyGroup>
 

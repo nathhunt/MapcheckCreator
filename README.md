@@ -11,9 +11,9 @@ Creates patient-specific QA plans for single-isocentre SRS plans, measured with 
 | 2 | App shell on fake data | **Done**: full UI flow on demo data ([try it](docs/PHASE2_UI_CHECKLIST.md)) |
 | 3 | ESAPI read path | **Done**: tested on Citrix (dose and PTVs match Eclipse) |
 | 4 | ESAPI write path | **Done, tested on Citrix** 2026-11-10 ([checklist](docs/PHASE4_CHECKLIST.md)): 3 plans created, calculated (MUs exact), fine-tuned and deleted |
-| 5 | Hardening, deployment docs | not started |
+| 5 | Hardening, deployment docs | **Done, to test on Citrix** ([checklist](docs/PHASE5_CHECKLIST.md), [deployment](deploy/README.md), [user guide](docs/USER_GUIDE.md)) |
 
-## Repository layout (so far)
+## Repository layout
 
 ```
 Directory.Build.props              shared settings; EsapiPath (override in EsapiPath.user.props)
@@ -103,6 +103,12 @@ Status after the first Citrix run (ESAPI 18.1.0.472, API assembly 1.0.700.247). 
 | V14 | Launcher | ✓ Passes patient, course and plan to the exe. `Assembly.Location` is **empty** for a single-file plugin, so the config file next to the script can't work; use the constant path or the environment variable. |
 | V15 | ESAPI on a dedicated STA thread | ✓ `CreateApplication` in 1.7 s, calls fine. |
 | V16 | WPF-UI on Citrix | ✓ renders. |
+| V17 | Calculation progress | ✓ `CalculateDoseWithPresetValues` writes `Progress N%` (one 0–100 count per plan) and a warnings summary to .NET trace output, read by `EclipseTraceListener`. |
+| V18 | Cancel during a calculation | ✓ Cancel now acts between plans; a started plan is always calculated, read and saved. |
+| V19 | `Patient.AddCourse` + `Course.Id` setter (create the QA course) | **To test** ([Phase 5 checklist](docs/PHASE5_CHECKLIST.md)). |
+| V20 | Finding earlier QA plans (tag, dose read without `BeginModifications`) | **To test**. |
+| V21 | Collision check geometry (head 41.5 cm / 76.5 cm, couch, rotation direction) | Conventions match two open-source ESAPI collision scripts; dimensions and couch direction **to confirm on the machine** ([details](docs/COLLISION_CHECK.md)). |
+| V22 | Maximised window | ✓ maximise after load (WPF-UI pads only on a state change). |
 
 ## Phase 1 design notes and decisions to review
 
