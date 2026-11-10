@@ -5,7 +5,9 @@ The window title shows the version (0.9.0). A rebuilt exe may need approving aga
 
 | # | Do | Expect / check |
 |---|---|---|
-| 1 | Settings: enter the MapCHECK origin height above the couch and the couch head end; Save. | Collision lines appear on the plan cards. |
+| 1 | Settings: enter the MapCHECK origin height above the couch and the couch head end; Save. | A warning lists the changes and says they apply to everyone; after confirming, `SrsMcPsqa.settings.json` in the app folder is updated (`.bak` kept). Collision lines appear on the plan cards. |
+| 1b | As a user **without** write access to the app folder, change a setting and Save. | "No write access"; nothing changes. |
+| 1c | Another user opens the app. | Sees the same settings (template phantom, collision values, …); their own theme. |
 | 2 | Test patient **without** a `QA` course: load the plan. | QA course shows "QA (new: created with the first QA plan)". |
 | 3 | Create the QA plans. | The course `QA` is created; plans `MC1_0`, … are in it. |
 | 4 | Array planning / Review: [UI checklist](UI_FEEDBACK_1_CHECKLIST.md). | As listed there. |

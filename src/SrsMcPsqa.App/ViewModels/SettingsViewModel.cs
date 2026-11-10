@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -31,29 +32,63 @@ namespace SrsMcPsqa.App.ViewModels
         public string DepartmentPath => SettingsStore.DepartmentPath;
         public string LogFolder => Log.Folder;
         public string InstallationFolder => SettingsStore.InstallationFolder;
-        public string TemplatePath => SettingsStore.TemplatePath;
+        /// <summary>Site settings file time when this screen was opened (to detect someone else's change).</summary>
+        private System.DateTime? _departmentTimeAtOpen;
 
         public override void OnNavigatedTo()
         {
             Edit = Session.Settings.Clone();
+            _departmentTimeAtOpen = SettingsStore.DepartmentFileTimeUtc;
             Status = "";
         }
 
+        /// <summary>
+        /// Saves personal preferences (theme, log level) for this user, and, after a warning and confirmation, changed site
+        /// settings to the department file in the app folder, which applies to everyone using this installation.
+        /// </summary>
         [RelayCommand]
         private void Save()
         {
             try
             {
                 if (Edit.PlanNamingPattern.Length == 0) Edit.PlanNamingPattern = Core.Models.QaPlanNaming.DefaultPattern;
-                SettingsStore.SaveUser(Edit);
+                var changes = SettingsStore.SiteDifferences(Session.Settings, Edit);
+                bool siteSaved = false;
+                if (changes.Count > 0)
+                {
+                    if (_departmentTimeAtOpen != SettingsStore.DepartmentFileTimeUtc &&
+                        !Session.Dialogs.Confirm("Department settings changed meanwhile",
+                            "Someone changed the department settings file since you opened Settings. Saving now replaces their changes " +
+                            "with yours. Click Cancel, then Reload, to see their version first.", "Save anyway", danger: true))
+                        return;
+                    string list = string.Join(System.Environment.NewLine, changes.Select(c => $"  {c.Field}: '{c.Old}' → '{c.New}'"));
+                    if (!Session.Dialogs.Confirm("Change DEPARTMENT settings?",
+                            "You are about to change the department settings. They apply to EVERYONE who uses this installation of the app" +
+                            $" ({SettingsStore.InstallationFolder}), not just you.{System.Environment.NewLine}{System.Environment.NewLine}" +
+                            $"Changes:{System.Environment.NewLine}{list}{System.Environment.NewLine}{System.Environment.NewLine}" +
+                            $"File: {SettingsStore.DepartmentPath} (the previous version is kept as .bak).",
+                            "Change department settings", danger: true))
+                        return;
+                    try { SettingsStore.SaveDepartment(Edit); }
+                    catch (System.UnauthorizedAccessException)
+                    {
+                        Session.Dialogs.ShowInfo("No write access",
+                            $"You don't have permission to change the department settings file:{System.Environment.NewLine}{SettingsStore.DepartmentPath}" +
+                            $"{System.Environment.NewLine}{System.Environment.NewLine}Nothing was changed. Ask someone with write access to the app folder.");
+                        return;
+                    }
+                    _departmentTimeAtOpen = SettingsStore.DepartmentFileTimeUtc;
+                    siteSaved = true;
+                    Log.Info("Department settings changed: " + string.Join("; ", changes.Select(c => $"{c.Field} '{c.Old}' -> '{c.New}'")));
+                }
+                SettingsStore.SavePersonal(Edit);
                 var applied = Edit.Clone();
                 Session.Settings = applied;
                 if (Session.Service is Esapi.EsapiPlanningService esapi) esapi.AutoSave = applied.AutoSave;
                 Edit = applied.Clone();
                 Log.Initialise(Edit.LogLevel);
                 ApplyTheme(Edit.Theme);
-                Status = $"Saved to {SettingsStore.UserPath}.";
-                Log.Info("Settings saved.");
+                Status = siteSaved ? $"Department settings saved ({changes.Count} change(s)); personal preferences saved." : "Personal preferences saved.";
             }
             catch (System.Exception ex)
             {
@@ -61,21 +96,22 @@ namespace SrsMcPsqa.App.ViewModels
             }
         }
 
+        /// <summary>Discards unsaved edits and re-reads the department settings file (e.g. after someone else changed it).</summary>
         [RelayCommand]
-        private void ResetToDepartment()
+        private void Reload()
         {
-            if (!Session.Dialogs.Confirm("Reset settings", "Discard your personal settings (including this installation's template phantom values) and use the department defaults?", "Reset")) return;
             try
             {
-                SettingsStore.DeleteUser();
-                Session.Settings = SettingsStore.LoadDepartmentDefaults();
-                Edit = Session.Settings.Clone();
-                ApplyTheme(Edit.Theme);
-                Status = "Department defaults restored.";
+                var loaded = SettingsStore.Load(out var source);
+                Session.Settings = loaded;
+                if (Session.Service is Esapi.EsapiPlanningService esapi) esapi.AutoSave = loaded.AutoSave;
+                Edit = loaded.Clone();
+                _departmentTimeAtOpen = SettingsStore.DepartmentFileTimeUtc;
+                Status = "Reloaded: " + source + ".";
             }
             catch (System.Exception ex)
             {
-                Session.Dialogs.ShowError("Reset settings", ex.Message, ex);
+                Session.Dialogs.ShowError("Reload settings", ex.Message, ex);
             }
         }
 

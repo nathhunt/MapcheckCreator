@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
@@ -114,98 +115,89 @@ namespace SrsMcPsqa.App.Infrastructure
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SrsMcPsqa", "settings.json");
 
         /// <summary>
-        /// Personal preferences from the user file (if present) over the department file (or built-in defaults).
-        /// Template phantom fields: this installation's template file if present, else the department file.
-        /// (%APPDATA% may follow the user between test and production, so template values are kept per installation.)
+        /// Site settings (everything except theme and log level) come only from the department file in this installation's
+        /// folder (or built-in defaults), the same for every user; the app never writes it. Personal preferences (theme,
+        /// log level) come from the user's file in %APPDATA%.
         /// </summary>
         public static AppSettings Load(out string source)
         {
-            var dept = LoadDepartmentDefaults();
-            AppSettings result = dept.Clone();
-            source = File.Exists(DepartmentPath) ? $"department defaults ({DepartmentPath})" : "built-in defaults";
+            var result = LoadDepartmentDefaults();
+            if (result.PlanNamingPattern == Core.Models.QaPlanNaming.PreviousDefaultPattern) result.PlanNamingPattern = Core.Models.QaPlanNaming.DefaultPattern;
+            source = File.Exists(DepartmentPath) ? $"site settings from {DepartmentPath}" : "built-in defaults (no site settings file)";
             try
             {
                 if (File.Exists(UserPath))
                 {
-                    result = Read<AppSettings>(UserPath);
-                    source = $"user settings ({UserPath}) over {source}";
-                    // The default naming changed from SMC{n}_{orient} to MC{n}_{orient}; a stored old default follows the department value.
-                    if (result.PlanNamingPattern == Core.Models.QaPlanNaming.PreviousDefaultPattern) result.PlanNamingPattern = dept.PlanNamingPattern;
+                    var p = Read<PersonalSettings>(UserPath);
+                    if (!string.IsNullOrWhiteSpace(p.Theme)) result.Theme = p.Theme!;
+                    if (!string.IsNullOrWhiteSpace(p.LogLevel)) result.LogLevel = p.LogLevel!;
+                    source += $"; personal preferences from {UserPath}";
                 }
             }
             catch (Exception ex)
             {
-                Log.Warn($"Could not read user settings from {UserPath}: {ex.Message}");
+                Log.Warn($"Could not read personal preferences from {UserPath}: {ex.Message}");
             }
-            CopyEnvironmentFields(dept, result);
-            try
-            {
-                if (File.Exists(TemplatePath))
-                {
-                    var t = Read<InstallationTemplate>(TemplatePath);
-                    result.TemplatePatientId = t.TemplatePatientId ?? ""; result.Template0StudyId = t.Template0StudyId ?? ""; result.Template270StudyId = t.Template270StudyId ?? "";
-                    result.Template0ImageId = t.Template0ImageId ?? ""; result.Template270ImageId = t.Template270ImageId ?? "";
-                    result.CopyTemplateStructures = t.CopyTemplateStructures;
-                    source += $"; template phantom from {TemplatePath}";
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Warn($"Could not read template settings from {TemplatePath}: {ex.Message}");
-            }
+            if (Directory.Exists(Path.GetDirectoryName(UserPath)!) && Directory.GetFiles(Path.GetDirectoryName(UserPath)!, "template-*.json").Length > 0)
+                source += "; earlier per-user template phantom files are no longer used (site settings file instead)";
             return result;
         }
 
         /// <summary>Folder of this installation (test and production installations differ).</summary>
         public static string InstallationFolder => Path.GetFullPath(AppDomain.CurrentDomain.BaseDirectory).TrimEnd('\\', '/');
 
-        /// <summary>Per-user, per-installation template phantom file.</summary>
-        public static string TemplatePath
-        {
-            get
-            {
-                using var sha = System.Security.Cryptography.SHA1.Create();
-                var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(InstallationFolder.ToUpperInvariant()));
-                var key = BitConverter.ToString(hash, 0, 6).Replace("-", "").ToLowerInvariant();
-                return Path.Combine(Path.GetDirectoryName(UserPath)!, $"template-{key}.json");
-            }
-        }
-
-        /// <summary>Environment-specific fields (template phantom) are owned by the department file.</summary>
-        public static void CopyEnvironmentFields(AppSettings from, AppSettings to)
-        {
-            to.TemplatePatientId = from.TemplatePatientId;
-            to.Template0StudyId = from.Template0StudyId;
-            to.Template270StudyId = from.Template270StudyId;
-            to.Template0ImageId = from.Template0ImageId;
-            to.Template270ImageId = from.Template270ImageId;
-            to.CopyTemplateStructures = from.CopyTemplateStructures;
-        }
-
         public static AppSettings LoadDepartmentDefaults()
         {
             try { if (File.Exists(DepartmentPath)) return Read<AppSettings>(DepartmentPath); }
-            catch (Exception ex) { Log.Warn($"Could not read department defaults: {ex.Message}"); }
+            catch (Exception ex) { Log.Warn($"Could not read the site settings file {DepartmentPath}: {ex.Message}"); }
             return new AppSettings();
         }
 
+        /// <summary>Personal preferences (per user); every other setting is a site (department) setting.</summary>
+        public static readonly string[] PersonalFields = { nameof(AppSettings.Theme), nameof(AppSettings.LogLevel) };
+
+        /// <summary>Last-write time of the site settings file when it was read (to detect someone else's change).</summary>
+        public static DateTime? DepartmentFileTimeUtc => File.Exists(DepartmentPath) ? File.GetLastWriteTimeUtc(DepartmentPath) : (DateTime?)null;
+
+        /// <summary>Site settings that differ between two settings objects: (field, old, new).</summary>
+        public static List<(string Field, string Old, string New)> SiteDifferences(AppSettings old, AppSettings @new)
+        {
+            var list = new List<(string, string, string)>();
+            foreach (var p in typeof(AppSettings).GetProperties())
+            {
+                if (!p.IsDefined(typeof(DataMemberAttribute), false) || Array.IndexOf(PersonalFields, p.Name) >= 0) continue;
+                string a = Convert.ToString(p.GetValue(old), System.Globalization.CultureInfo.InvariantCulture) ?? "";
+                string b = Convert.ToString(p.GetValue(@new), System.Globalization.CultureInfo.InvariantCulture) ?? "";
+                if (a != b) list.Add((p.Name, a, b));
+            }
+            return list;
+        }
+
         /// <summary>
-        /// Saves personal preferences to the user file (template fields blank there) and the template phantom
-        /// fields to this installation's template file.
+        /// Writes the site settings to the department file in the app folder (applies to everyone using this installation).
+        /// The personal fields keep the file's own defaults. Needs write access to the app folder.
         /// </summary>
-        public static void SaveUser(AppSettings settings)
+        public static void SaveDepartment(AppSettings settings)
+        {
+            var current = LoadDepartmentDefaults();
+            var s = settings.Clone();
+            s.Theme = current.Theme; s.LogLevel = current.LogLevel;
+            string tmp = DepartmentPath + ".tmp";
+            Write(tmp, s);
+            if (File.Exists(DepartmentPath))
+            {
+                File.Copy(DepartmentPath, DepartmentPath + ".bak", overwrite: true); // previous version, for undo
+                File.Delete(DepartmentPath);
+            }
+            File.Move(tmp, DepartmentPath);
+            Log.Info($"Site settings saved to {DepartmentPath} by {Environment.UserName}.");
+        }
+
+        /// <summary>Saves the personal preferences (theme, log level) only.</summary>
+        public static void SavePersonal(AppSettings settings)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(UserPath)!);
-            var s = settings.Clone();
-            CopyEnvironmentFields(new AppSettings { PlanNamingPattern = s.PlanNamingPattern }, s);
-            Write(UserPath, s);
-            Write(TemplatePath, new InstallationTemplate
-            {
-                InstallationFolder = InstallationFolder,
-                TemplatePatientId = settings.TemplatePatientId, Template0StudyId = settings.Template0StudyId, Template270StudyId = settings.Template270StudyId,
-                Template0ImageId = settings.Template0ImageId, Template270ImageId = settings.Template270ImageId,
-                CopyTemplateStructures = settings.CopyTemplateStructures,
-            });
+            Write(UserPath, new PersonalSettings { Theme = settings.Theme, LogLevel = settings.LogLevel });
         }
 
         private static void Write<T>(string path, T value)
@@ -217,11 +209,10 @@ namespace SrsMcPsqa.App.Infrastructure
             File.WriteAllBytes(path, ms.ToArray());
         }
 
-        /// <summary>Deletes personal preferences and this installation's template values.</summary>
-        public static void DeleteUser()
+        /// <summary>Deletes the personal preferences.</summary>
+        public static void DeletePersonal()
         {
             if (File.Exists(UserPath)) File.Delete(UserPath);
-            if (File.Exists(TemplatePath)) File.Delete(TemplatePath);
         }
 
         private static T Read<T>(string path)
@@ -235,16 +226,11 @@ namespace SrsMcPsqa.App.Infrastructure
 
 namespace SrsMcPsqa.App.Infrastructure
 {
-    /// <summary>A user's template phantom values for one installation folder.</summary>
+    /// <summary>A user's personal preferences (everything else is a site setting).</summary>
     [System.Runtime.Serialization.DataContract]
-    public sealed class InstallationTemplate
+    public sealed class PersonalSettings
     {
-        [System.Runtime.Serialization.DataMember] public string? InstallationFolder { get; set; }
-        [System.Runtime.Serialization.DataMember] public string? TemplatePatientId { get; set; }
-        [System.Runtime.Serialization.DataMember] public string? Template0StudyId { get; set; }
-        [System.Runtime.Serialization.DataMember] public string? Template270StudyId { get; set; }
-        [System.Runtime.Serialization.DataMember] public string? Template0ImageId { get; set; }
-        [System.Runtime.Serialization.DataMember] public string? Template270ImageId { get; set; }
-        [System.Runtime.Serialization.DataMember] public bool CopyTemplateStructures { get; set; }
+        [System.Runtime.Serialization.DataMember] public string? Theme { get; set; }
+        [System.Runtime.Serialization.DataMember] public string? LogLevel { get; set; }
     }
 }

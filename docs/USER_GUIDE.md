@@ -55,5 +55,6 @@ Start it from Eclipse with the clinical plan open: **Tools → Scripts → SrsMc
 ## Settings
 
 Template phantom (patient and image IDs, **Validate**), QA course ID, plan ID pattern, collision check geometry
-(MapCHECK origin height above the couch is required), optimisation values, theme and log level. See
-[deploy/README.md](../deploy/README.md).
+(MapCHECK origin height above the couch is required), optimisation values: these are **department settings**, the same
+for everyone using this installation. Saving a change warns you, lists the changes and asks for confirmation (and needs
+write access to the app folder). Theme and log level are personal. See [deploy/README.md](../deploy/README.md).

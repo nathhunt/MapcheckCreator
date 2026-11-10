@@ -47,8 +47,15 @@ one of these two ways. Either set the environment variable (no rebuild when the 
 
 ## 5. Settings (Settings page in the app)
 
-Per installation, entered once by a physicist (stored per user in `%APPDATA%\SrsMcPsqa\`; the department file is the
-default for everyone):
+All settings except theme and log level are **department settings**: they come from `SrsMcPsqa.settings.json` in the
+app folder and are the same for everyone using that installation (test and production have separate files). They can
+be changed on the Settings page: **Save** shows the changes and warns that they apply to everyone, and only writes the
+file after confirmation. This needs write access to the app folder (give it only to the people who should change
+settings); without it, nothing is changed. The previous file is kept as `SrsMcPsqa.settings.json.bak`, and every change is
+logged with the user name. If someone else changed the file since you opened Settings, you're warned before overwriting;
+**Reload** shows the current file. Theme and log level are personal (`%APPDATA%\SrsMcPsqa\settings.json`).
+
+Set once per installation:
 
 | Setting | Notes |
 |---|---|
@@ -62,7 +69,8 @@ default for everyone):
 
 | Path | Content |
 |---|---|
-| `%APPDATA%\SrsMcPsqa\settings.json`, `template-<hash>.json` | Personal settings; template phantom per installation |
+| `%APPDATA%\SrsMcPsqa\settings.json` | Personal preferences (theme, log level) |
+| `<app folder>\SrsMcPsqa.settings.json` (+ `.bak`) | Department settings, written only after confirmation |
 | `%LOCALAPPDATA%\SrsMcPsqa\logs\srsmcpsqa-<date>.log` | Log (each step, timings, Eclipse calculation messages) |
 | `%LOCALAPPDATA%\SrsMcPsqa\calc-timing.json` | Calculation timings for the progress estimate |
 
