@@ -56,6 +56,25 @@ namespace SrsMcPsqa.Core.Tests
         }
 
         [Fact]
+        public async Task FindsQaPlansCreatedEarlierForThisPlan()
+        {
+            var svc = new FakePlanningService { DelayScale = 0 };
+            await svc.OpenPatientAsync("FAKE001");
+            var plan = await svc.LoadClinicalPlanAsync("C1", "SRS_5Mets");
+            Assert.Empty(await svc.FindExistingQaPlansAsync());
+            var phantoms = await svc.EnsurePhantomImagesAsync(new TemplatePhantomSettings { PatientId = "TPL", Image0Id = "SMC_0", Image270Id = "SMC_270" },
+                new[] { ArrayOrientation.Deg0 });
+            var req = QaPlanRequests.Create(new ArrayPlane(ArrayOrientation.Deg0, plan.Isocentre), plan.Isocentre, phantoms[0], "QA", "MC1_0", new[] { plan.Ptvs[0].Id });
+            var created = await svc.CreateQaPlanAsync(req);
+            var found = Assert.Single(await svc.FindExistingQaPlansAsync());
+            Assert.Equal("MC1_0", found.Result.PlanId);
+            Assert.Equal(ArrayOrientation.Deg0, found.Result.Orientation);
+            Assert.True(found.Result.Isocentre.ApproxEquals(created.Isocentre, 1e-9));
+            Assert.NotNull(found.Result.Dose);
+            Assert.Equal(new[] { plan.Ptvs[0].Id }, found.AssignedPtvIds);
+        }
+
+        [Fact]
         public async Task EnsureCourseCreatesMissingCourseOnce()
         {
             var svc = new FakePlanningService { DelayScale = 0 };

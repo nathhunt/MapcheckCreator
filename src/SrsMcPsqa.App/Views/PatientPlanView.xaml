@@ -106,6 +106,10 @@
             <DockPanel>
                 <ui:Button DockPanel.Dock="Right" MinWidth="180" Appearance="Primary" Icon="{ui:SymbolIcon ArrowRight24}"
                            Content="Load plan and continue" Command="{Binding LoadPlanCommand}" />
+                        <ui:Button Margin="0,8,0,0" HorizontalAlignment="Stretch" Icon="{ui:SymbolIcon Search24}"
+                                   Content="Find existing QA plans for this plan" Command="{Binding FindExistingQaPlansCommand}"
+                                   IsEnabled="{Binding Session.HasPlan}"
+                                   ToolTip="Loads QA plans this app made earlier for the loaded plan (found by their tag in any course) into Review" />
                 <TextBlock VerticalAlignment="Center" Style="{StaticResource Hint}" FontSize="12"
                            Text="Loading reads the plan's PTVs and dose from Eclipse (nothing is changed)." />
             </DockPanel>

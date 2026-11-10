@@ -129,3 +129,16 @@ namespace SrsMcPsqa.App.Infrastructure
             throw new System.NotSupportedException();
     }
 }
+
+namespace SrsMcPsqa.App.Infrastructure
+{
+    /// <summary>MultiBinding: true when every value is true.</summary>
+    public sealed class AllTrueConverter : System.Windows.Data.IMultiValueConverter
+    {
+        public object Convert(object[] values, System.Type targetType, object parameter, System.Globalization.CultureInfo culture) =>
+            System.Linq.Enumerable.All(values, v => v is bool b && b);
+
+        public object[] ConvertBack(object value, System.Type[] targetTypes, object parameter, System.Globalization.CultureInfo culture) =>
+            throw new System.NotSupportedException();
+    }
+}

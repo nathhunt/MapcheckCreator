@@ -18,6 +18,7 @@ using Vec3 = SrsMcPsqa.Core.Geometry.Vec3;
 using Box3 = SrsMcPsqa.Core.Geometry.Box3;
 using QaPlanTag = SrsMcPsqa.Core.Models.QaPlanTag;
 using QaPlanNaming = SrsMcPsqa.Core.Models.QaPlanNaming;
+using QaPlanRequests = SrsMcPsqa.Core.Models.QaPlanRequests;
 
 namespace SrsMcPsqa.Esapi
 {
@@ -78,6 +79,57 @@ namespace SrsMcPsqa.Esapi
                 _log($"Created course '{courseId}'.");
                 SaveIfAuto(app, $"creating course '{courseId}'");
                 return new CourseSummary { Id = course.Id };
+            });
+
+        public Task<IReadOnlyList<ExistingQaPlan>> FindExistingQaPlansAsync(IProgress<string>? progress = null, CancellationToken ct = default) =>
+            _worker.RunAsync<IReadOnlyList<ExistingQaPlan>>("find existing QA plans", app =>
+            {
+                var clinical = RequireClinicalPlan();
+                var clinicalMu = clinical.Beams.Where(b => !b.IsSetupField).ToDictionary(b => b.Id, b => b.Meterset.Value);
+                var found = new List<ExistingQaPlan>();
+                foreach (var course in RequirePatient().Courses)
+                {
+                    foreach (var qa in course.ExternalPlanSetups.ToList())
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        if (!QaPlanTag.TryParse(qa.Comment, out var tag) || tag!.SourcePlanUid != clinical.UID) continue;
+                        progress?.Report($"Reading {course.Id}/{qa.Id}...");
+                        var notes = new List<string>();
+                        var beams = qa.Beams.Where(b => !b.IsSetupField).ToList();
+                        var iso = beams.FirstOrDefault()?.IsocenterPosition.ToVec3() ?? default;
+                        var ss = qa.StructureSet;
+                        if (ss?.Image == null) { notes.Add("The plan has no phantom image; it can't be shown."); continue; }
+                        var phantom = Info(tag.Orientation, ss, copied: false);
+
+                        // Beams and MUs against the clinical plan (re-optimised clinical plan → out of date).
+                        bool matches = beams.Count == clinicalMu.Count;
+                        foreach (var b in beams)
+                        {
+                            if (!clinicalMu.TryGetValue(b.Id, out var mu)) { matches = false; notes.Add($"Beam {b.Id} isn't in the clinical plan."); continue; }
+                            double q = b.Meterset.Value;
+                            if (double.IsNaN(q) || Math.Abs(q - mu) > MuTolerance) { matches = false; notes.Add($"Beam {b.Id}: {q:0.00} MU, clinical {mu:0.00} MU."); }
+                        }
+                        if (beams.Count != clinicalMu.Count) notes.Add($"{beams.Count} beams; the clinical plan has {clinicalMu.Count}.");
+
+                        Core.Geometry.DoseGrid? dose = null;
+                        if (qa.Dose != null && qa.IsDoseValid)
+                            dose = ExtractQaDose(qa, QaPlanRequests.DoseRegion(tag.Orientation, phantom.UserOrigin), progress, ct);
+                        else notes.Add("The plan has no valid calculated dose.");
+
+                        found.Add(new ExistingQaPlan
+                        {
+                            Result = new QaPlanResult
+                            {
+                                CourseId = course.Id, PlanId = qa.Id, Orientation = tag.Orientation, Isocentre = iso,
+                                CalculationSucceeded = dose != null, Dose = dose, Messages = notes.ToList(),
+                            },
+                            Phantom = phantom, AssignedPtvIds = tag.PtvIds, InCompletedCourse = course.IsCompleted(),
+                            MatchesClinicalPlan = matches, Notes = notes,
+                        });
+                        _log($"Found QA plan {course.Id}/{qa.Id} ({tag.Orientation}); matches clinical: {matches}; dose: {dose != null}.");
+                    }
+                }
+                return found;
             });
 
         private Course RequireCourse(string courseId)

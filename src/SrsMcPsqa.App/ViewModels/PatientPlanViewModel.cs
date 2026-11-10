@@ -122,6 +122,14 @@ namespace SrsMcPsqa.App.ViewModels
             if (ok) Shell.Navigate(Shell.Ptvs);
         }
 
+        /// <summary>Loads QA plans made earlier for the loaded plan (only on request), then shows them in Review.</summary>
+        [RelayCommand]
+        private async Task FindExistingQaPlansAsync()
+        {
+            if (!Session.HasPlan) { Session.Dialogs.ShowInfo("Find existing QA plans", "Load the clinical plan first."); return; }
+            if (await Shell.Review.FindExistingAsync() > 0 || Session.QaPlans.Count > 0) Shell.Navigate(Shell.Review);
+        }
+
         [RelayCommand]
         private void OpenSettings() => Shell.Navigate(Shell.Settings);
     }

@@ -20,6 +20,7 @@
             <inf:StepGlyphConverter x:Key="StepGlyph" />
             <inf:PrimaryIfTrueConverter x:Key="PrimaryIfTrue" />
             <inf:PrimaryIfTrueConverter x:Key="SecondaryIfTrue" Invert="True" />
+            <inf:AllTrueConverter x:Key="AllTrue" />
             <!-- Couch clearance line on plan cards: tinted background and border when there is a warning or risk -->
             <Style x:Key="ClearanceBadge" TargetType="Border">
                 <Setter Property="BorderThickness" Value="0" />

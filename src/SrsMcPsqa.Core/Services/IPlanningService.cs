@@ -111,6 +111,21 @@ namespace SrsMcPsqa.Core.Services
         public DoseGrid? Dose { get; set; }
     }
 
+    /// <summary>A QA plan created earlier by this app for the loaded clinical plan (found by its Comment tag).</summary>
+    public sealed class ExistingQaPlan
+    {
+        /// <summary>Plan, orientation, isocentre and dose (if calculated: <see cref="QaPlanResult.CalculationSucceeded"/>).</summary>
+        public QaPlanResult Result { get; set; } = new QaPlanResult();
+        public PhantomImageInfo Phantom { get; set; } = new PhantomImageInfo();
+        /// <summary>PTV IDs from the plan's tag.</summary>
+        public IReadOnlyList<string> AssignedPtvIds { get; set; } = Array.Empty<string>();
+        /// <summary>In a completed course: shown, but not changed.</summary>
+        public bool InCompletedCourse { get; set; }
+        /// <summary>False when the QA beams no longer match the clinical plan (beam IDs or MUs), e.g. after re-optimisation.</summary>
+        public bool MatchesClinicalPlan { get; set; } = true;
+        public IReadOnlyList<string> Notes { get; set; } = Array.Empty<string>();
+    }
+
     public sealed class TemplatePhantomSettings
     {
         public string PatientId { get; set; } = "";
@@ -153,6 +168,9 @@ namespace SrsMcPsqa.Core.Services
 
         /// <summary>Returns the open course with this ID, creating it in the open patient if it doesn't exist.</summary>
         Task<CourseSummary> EnsureCourseAsync(string courseId, CancellationToken ct = default);
+
+        /// <summary>Finds and reads (read-only) the app's QA plans for the loaded clinical plan in all the patient's courses.</summary>
+        Task<IReadOnlyList<ExistingQaPlan>> FindExistingQaPlansAsync(IProgress<string>? progress = null, CancellationToken ct = default);
 
         /// <summary>Lists plans in the course that carry the app's tag.</summary>
         Task<IReadOnlyList<PlanSummary>> ListQaPlansAsync(string courseId, CancellationToken ct = default);

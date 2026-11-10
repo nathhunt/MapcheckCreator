@@ -306,6 +306,30 @@ namespace SrsMcPsqa.Fake
             };
         }
 
+        public Task<IReadOnlyList<ExistingQaPlan>> FindExistingQaPlansAsync(IProgress<string>? progress = null, CancellationToken ct = default)
+        {
+            List<(string Course, FakeQaPlan Plan)> plans;
+            lock (_lock) plans = _plansByCourse.SelectMany(kv => kv.Value.Select(p => (kv.Key, p))).Where(x => x.p.Tag?.SourcePlanUid == _patient.PlanUid).ToList();
+            return Task.Run<IReadOnlyList<ExistingQaPlan>>(() => plans.Select(x =>
+            {
+                var o = x.Plan.Orientation;
+                var region = QaPlanRequests.DoseRegion(o, UserOrigins[o]);
+                var shift = x.Plan.Isocentre - _patient.Isocentre + CalculationOffset;
+                var dose = DoseGrid.FromFunction(Grid(region, 1.0), q => _patient.Dose(q - shift, sigma: 2.9, scale: 0.985));
+                string image = o == ArrayOrientation.Deg0 ? "SMC_0" : "SMC_270";
+                return new ExistingQaPlan
+                {
+                    Result = new QaPlanResult
+                    {
+                        CourseId = x.Course, PlanId = x.Plan.Id, Orientation = o, Isocentre = x.Plan.Isocentre, CalculationSucceeded = true, Dose = dose,
+                        Messages = new[] { "Found by its tag (demo data)." },
+                    },
+                    Phantom = new PhantomImageInfo { Orientation = o, ImageId = image, StructureSetId = image, UserOrigin = UserOrigins[o] },
+                    AssignedPtvIds = x.Plan.Tag!.PtvIds,
+                };
+            }).ToList(), ct);
+        }
+
         public async Task<CourseSummary> EnsureCourseAsync(string courseId, CancellationToken ct = default)
         {
             await Delay(0.3, ct).ConfigureAwait(false);

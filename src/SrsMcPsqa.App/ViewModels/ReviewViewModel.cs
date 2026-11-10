@@ -45,6 +45,21 @@ namespace SrsMcPsqa.App.ViewModels
         public PhantomImageInfo Phantom { get; }
         public PlanningSession Session => _session;
 
+        // Plans found from an earlier session (FindExisting).
+        [ObservableProperty] [NotifyPropertyChangedFor(nameof(OriginText))] private bool _isFromEarlierSession;
+        /// <summary>QA beams no longer match the clinical plan (flag only).</summary>
+        [ObservableProperty] [NotifyPropertyChangedFor(nameof(OriginText))] private bool _isOutOfDate;
+        /// <summary>In a completed course: shown, not changed.</summary>
+        [ObservableProperty] [NotifyPropertyChangedFor(nameof(OriginText), nameof(CanChange))] private bool _isReadOnly;
+        [ObservableProperty] private string _notes = "";
+        public bool CanChange => !IsReadOnly;
+        public string OriginText => string.Join(" · ", new[]
+        {
+            IsFromEarlierSession ? "From an earlier session" : null,
+            IsReadOnly ? "completed course: read-only" : null,
+            IsOutOfDate ? "OUT OF DATE: beams/MUs differ from the clinical plan" : null,
+        }.Where(t => t != null));
+
         /// <summary>Fine-tune suggestion for this plan (null until checked).</summary>
         [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasFineTune), nameof(FineTuneBadge))] private FineTuneRowViewModel? _fineTune;
         public bool HasFineTune => FineTune != null;
@@ -409,7 +424,7 @@ namespace SrsMcPsqa.App.ViewModels
         private async Task ApplyAsync()
         {
             var moves = new List<(QaPlanViewModel Plan, Vec3 Iso)>();
-            foreach (var p in QaPlans.Where(p => p.FineTune != null))
+            foreach (var p in QaPlans.Where(p => p.FineTune != null && !p.IsReadOnly))
             {
                 var iso = p.FineTune!.NewIsocentre(out var error);
                 if (error != null) { SelectedQaPlan = p; Session.Dialogs.ShowInfo("Check the array move", error); return; }
@@ -445,11 +460,76 @@ namespace SrsMcPsqa.App.ViewModels
             NotifyFooter();
         }
 
-        [RelayCommand]
-        private Task DeleteSelectedAsync() => SelectedQaPlan == null ? Task.CompletedTask : DeleteAsync(new List<QaPlanViewModel> { SelectedQaPlan });
+        /// <summary>
+        /// Loads (read-only) the QA plans this app made earlier for the loaded clinical plan, found by their Comment tag in
+        /// all the patient's courses. Only on request. Returns the number of plans added.
+        /// </summary>
+        public async Task<int> FindExistingAsync()
+        {
+            int added = 0;
+            await Shell.RunAsync("Finding existing QA plans", async (pr, ct) =>
+            {
+                pr.BeginStep("Searching the patient's courses for this plan's QA plans...");
+                var found = await Session.Service.FindExistingQaPlansAsync(pr.Reporter, ct);
+                var rows = Session.Ptvs.Where(r => r.Info.Mask != null).ToList();
+                foreach (var e in found)
+                {
+                    if (QaPlans.Any(p => string.Equals(p.CourseId, e.Result.CourseId, StringComparison.OrdinalIgnoreCase)
+                                         && string.Equals(p.PlanId, e.Result.PlanId, StringComparison.OrdinalIgnoreCase))) continue;
+                    var notes = e.Notes.ToList();
+                    var assigned = new List<PtvRowViewModel>();
+                    foreach (var id in e.AssignedPtvIds)
+                    {
+                        var row = rows.FirstOrDefault(r => string.Equals(r.Id, id, StringComparison.OrdinalIgnoreCase));
+                        if (row != null) assigned.Add(row);
+                        else notes.Add($"PTV '{id}' (in the plan's tag) isn't in the clinical structure set.");
+                    }
+                    if (!Session.Phantoms.ContainsKey(e.Result.Orientation)) Session.Phantoms[e.Result.Orientation] = e.Phantom;
+                    var qa = new QaPlanViewModel(Session, e.Result, e.Phantom, assigned, rows, null)
+                    {
+                        IsFromEarlierSession = true, IsOutOfDate = !e.MatchesClinicalPlan, IsReadOnly = e.InCompletedCourse,
+                        Notes = string.Join(Environment.NewLine, notes),
+                    };
+                    Session.QaPlans.Add(qa);
+                    await qa.RefreshAsync();
+                    added++;
+                    pr.AddLog($"{e.Result.CourseId}/{e.Result.PlanId}: loaded{(e.MatchesClinicalPlan ? "" : " (out of date)")}.");
+                }
+                pr.AddLog(found.Count == 0 ? "No QA plans found for this plan." : $"{found.Count} found, {added} added.");
+            }, keepOpenOnSuccess: true);
+            if (SelectedQaPlan == null) SelectedQaPlan = QaPlans.FirstOrDefault();
+            NotifyFooter();
+            return added;
+        }
 
         [RelayCommand]
-        private Task DeleteAllAsync() => DeleteAsync(QaPlans.ToList());
+        private async Task FindExistingPlansAsync() => await FindExistingAsync();
+
+        /// <summary>Recalculate the selected plan where it is (e.g. a plan whose calculation was stopped).</summary>
+        [RelayCommand]
+        private async Task RecalculateSelectedAsync()
+        {
+            var plan = SelectedQaPlan;
+            if (plan == null || plan.IsReadOnly) return;
+            if (!Session.Dialogs.Confirm("Recalculate", $"Recalculate {plan.PlanId} at its current isocentre with the clinical MUs?", "Recalculate")) return;
+            await Shell.RunAsync($"Recalculating {plan.PlanId}", async (pr, ct) =>
+            {
+                pr.ExpectPlans(new[] { (plan.PlanId, "recalculate") });
+                var region = QaPlanRequests.DoseRegion(plan.Orientation, plan.Phantom.UserOrigin);
+                QaPlanResult result;
+                try { result = await Session.Service.MoveIsocentreAsync(plan.CourseId, plan.PlanId, plan.Isocentre, region, pr.Reporter, ct, pr.Events); }
+                catch { pr.CompletePlan(plan.PlanId, success: false); throw; }
+                pr.CompletePlan(plan.PlanId, result.CalculationSucceeded);
+                plan.Result = result;
+                await plan.RefreshAsync();
+            }, keepOpenOnSuccess: true);
+        }
+
+        [RelayCommand]
+        private Task DeleteSelectedAsync() => SelectedQaPlan == null || SelectedQaPlan.IsReadOnly ? Task.CompletedTask : DeleteAsync(new List<QaPlanViewModel> { SelectedQaPlan });
+
+        [RelayCommand]
+        private Task DeleteAllAsync() => DeleteAsync(QaPlans.Where(p => !p.IsReadOnly).ToList());
 
         private async Task DeleteAsync(List<QaPlanViewModel> plans)
         {

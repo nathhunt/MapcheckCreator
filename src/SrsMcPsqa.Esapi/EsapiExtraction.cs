@@ -91,6 +91,12 @@ namespace SrsMcPsqa.Esapi
 
                 var nonPhoton = tx.Where(b => !(b.EnergyModeDisplayName ?? "").ToUpperInvariant().Contains("X")).Select(b => b.Id).ToList();
                 if (nonPhoton.Count > 0) Add(ValidationSeverity.Error, $"Only photon beams are supported (not: {string.Join(", ", nonPhoton)}).");
+                var machines = tx.Select(b => b.TreatmentUnit?.Id ?? "").Distinct().ToList();
+                if (machines.Count > 1) Add(ValidationSeverity.Error, $"Treatment beams use different machines ({string.Join(", ", machines)}).");
+                var noMu = tx.Where(b => double.IsNaN(b.Meterset.Value) || b.Meterset.Value <= 0).Select(b => b.Id).ToList();
+                if (noMu.Count > 0) Add(ValidationSeverity.Error, $"Beams without MUs: {string.Join(", ", noMu)}.");
+                int setup = plan.Beams.Count(b => b.IsSetupField);
+                if (setup > 0) Add(ValidationSeverity.Info, $"{setup} setup field(s) ignored (not copied to the QA plans).");
                 var kinds = string.Join(", ", tx.GroupBy(b => b.MLCPlanType).Select(g => $"{g.Count()} × {g.Key}"));
                 Add(ValidationSeverity.Info, $"Beams: {kinds}; energy {string.Join("/", tx.Select(b => b.EnergyModeDisplayName).Distinct())}.");
             }
@@ -100,6 +106,7 @@ namespace SrsMcPsqa.Esapi
             else Add(ValidationSeverity.Info, "Treatment orientation HFS.");
 
             if (plan.StructureSet?.Image == null) Add(ValidationSeverity.Error, "The plan has no structure set / image.");
+            if (!(plan.DosePerFraction.Dose > 0)) Add(ValidationSeverity.Error, "The plan has no dose per fraction, so the QA prescription can't be set.");
             return v;
         }
 

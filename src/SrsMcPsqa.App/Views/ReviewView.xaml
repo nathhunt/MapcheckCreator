@@ -37,6 +37,8 @@
             <DockPanel Grid.Column="0">
                 <TextBlock DockPanel.Dock="Top" Style="{StaticResource Section}" Text="QA plans" />
                 <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                    <ui:Button HorizontalAlignment="Stretch" Margin="0,0,0,6" Content="Find existing QA plans" Icon="{ui:SymbolIcon Search24}"
+                               Command="{Binding FindExistingPlansCommand}" ToolTip="Load QA plans made earlier for this clinical plan" />
                     <ui:Button HorizontalAlignment="Stretch" Content="Add more QA plans" Icon="{ui:SymbolIcon Add24}" Command="{Binding AddNewCommand}"
                                ToolTip="Plan more QA plans, e.g. for PTVs not yet on any plan" />
                     <UniformGrid Columns="2" Margin="0,6,0,0">
@@ -58,6 +60,19 @@
                         <DataTemplate DataType="{x:Type vm:QaPlanViewModel}">
                             <StackPanel>
                                 <TextBlock FontWeight="SemiBold" FontSize="14" Text="{Binding Header}" />
+                                <TextBlock FontSize="11" FontStyle="Italic" TextWrapping="Wrap" Text="{Binding OriginText}"
+                                           Visibility="{Binding OriginText, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsOutOfDate}" Value="True">
+                                                    <Setter Property="Foreground" Value="{x:Static inf:StatusBrushConverter.Bad}" />
+                                                    <Setter Property="FontWeight" Value="Bold" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
                                 <TextBlock FontSize="12" TextWrapping="Wrap" Text="{Binding AssignedText}" />
                                 <TextBlock FontSize="12" Text="{Binding StatusLine}" Foreground="{Binding CalcOk, Converter={StaticResource StatusBrush}}" />
                                 <TextBlock FontSize="11" TextWrapping="Wrap" Opacity="0.8" Text="{Binding IsoFromOriginText, StringFormat='Iso from MapCHECK origin: {0}'}" />
@@ -135,6 +150,14 @@
                     <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
                                Text="Optional. Predictions shift the calculated dose, so they are approximate; the plan is recalculated when you apply." />
 
+                    <!-- earlier-session plan: notes, out-of-date flag, recalculate when not calculated -->
+                    <Border Margin="0,8,0,0" Padding="8,6" CornerRadius="4" BorderThickness="1" BorderBrush="{x:Static inf:StatusBrushConverter.Caution}"
+                            Visibility="{Binding Notes, Converter={StaticResource BoolToVis}}">
+                        <TextBlock FontSize="12" TextWrapping="Wrap" Text="{Binding Notes}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                    </Border>
+                    <ui:Button Margin="0,6,0,0" HorizontalAlignment="Stretch" Icon="{ui:SymbolIcon ArrowSync24}" Content="Recalculate this plan"
+                               Command="{Binding DataContext.RecalculateSelectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                               Visibility="{Binding CalcOk, Converter={StaticResource InverseBoolToVis}}" IsEnabled="{Binding CanChange}" />
                     <!-- current position, and the new one when a move is chosen -->
                     <views:IsoShiftCard Margin="0,8,0,0" Title="{Binding PlanId, StringFormat='QA isocentre · {0} (now)'}" Offset="{Binding IsoFromOrigin}"
                                         ClearanceState="{Binding Clearance.State}" />
@@ -150,7 +173,14 @@
                     <TextBlock Style="{StaticResource Label}" Margin="0,12,0,4" Text="1 · Look for a better array position" />
                     <ui:Button HorizontalAlignment="Stretch" Icon="{ui:SymbolIcon Sparkle24}"
                                Content="Check this plan" Appearance="{Binding HasFineTune, Converter={StaticResource SecondaryIfTrue}}"
-                               Command="{Binding DataContext.CheckSelectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" IsEnabled="{Binding CalcOk}" />
+                               Command="{Binding DataContext.CheckSelectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                        <ui:Button.IsEnabled>
+                            <MultiBinding Converter="{StaticResource AllTrue}">
+                                <Binding Path="CalcOk" />
+                                <Binding Path="CanChange" />
+                            </MultiBinding>
+                        </ui:Button.IsEnabled>
+                    </ui:Button>
 
                     <!-- step 2 -->
                     <StackPanel Visibility="{Binding HasFineTune, Converter={StaticResource BoolToVis}}" DataContext="{Binding FineTune}">
