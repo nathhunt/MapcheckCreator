@@ -52,13 +52,17 @@ namespace SrsMcPsqa.App.ViewModels
         public void NotifyFineTuneChanged() { OnPropertyChanged(nameof(FineTuneBadge)); _ = UpdatePreviewAsync(); }
 
         /// <summary>QA isocentre relative to the MapCHECK user origin (anatomical directions).</summary>
-        public string IsoFromOriginText => ShiftLabels.Describe(Isocentre - Phantom.UserOrigin);
+        public Vec3 IsoFromOrigin => Isocentre - Phantom.UserOrigin;
+        public string IsoFromOriginText => ShiftLabels.Describe(IsoFromOrigin);
+
+        /// <summary>QA isocentre relative to the MapCHECK user origin after the chosen fine-tune move (null when nothing moves).</summary>
+        public Vec3? PreviewIsoFromOrigin => CanPreview && FineTune?.NewIsocentre(out _) is Vec3 iso ? iso - Phantom.UserOrigin : (Vec3?)null;
         public string StatusLine => CalcOk ? "✓ Calculated with the clinical MUs" : "✗ Calculation failed";
         public IReadOnlyList<PtvRowViewModel> AssignedRows { get; }
         public IReadOnlyList<PtvRowViewModel> Rows { get; }
         public ObservableCollection<MetricRowViewModel> Metrics { get; } = new ObservableCollection<MetricRowViewModel>();
 
-        [ObservableProperty] [NotifyPropertyChangedFor(nameof(PlanId), nameof(Isocentre), nameof(ArrayCentre), nameof(IsoText), nameof(ArrayText), nameof(CalcText), nameof(CalcOk), nameof(WarningsText), nameof(HasWarnings), nameof(IsoFromOriginText), nameof(StatusLine))]
+        [ObservableProperty] [NotifyPropertyChangedFor(nameof(PlanId), nameof(Isocentre), nameof(ArrayCentre), nameof(IsoText), nameof(ArrayText), nameof(CalcText), nameof(CalcOk), nameof(WarningsText), nameof(HasWarnings), nameof(IsoFromOriginText), nameof(IsoFromOrigin), nameof(StatusLine))]
         private QaPlanResult _result;
         [ObservableProperty] private bool _isChecked;
         [ObservableProperty] private int _iterations;
@@ -148,6 +152,7 @@ namespace SrsMcPsqa.App.ViewModels
         {
             int version = ++_previewVersion;
             OnPropertyChanged(nameof(CanPreview));
+            OnPropertyChanged(nameof(PreviewIsoFromOrigin));
             _preview = null;
             var iso = FineTune?.NewIsocentre(out _);
             if (_patientDose != null && CanPreview && iso != null)

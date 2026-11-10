@@ -132,15 +132,12 @@
                     <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
                                Text="Optional. Predictions shift the calculated dose, so they are approximate; the plan is recalculated when you apply." />
 
-                    <!-- current position -->
-                    <Border Margin="0,8,0,0" Padding="8,6" CornerRadius="4" Background="{DynamicResource ControlFillColorDefaultBrush}">
-                        <StackPanel>
-                            <TextBlock FontSize="11" Text="QA isocentre from MapCHECK user origin" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                            <TextBlock FontSize="12" TextWrapping="Wrap" Text="{Binding IsoFromOriginText}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                            <TextBlock FontSize="11" Margin="0,2,0,0" Text="{Binding Iterations, StringFormat='Fine-tune iterations applied: {0}'}"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                        </StackPanel>
-                    </Border>
+                    <!-- current position, and the new one when a move is chosen -->
+                    <views:IsoShiftCard Margin="0,8,0,0" Title="{Binding PlanId, StringFormat='QA isocentre · {0} (now)'}" Offset="{Binding IsoFromOrigin}" />
+                    <views:IsoShiftCard Margin="0,6,0,0" Title="After the chosen move" Offset="{Binding PreviewIsoFromOrigin}"
+                                        Visibility="{Binding CanPreview, Converter={StaticResource BoolToVis}}" />
+                    <TextBlock FontSize="11" Margin="0,4,0,0" Text="{Binding Iterations, StringFormat='Fine-tune iterations applied: {0}'}"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
 
                     <!-- step 1 -->
                     <TextBlock Style="{StaticResource Label}" Margin="0,12,0,4" Text="1 · Look for a better array position" />
