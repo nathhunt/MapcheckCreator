@@ -56,6 +56,58 @@
 
             <ui:Card Margin="0,0,0,12">
                 <StackPanel>
+                    <TextBlock Style="{StaticResource Section}" Text="Gantry–couch collision check" />
+                    <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
+                               Text="Warns (never blocks) when the treatment head comes close to the couch top for a QA isocentre, and suggests a lateral phantom offset on the couch. Simple geometric model: the head is a cylinder, the couch top a box; the phantom isn't modelled. Head and couch defaults are conservative approximations for a TrueBeam with an Exact IGRT top: check them against the vendor specifications. All values in mm." />
+                    <Grid Margin="0,4,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
+                        <StackPanel Grid.Row="0" Grid.Column="0">
+                            <TextBlock Style="{StaticResource Label}" Text="MapCHECK user origin height above the couch top (required)" />
+                            <ui:TextBox Text="{Binding Edit.CollisionOriginAboveCouchMm}" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="0" Grid.Column="2">
+                            <TextBlock Style="{StaticResource Label}" Text="Couch top head end, superior of the user origin (− if the phantom overhangs)" />
+                            <ui:TextBox Text="{Binding Edit.CollisionCouchHeadEndSupMm}" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="1" Grid.Column="0">
+                            <TextBlock Style="{StaticResource Label}" Text="Phantom lateral offset on the couch (+ towards phantom left; 0 = centred)" />
+                            <ui:TextBox Text="{Binding Edit.CollisionPhantomLateralOffsetMm}" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="1" Grid.Column="2">
+                            <TextBlock Style="{StaticResource Label}" Text="Largest lateral offset to suggest (±)" />
+                            <ui:TextBox Text="{Binding Edit.CollisionMaxLateralOffsetMm}" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="2" Grid.Column="0">
+                            <TextBlock Style="{StaticResource Label}" Text="Warning below (clearance)" />
+                            <ui:TextBox Text="{Binding Edit.CollisionWarningMm}" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="2" Grid.Column="2">
+                            <TextBlock Style="{StaticResource Label}" Text="Collision risk below (clearance)" />
+                            <ui:TextBox Text="{Binding Edit.CollisionRiskMm}" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="3" Grid.Column="0">
+                            <TextBlock Style="{StaticResource Label}" Text="Head: isocentre to head face (collimator cover)" />
+                            <ui:TextBox Text="{Binding Edit.CollisionHeadClearanceMm}" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="3" Grid.Column="2">
+                            <TextBlock Style="{StaticResource Label}" Text="Head: radius around the beam axis" />
+                            <ui:TextBox Text="{Binding Edit.CollisionHeadRadiusMm}" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="4" Grid.Column="0">
+                            <TextBlock Style="{StaticResource Label}" Text="Couch top width" />
+                            <ui:TextBox Text="{Binding Edit.CollisionCouchWidthMm}" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="4" Grid.Column="2">
+                            <TextBlock Style="{StaticResource Label}" Text="Couch top thickness" />
+                            <ui:TextBox Text="{Binding Edit.CollisionCouchThicknessMm}" />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </ui:Card>
+
+            <ui:Card Margin="0,0,0,12">
+                <StackPanel>
                     <TextBlock Style="{StaticResource Section}" Text="QA plans" />
                     <TextBlock Style="{StaticResource Label}" Text="Plan ID pattern ({n} = number, {orient} = 0 or 270; max 13 characters)" />
                     <ui:TextBox Text="{Binding Edit.PlanNamingPattern}" Width="240" HorizontalAlignment="Left" />

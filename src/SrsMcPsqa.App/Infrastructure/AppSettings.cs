@@ -36,6 +36,19 @@ namespace SrsMcPsqa.App.Infrastructure
         [DataMember] public double FineTuneInPlaneRangeMm { get; set; } = 15.0;
         [DataMember] public double FineTuneNormalRangeMm { get; set; } = 10.0;
         [DataMember] public bool AutoSave { get; set; } = true;
+
+        // Gantry–couch collision check (mm). Head/couch defaults: conservative approximations for TrueBeam + Exact IGRT.
+        [DataMember] public double CollisionHeadClearanceMm { get; set; } = 380;
+        [DataMember] public double CollisionHeadRadiusMm { get; set; } = 400;
+        [DataMember] public double CollisionCouchWidthMm { get; set; } = 530;
+        [DataMember] public double CollisionCouchThicknessMm { get; set; } = 60;
+        /// <summary>MapCHECK user origin height above the couch top; 0 = not set (check disabled).</summary>
+        [DataMember] public double CollisionOriginAboveCouchMm { get; set; }
+        [DataMember] public double CollisionCouchHeadEndSupMm { get; set; } = 200;
+        [DataMember] public double CollisionPhantomLateralOffsetMm { get; set; }
+        [DataMember] public double CollisionMaxLateralOffsetMm { get; set; } = 50;
+        [DataMember] public double CollisionWarningMm { get; set; } = 50;
+        [DataMember] public double CollisionRiskMm { get; set; } = 20;
         [DataMember] public string LogLevel { get; set; } = "Info";
         /// <summary>System, Light or Dark.</summary>
         [DataMember] public string Theme { get; set; } = "System";
@@ -56,6 +69,15 @@ namespace SrsMcPsqa.App.Infrastructure
             FineTuneInPlaneRangeMm = FineTuneInPlaneRangeMm, FineTuneNormalRangeMm = FineTuneNormalRangeMm,
         };
 
+        public Core.Collision.CollisionSettings ToCollision() => new Core.Collision.CollisionSettings
+        {
+            HeadClearanceMm = CollisionHeadClearanceMm, HeadRadiusMm = CollisionHeadRadiusMm,
+            CouchWidthMm = CollisionCouchWidthMm, CouchThicknessMm = CollisionCouchThicknessMm,
+            OriginAboveCouchMm = CollisionOriginAboveCouchMm, CouchHeadEndSupMm = CollisionCouchHeadEndSupMm,
+            PhantomLateralOffsetMm = CollisionPhantomLateralOffsetMm, MaxLateralOffsetMm = CollisionMaxLateralOffsetMm,
+            WarningMm = CollisionWarningMm, RiskMm = CollisionRiskMm,
+        };
+
         public AppSettings Clone() => (AppSettings)MemberwiseClone();
 
         // DataContract deserialisation skips constructors and initialisers; restore defaults for missing members.
@@ -67,6 +89,11 @@ namespace SrsMcPsqa.App.Infrastructure
             Template270ImageId = d.Template270ImageId; HelperPatterns = d.HelperPatterns; PlanNamingPattern = d.PlanNamingPattern; EdgeMarginMm = d.EdgeMarginMm;
             Tau = d.Tau; MinDiodes = d.MinDiodes; Alpha = d.Alpha; FineTuneInPlaneRangeMm = d.FineTuneInPlaneRangeMm;
             FineTuneNormalRangeMm = d.FineTuneNormalRangeMm; AutoSave = d.AutoSave; LogLevel = d.LogLevel; Theme = d.Theme;
+            CollisionHeadClearanceMm = d.CollisionHeadClearanceMm; CollisionHeadRadiusMm = d.CollisionHeadRadiusMm;
+            CollisionCouchWidthMm = d.CollisionCouchWidthMm; CollisionCouchThicknessMm = d.CollisionCouchThicknessMm;
+            CollisionOriginAboveCouchMm = d.CollisionOriginAboveCouchMm; CollisionCouchHeadEndSupMm = d.CollisionCouchHeadEndSupMm;
+            CollisionPhantomLateralOffsetMm = d.CollisionPhantomLateralOffsetMm; CollisionMaxLateralOffsetMm = d.CollisionMaxLateralOffsetMm;
+            CollisionWarningMm = d.CollisionWarningMm; CollisionRiskMm = d.CollisionRiskMm;
         }
 
         public AppSettings() { }

@@ -15,5 +15,15 @@
   "FineTuneNormalRangeMm": 10,
   "AutoSave": true,
   "LogLevel": "Info",
-  "Theme": "System"
+  "Theme": "System",
+  "CollisionHeadClearanceMm": 380,
+  "CollisionHeadRadiusMm": 400,
+  "CollisionCouchWidthMm": 530,
+  "CollisionCouchThicknessMm": 60,
+  "CollisionOriginAboveCouchMm": 0,
+  "CollisionCouchHeadEndSupMm": 200,
+  "CollisionPhantomLateralOffsetMm": 0,
+  "CollisionMaxLateralOffsetMm": 50,
+  "CollisionWarningMm": 50,
+  "CollisionRiskMm": 20
 }

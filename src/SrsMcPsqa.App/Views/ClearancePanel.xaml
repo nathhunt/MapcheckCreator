@@ -1,0 +1,15 @@
+<UserControl x:Class="SrsMcPsqa.App.Views.ClearancePanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- DataContext: ClearanceViewModel. Gantry–couch clearance: summary, suggested lateral phantom offset, per-beam details. -->
+    <StackPanel>
+        <TextBlock FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding Summary}" Foreground="{Binding Brush}" />
+        <Border Margin="0,4,0,0" Padding="8,6" CornerRadius="4" Background="#33D08A00"
+                Visibility="{Binding HasSuggestion, Converter={StaticResource BoolToVis}}">
+            <TextBlock FontSize="12" TextWrapping="Wrap" Text="{Binding Suggestion}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+        </Border>
+        <Expander Margin="0,4,0,0" Header="Clearance per beam" Visibility="{Binding Details, Converter={StaticResource BoolToVis}}">
+            <TextBlock FontSize="11" TextWrapping="Wrap" Text="{Binding Details}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Expander>
+    </StackPanel>
+</UserControl>

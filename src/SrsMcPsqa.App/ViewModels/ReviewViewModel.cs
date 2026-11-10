@@ -34,7 +34,13 @@ namespace SrsMcPsqa.App.ViewModels
             _settings.FineTuneInPlaneRangeMm = session.Settings.FineTuneInPlaneRangeMm;
             _settings.FineTuneNormalRangeMm = session.Settings.FineTuneNormalRangeMm;
             _bestScores = analysis?.Reference.BestScore;
+            Clearance = new ClearanceViewModel(session);
+            PreviewClearance = new ClearanceViewModel(session);
         }
+
+        /// <summary>Gantry–couch clearance at the current position, and after the chosen move.</summary>
+        public ClearanceViewModel Clearance { get; }
+        public ClearanceViewModel PreviewClearance { get; }
 
         public PhantomImageInfo Phantom { get; }
         public PlanningSession Session => _session;
@@ -117,6 +123,7 @@ namespace SrsMcPsqa.App.ViewModels
         {
             _preview = null;
             if (!CalcOk) { _current = null; _patientDose = null; Metrics.Clear(); Scene = null; Overlay = null; return; }
+            Clearance.Update(IsoFromOrigin);
             _patientDose = QaPlanRequests.DoseInPatientFrame(Result.Dose!, Isocentre, ClinicalIso);
             _current = await BuildViewAsync(ArrayCentre, $"{PlanId} · {Orientation.Label()} · calculated QA dose on the array plane", null);
             await UpdatePreviewAsync();
@@ -153,6 +160,7 @@ namespace SrsMcPsqa.App.ViewModels
             int version = ++_previewVersion;
             OnPropertyChanged(nameof(CanPreview));
             OnPropertyChanged(nameof(PreviewIsoFromOrigin));
+            if (PreviewIsoFromOrigin is Vec3 previewIso) PreviewClearance.Update(previewIso);
             _preview = null;
             var iso = FineTune?.NewIsocentre(out _);
             if (_patientDose != null && CanPreview && iso != null)
@@ -409,6 +417,9 @@ namespace SrsMcPsqa.App.ViewModels
             }
             if (moves.Count == 0) { Session.Dialogs.ShowInfo("Nothing to apply", "No plan is set to move. Choose 'Use the suggested move' or 'Enter my own move' for a plan first."); return; }
             var list = string.Join(Environment.NewLine, moves.Select(m => $"  {m.Plan.PlanId}: array {m.Plan.FineTune!.ChosenMoveShort}"));
+            var clearanceWarnings = moves.Select(m => m.Plan.PreviewClearance.WarningLine(m.Plan.PlanId)).Where(w => w != null).ToList();
+            if (clearanceWarnings.Count > 0)
+                list += $"{Environment.NewLine}{Environment.NewLine}Couch clearance warnings after the move (not blocking):{Environment.NewLine}" + string.Join(Environment.NewLine, clearanceWarnings);
             if (!Session.Dialogs.Confirm("Move isocentres",
                     $"Move the isocentre and recalculate {moves.Count} QA plan(s)?{Environment.NewLine}{Environment.NewLine}{list}", "Move and recalculate")) return;
 

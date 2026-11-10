@@ -16,7 +16,7 @@ namespace SrsMcPsqa.App.Infrastructure
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             bool b = value is bool v && v;
-            if (value != null && !(value is bool)) b = true; // non-null object counts as true
+            if (value != null && !(value is bool)) b = !(value is string str) || str.Length > 0; // non-null object (non-empty string) counts as true
             return b ^ Invert ? Visibility.Visible : Visibility.Collapsed;
         }
 

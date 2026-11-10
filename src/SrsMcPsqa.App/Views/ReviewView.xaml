@@ -61,6 +61,7 @@
                                 <TextBlock FontSize="12" TextWrapping="Wrap" Text="{Binding AssignedText}" />
                                 <TextBlock FontSize="12" Text="{Binding StatusLine}" Foreground="{Binding CalcOk, Converter={StaticResource StatusBrush}}" />
                                 <TextBlock FontSize="11" TextWrapping="Wrap" Opacity="0.8" Text="{Binding IsoFromOriginText, StringFormat='Iso from MapCHECK origin: {0}'}" />
+                                <TextBlock FontSize="11" TextWrapping="Wrap" Text="{Binding Clearance.Summary}" Foreground="{Binding Clearance.Brush}" />
                                 <TextBlock FontSize="11" TextWrapping="Wrap" FontStyle="Italic" Text="{Binding FineTuneBadge}" Margin="0,2,0,0">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
@@ -134,8 +135,11 @@
 
                     <!-- current position, and the new one when a move is chosen -->
                     <views:IsoShiftCard Margin="0,8,0,0" Title="{Binding PlanId, StringFormat='QA isocentre · {0} (now)'}" Offset="{Binding IsoFromOrigin}" />
+                    <views:ClearancePanel Margin="0,6,0,0" DataContext="{Binding Clearance}" />
                     <views:IsoShiftCard Margin="0,6,0,0" Title="After the chosen move" Offset="{Binding PreviewIsoFromOrigin}"
                                         Visibility="{Binding CanPreview, Converter={StaticResource BoolToVis}}" />
+                    <views:ClearancePanel Margin="0,6,0,0" DataContext="{Binding PreviewClearance}"
+                                          Visibility="{Binding DataContext.CanPreview, RelativeSource={RelativeSource AncestorType=StackPanel}, Converter={StaticResource BoolToVis}}" />
                     <TextBlock FontSize="11" Margin="0,4,0,0" Text="{Binding Iterations, StringFormat='Fine-tune iterations applied: {0}'}"
                                Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
 

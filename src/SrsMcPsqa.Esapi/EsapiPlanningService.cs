@@ -135,6 +135,11 @@ namespace SrsMcPsqa.Esapi
                 {
                     CourseId = courseId, PlanId = planId, PlanUid = plan.UID, PlanTotalDoseGy = totalGy,
                     Fractions = plan.NumberOfFractions is int nf && nf > 0 ? nf : 1,
+                    Beams = plan.Beams.Where(b => !b.IsSetupField).Select(b =>
+                    {
+                        var cps = b.ControlPoints.ToList();
+                        return new Core.Collision.BeamGeometry(b.Id, cps.Count > 0 ? cps[0].PatientSupportAngle : 0, cps.Select(c => c.GantryAngle).ToList());
+                    }).ToList(),
                     Validation = validation,
                 };
                 var iso = plan.Beams.FirstOrDefault(b => !b.IsSetupField)?.IsocenterPosition;

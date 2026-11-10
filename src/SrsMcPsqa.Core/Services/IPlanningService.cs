@@ -57,6 +57,9 @@ namespace SrsMcPsqa.Core.Services
         /// each PTV's Rx ÷ this number. PTV Rx values and the clinical dose are for the whole course.
         /// </summary>
         public int Fractions { get; set; } = 1;
+
+        /// <summary>Couch and gantry angles of the treatment beams (for the gantry–couch clearance check).</summary>
+        public IReadOnlyList<Collision.BeamGeometry> Beams { get; set; } = Array.Empty<Collision.BeamGeometry>();
         public IReadOnlyDictionary<string, double> PrescriptionTargetsGy { get; set; } = new Dictionary<string, double>();
         public IReadOnlyList<PtvInfo> Ptvs { get; set; } = Array.Empty<PtvInfo>();
 

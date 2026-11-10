@@ -32,7 +32,12 @@ namespace SrsMcPsqa.App.ViewModels
             _alpha = shell.Session.Settings.Alpha;
             _preference = Preferences[0];
             Session.PlanLoaded += (_, __) => Clear();
-            Session.PropertyChanged += (_, __) => NotifyCreateState();
+            Session.PropertyChanged += (_, e) =>
+            {
+                NotifyCreateState();
+                if (e.PropertyName == nameof(PlanningSession.Settings))
+                    foreach (var p in Planes) p.Clearance.Update(p.IsoFromOrigin); // collision settings may have changed
+            };
             Warnings.CollectionChanged += (_, __) => OnPropertyChanged(nameof(HasProblems));
         }
 
@@ -221,7 +226,7 @@ namespace SrsMcPsqa.App.ViewModels
             int n = 1;
             foreach (var p in rec.Planes)
             {
-                var vm = new PlanePlanViewModel(n++, p.Evaluation, _rows, Session.ClinicalPlan!.Isocentre);
+                var vm = new PlanePlanViewModel(n++, p.Evaluation, _rows, Session.ClinicalPlan!.Isocentre, Session);
                 vm.Updated += (_, __) => RefreshPlanColumn();
                 Planes.Add(vm);
             }
@@ -419,6 +424,9 @@ namespace SrsMcPsqa.App.ViewModels
             }
             var planes = Planes.ToList();
             var list = string.Join(Environment.NewLine, planes.Select(p => $"  Plan {p.Number}: {p.OrientationText}, {p.DepthText}, PTVs: {string.Join(", ", p.AssignedIndices.Select(k => _rows[k].Id))}"));
+            var clearanceWarnings = planes.Select(p => p.Clearance.WarningLine($"Plan {p.Number}")).Where(w => w != null).ToList();
+            if (clearanceWarnings.Count > 0)
+                list += $"{Environment.NewLine}{Environment.NewLine}Couch clearance warnings (plans are still created; check before measuring):{Environment.NewLine}" + string.Join(Environment.NewLine, clearanceWarnings);
             if (!Session.Dialogs.Confirm("Create QA plans",
                     $"Create {planes.Count} QA plan(s) in course '{course.Id}' and calculate dose with the clinical MUs?{Environment.NewLine}{Environment.NewLine}{list}",
                     "Create and calculate"))

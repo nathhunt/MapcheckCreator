@@ -51,11 +51,12 @@ namespace SrsMcPsqa.App.ViewModels
     /// <summary>One planned array plane (one future QA plan).</summary>
     public sealed partial class PlanePlanViewModel : ObservableObject
     {
-        public PlanePlanViewModel(int number, PlaneEvaluation evaluation, IReadOnlyList<PtvRowViewModel> rows, Vec3 clinicalIso)
+        public PlanePlanViewModel(int number, PlaneEvaluation evaluation, IReadOnlyList<PtvRowViewModel> rows, Vec3 clinicalIso, PlanningSession session)
         {
             Number = number;
             Rows = rows;
             ClinicalIso = clinicalIso;
+            Clearance = new ClearanceViewModel(session);
             RecommendedCentre = evaluation.Plane.Centre;
             Update(evaluation);
         }
@@ -65,6 +66,9 @@ namespace SrsMcPsqa.App.ViewModels
 
         public int Number { get; private set; }
         public Vec3 ClinicalIso { get; }
+
+        /// <summary>Gantry–couch clearance at this array position.</summary>
+        public ClearanceViewModel Clearance { get; }
 
         /// <summary>
         /// QA isocentre relative to the MapCHECK (phantom) user origin, which is the array centre: clinical isocentre − array centre
@@ -144,6 +148,7 @@ namespace SrsMcPsqa.App.ViewModels
             IsoX = IsoFromOrigin.X.ToString("0.0", CultureInfo.InvariantCulture);
             IsoY = IsoFromOrigin.Y.ToString("0.0", CultureInfo.InvariantCulture);
             IsoZ = IsoFromOrigin.Z.ToString("0.0", CultureInfo.InvariantCulture);
+            Clearance.Update(IsoFromOrigin);
             foreach (var p in new[] { nameof(Evaluation), nameof(Orientation), nameof(Centre), nameof(Title), nameof(OrientationText),
                                       nameof(DepthText), nameof(CentreText), nameof(CoveredText), nameof(ScoreText),
                                       nameof(UMinusText), nameof(UPlusText), nameof(NMinusText), nameof(NPlusText), nameof(DepthAxisText),

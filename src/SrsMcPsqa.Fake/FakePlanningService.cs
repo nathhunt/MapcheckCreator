@@ -48,6 +48,13 @@ namespace SrsMcPsqa.Fake
             public QaPlanTag? Tag;
         }
 
+        private static IReadOnlyList<double> Arc(double start, double stop, bool clockwise)
+        {
+            double span = clockwise ? ((stop - start) % 360 + 360) % 360 : ((start - stop) % 360 + 360) % 360;
+            int n = Math.Max(2, (int)Math.Ceiling(span / 2) + 1);
+            return Enumerable.Range(0, n).Select(i => ((start + (clockwise ? 1 : -1) * span * i / (n - 1)) % 360 + 360) % 360).ToList();
+        }
+
         private const string DemoModel = "AcurosXB (demo)";
         private int _calculations;
         private const int DemoControlPointsPerArc = 90;
@@ -137,6 +144,14 @@ namespace SrsMcPsqa.Fake
                     PlanUid = _patient.PlanUid,
                     Isocentre = _patient.Isocentre,
                     PlanTotalDoseGy = _patient.PlanTotalDoseGy,
+                    Beams = new[]
+                    {
+                        // Like the test plan: a full arc at couch 0 and three half arcs with couch kicks.
+                        new Core.Collision.BeamGeometry("Arc1", 0, Arc(181, 179, clockwise: true)),
+                        new Core.Collision.BeamGeometry("Arc2", 315, Arc(179, 0, clockwise: false)),
+                        new Core.Collision.BeamGeometry("Arc3", 45, Arc(181, 0, clockwise: true)),
+                        new Core.Collision.BeamGeometry("Arc4", 90, Arc(181, 0, clockwise: true)),
+                    },
                     Ptvs = ptvs,
                     Dose = dose,
                     Validation = new[]

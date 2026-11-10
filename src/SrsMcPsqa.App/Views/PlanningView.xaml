@@ -94,6 +94,7 @@
                                 <TextBlock FontSize="12" TextWrapping="Wrap" Text="{Binding PtvText}" />
                                 <TextBlock FontSize="12" Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" />
                                 <TextBlock FontSize="11" TextWrapping="Wrap" Opacity="0.8" Text="{Binding IsoFromOriginText, StringFormat='Iso from MapCHECK origin: {0}'}" />
+                                <TextBlock FontSize="11" TextWrapping="Wrap" Text="{Binding Clearance.Summary}" Foreground="{Binding Clearance.Brush}" />
                             </StackPanel>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -188,6 +189,7 @@
                     <TextBlock Style="{StaticResource Hint}" Text="Moves the array relative to the patient. You can also drag it in the view." />
                     <views:IsoShiftCard Margin="0,10,0,0" Title="{Binding SelectedPlane.Title, StringFormat='QA isocentre · {0}'}"
                                         Offset="{Binding SelectedPlane.IsoFromOrigin}" />
+                    <views:ClearancePanel Margin="0,8,0,0" DataContext="{Binding SelectedPlane.Clearance}" />
 
                     <DockPanel Margin="0,10,0,0">
                         <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,8,0" Text="Step" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
