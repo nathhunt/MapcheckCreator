@@ -29,6 +29,8 @@ namespace SrsMcPsqa.App.Infrastructure
         /// <summary>Comma-separated patterns of helper PTV structures, listed but unticked by default ("*" = any text).</summary>
         [DataMember] public string HelperPatterns { get; set; } = Core.Prescription.PtvFilter.DefaultHelperPatterns;
         [DataMember] public string PlanNamingPattern { get; set; } = Core.Models.QaPlanNaming.DefaultPattern;
+        /// <summary>QA course ID: preselected when it exists, otherwise created with the first QA plan.</summary>
+        [DataMember] public string QaCourseId { get; set; } = "QA";
         [DataMember] public double EdgeMarginMm { get; set; } = 3.0;
         [DataMember] public double Tau { get; set; } = 0.85;
         [DataMember] public int MinDiodes { get; set; } = 5;
@@ -87,7 +89,7 @@ namespace SrsMcPsqa.App.Infrastructure
         {
             var d = new AppSettings(false);
             TemplatePatientId = d.TemplatePatientId; Template0StudyId = d.Template0StudyId; Template270StudyId = d.Template270StudyId; Template0ImageId = d.Template0ImageId;
-            Template270ImageId = d.Template270ImageId; HelperPatterns = d.HelperPatterns; PlanNamingPattern = d.PlanNamingPattern; EdgeMarginMm = d.EdgeMarginMm;
+            Template270ImageId = d.Template270ImageId; HelperPatterns = d.HelperPatterns; PlanNamingPattern = d.PlanNamingPattern; QaCourseId = d.QaCourseId; EdgeMarginMm = d.EdgeMarginMm;
             Tau = d.Tau; MinDiodes = d.MinDiodes; Alpha = d.Alpha; FineTuneInPlaneRangeMm = d.FineTuneInPlaneRangeMm;
             FineTuneNormalRangeMm = d.FineTuneNormalRangeMm; AutoSave = d.AutoSave; LogLevel = d.LogLevel; Theme = d.Theme;
             CollisionHeadClearanceMm = d.CollisionHeadClearanceMm; CollisionHeadRadiusMm = d.CollisionHeadRadiusMm;

@@ -56,6 +56,17 @@ namespace SrsMcPsqa.Core.Tests
         }
 
         [Fact]
+        public async Task EnsureCourseCreatesMissingCourseOnce()
+        {
+            var svc = new FakePlanningService { DelayScale = 0 };
+            await svc.OpenPatientAsync("FAKE001");
+            var c = await svc.EnsureCourseAsync("QA2");
+            Assert.Equal("QA2", c.Id);
+            Assert.Empty(await svc.ListQaPlansAsync("QA2"));
+            Assert.Equal("QA2", (await svc.EnsureCourseAsync("QA2")).Id); // existing: returned, not duplicated
+        }
+
+        [Fact]
         public void QaStepsRunReportsFailure()
         {
             var rec = new Recorder();

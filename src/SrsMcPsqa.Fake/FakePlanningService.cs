@@ -306,6 +306,14 @@ namespace SrsMcPsqa.Fake
             };
         }
 
+        public async Task<CourseSummary> EnsureCourseAsync(string courseId, CancellationToken ct = default)
+        {
+            await Delay(0.3, ct).ConfigureAwait(false);
+            lock (_lock)
+                if (!_plansByCourse.ContainsKey(courseId)) _plansByCourse[courseId] = new List<FakeQaPlan>();
+            return new CourseSummary { Id = courseId };
+        }
+
         public Task<IReadOnlyList<PlanSummary>> ListQaPlansAsync(string courseId, CancellationToken ct = default)
         {
             lock (_lock)

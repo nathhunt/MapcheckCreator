@@ -80,8 +80,9 @@
                 <ui:Card Margin="0,0,0,12">
                     <StackPanel>
                         <TextBlock Style="{StaticResource Section}" Text="Course for the QA plans" />
-                        <TextBlock Style="{StaticResource Hint}" Text="Create this course in Eclipse; the app never creates courses. Completed courses aren't listed." />
-                        <ComboBox Margin="0,8,0,0" ItemsSource="{Binding QaCourses}" SelectedItem="{Binding SelectedQaCourse}" DisplayMemberPath="Id" />
+                        <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
+                                   Text="The QA course from Settings is used if the patient has it; otherwise it is created with the first QA plan. You can also pick another open course. Completed courses aren't listed." />
+                        <ComboBox Margin="0,8,0,0" ItemsSource="{Binding QaCourses}" SelectedItem="{Binding SelectedQaCourse}" DisplayMemberPath="DisplayText" />
                         <TextBlock Style="{StaticResource Body}" Margin="0,8,0,0" Foreground="{x:Static inf:StatusBrushConverter.Caution}"
                                    Text="No open course found: create a QA course for this patient in Eclipse, then click Open again."
                                    Visibility="{Binding HasNoQaCourse, Converter={StaticResource BoolToVis}}" />

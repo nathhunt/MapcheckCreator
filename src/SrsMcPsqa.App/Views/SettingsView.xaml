@@ -109,6 +109,8 @@
             <ui:Card Margin="0,0,0,12">
                 <StackPanel>
                     <TextBlock Style="{StaticResource Section}" Text="QA plans" />
+                    <TextBlock Style="{StaticResource Label}" Text="QA course ID (used if the patient has it, otherwise created with the first QA plan)" />
+                    <ui:TextBox Text="{Binding Edit.QaCourseId}" />
                     <TextBlock Style="{StaticResource Label}" Text="Plan ID pattern ({n} = number, {orient} = 0 or 270; max 13 characters)" />
                     <ui:TextBox Text="{Binding Edit.PlanNamingPattern}" Width="240" HorizontalAlignment="Left" />
                     <TextBlock Style="{StaticResource Label}" Text="Helper PTV patterns (comma-separated, * = any text; listed but unticked by default)" />

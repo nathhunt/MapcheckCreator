@@ -80,7 +80,16 @@ namespace SrsMcPsqa.App.ViewModels
             SelectedCourse = Courses.FirstOrDefault(c => c.Id == launch.CourseId)
                              ?? Courses.FirstOrDefault(c => c.Plans.Any(p => !p.IsQaPlan));
             if (SelectedPlan == null) SelectedPlan = Plans.FirstOrDefault(p => p.PlanId == launch.PlanId) ?? Plans.FirstOrDefault();
-            SelectedQaCourse = QaCourses.FirstOrDefault(c => c.Id.IndexOf("QA", System.StringComparison.OrdinalIgnoreCase) >= 0 && c != SelectedCourse)
+            // The configured QA course if it exists; otherwise offer to create it (it's made with the first QA plan).
+            string qaId = string.IsNullOrWhiteSpace(Session.Settings.QaCourseId) ? "QA" : Session.Settings.QaCourseId.Trim();
+            var configured = QaCourses.FirstOrDefault(c => string.Equals(c.Id, qaId, System.StringComparison.OrdinalIgnoreCase));
+            if (configured == null && !patient.Courses.Any(c => string.Equals(c.Id, qaId, System.StringComparison.OrdinalIgnoreCase)))
+            {
+                configured = new CourseSummary { Id = qaId, WillBeCreated = true };
+                QaCourses.Insert(0, configured);
+            }
+            SelectedQaCourse = configured
+                               ?? QaCourses.FirstOrDefault(c => c.Id.IndexOf("QA", System.StringComparison.OrdinalIgnoreCase) >= 0 && c != SelectedCourse)
                                ?? QaCourses.FirstOrDefault(c => c != SelectedCourse);
             OnPropertyChanged(nameof(HasNoQaCourse));
         }

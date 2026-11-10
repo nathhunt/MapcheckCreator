@@ -24,6 +24,9 @@ namespace SrsMcPsqa.Core.Services
     {
         public string Id { get; set; } = "";
         public bool IsCompleted { get; set; }
+        /// <summary>Not in Eclipse yet: created (with this ID) when the first QA plan is made.</summary>
+        public bool WillBeCreated { get; set; }
+        public string DisplayText => WillBeCreated ? $"{Id} (new: created with the first QA plan)" : Id;
         public IReadOnlyList<PlanSummary> Plans { get; set; } = Array.Empty<PlanSummary>();
     }
 
@@ -147,6 +150,9 @@ namespace SrsMcPsqa.Core.Services
 
         Task<QaPlanResult> MoveIsocentreAsync(string courseId, string planId, Vec3 newIsocentre, Box3 doseRegion,
             IProgress<string>? progress = null, CancellationToken ct = default, IProgress<QaProgressEvent>? steps = null);
+
+        /// <summary>Returns the open course with this ID, creating it in the open patient if it doesn't exist.</summary>
+        Task<CourseSummary> EnsureCourseAsync(string courseId, CancellationToken ct = default);
 
         /// <summary>Lists plans in the course that carry the app's tag.</summary>
         Task<IReadOnlyList<PlanSummary>> ListQaPlansAsync(string courseId, CancellationToken ct = default);

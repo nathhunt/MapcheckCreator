@@ -413,7 +413,7 @@ namespace SrsMcPsqa.App.ViewModels
             var course = Session.QaCourse;
             if (course == null)
             {
-                Session.Dialogs.ShowInfo("No QA course", "Choose the QA course on the Patient & plan screen. Create it in Eclipse first if needed.");
+                Session.Dialogs.ShowInfo("No QA course", "Choose the QA course on the Patient & plan screen.");
                 return;
             }
             var settings = Session.Settings;
@@ -428,13 +428,21 @@ namespace SrsMcPsqa.App.ViewModels
             if (clearanceWarnings.Count > 0)
                 list += $"{Environment.NewLine}{Environment.NewLine}Couch clearance warnings (plans are still created; check before measuring):{Environment.NewLine}" + string.Join(Environment.NewLine, clearanceWarnings);
             if (!Session.Dialogs.Confirm("Create QA plans",
-                    $"Create {planes.Count} QA plan(s) in course '{course.Id}' and calculate dose with the clinical MUs?{Environment.NewLine}{Environment.NewLine}{list}",
+                    $"Create {planes.Count} QA plan(s) in course '{course.Id}'{(course.WillBeCreated ? " (new course, created now)" : "")} and calculate dose with the clinical MUs?{Environment.NewLine}{Environment.NewLine}{list}",
                     "Create and calculate"))
                 return;
 
             var rows = _rows;
             bool ok = await Shell.RunAsync($"Creating {planes.Count} QA plan(s)", async (pr, ct) =>
             {
+                if (course.WillBeCreated)
+                {
+                    pr.AddLog($"Creating course '{course.Id}'...");
+                    var created = await Session.Service.EnsureCourseAsync(course.Id, ct);
+                    course = new CourseSummary { Id = created.Id };
+                    Session.QaCourse = course;
+                }
+
                 // Name the plans first so the panel can list them ("Plan k of N") before anything is written.
                 var existing = (await Session.Service.ListQaPlansAsync(course.Id, ct)).Select(x => x.PlanId)
                     .Concat(course.Plans.Select(x => x.PlanId)).Concat(Session.QaPlans.Select(q => q.PlanId)).ToList();

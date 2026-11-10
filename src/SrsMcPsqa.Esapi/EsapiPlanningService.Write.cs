@@ -59,6 +59,27 @@ namespace SrsMcPsqa.Esapi
                    ?? throw new InvalidOperationException($"Clinical plan '{_clinicalCourseId}/{_clinicalPlanId}' not found.");
         }
 
+        public Task<CourseSummary> EnsureCourseAsync(string courseId, CancellationToken ct = default) =>
+            _worker.RunAsync($"prepare course '{courseId}'", app =>
+            {
+                RequireModifiable();
+                if (string.IsNullOrWhiteSpace(courseId)) throw new InvalidOperationException("No QA course ID is set (Settings).");
+                if (courseId.Length > 16) throw new InvalidOperationException($"Course ID '{courseId}' is longer than 16 characters.");
+                var patient = RequirePatient();
+                var existing = patient.Courses.FirstOrDefault(c => string.Equals(c.Id, courseId, StringComparison.OrdinalIgnoreCase));
+                if (existing != null)
+                {
+                    if (existing.IsCompleted()) throw new InvalidOperationException($"Course '{existing.Id}' exists but is completed; choose another QA course.");
+                    return new CourseSummary { Id = existing.Id };
+                }
+                if (!patient.CanAddCourse()) throw new InvalidOperationException("Eclipse doesn't allow adding a course to this patient.");
+                var course = patient.AddCourse();
+                course.Id = courseId;
+                _log($"Created course '{courseId}'.");
+                SaveIfAuto(app, $"creating course '{courseId}'");
+                return new CourseSummary { Id = course.Id };
+            });
+
         private Course RequireCourse(string courseId)
         {
             var c = RequirePatient().Courses.FirstOrDefault(x => x.Id == courseId) ?? throw new InvalidOperationException($"Course '{courseId}' not found.");

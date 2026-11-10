@@ -38,6 +38,8 @@ namespace VMS.TPS.Common.Model.API
         public bool CanModifyData() => throw new NotImplementedException();
         public StructureSet CopyImageFromOtherPatient(string otherPatientId, string otherPatientStudyId, string otherPatient3DImageId) => throw new NotImplementedException();
         public void BeginModifications() => throw new NotImplementedException();
+        public bool CanAddCourse() => throw new NotImplementedException();
+        public Course AddCourse() => throw new NotImplementedException();
     }
 
     public class Study
