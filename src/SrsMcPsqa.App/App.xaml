@@ -20,6 +20,23 @@
             <inf:StepGlyphConverter x:Key="StepGlyph" />
             <inf:PrimaryIfTrueConverter x:Key="PrimaryIfTrue" />
             <inf:PrimaryIfTrueConverter x:Key="SecondaryIfTrue" Invert="True" />
+            <!-- Couch clearance line on plan cards: tinted background and border when there is a warning or risk -->
+            <Style x:Key="ClearanceBadge" TargetType="Border">
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Background" Value="Transparent" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding Clearance.State}" Value="Warning">
+                        <Setter Property="Background" Value="#33D08A00" />
+                        <Setter Property="BorderBrush" Value="#D08A00" />
+                        <Setter Property="BorderThickness" Value="1.5" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Clearance.State}" Value="Risk">
+                        <Setter Property="Background" Value="#33D13438" />
+                        <Setter Property="BorderBrush" Value="#D13438" />
+                        <Setter Property="BorderThickness" Value="1.5" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
 
             <Style x:Key="PageTitle" TargetType="TextBlock">
                 <Setter Property="FontSize" Value="22" />

@@ -25,12 +25,48 @@ namespace SrsMcPsqa.App.Views
         private static readonly DependencyPropertyKey RowsKey = DependencyProperty.RegisterReadOnly(nameof(Rows), typeof(IReadOnlyList<IsoShiftRow>),
             typeof(IsoShiftCard), new PropertyMetadata(null));
         public static readonly DependencyProperty RowsProperty = RowsKey.DependencyProperty;
+        /// <summary>Couch clearance state (Clear, Warning, Risk, NotConfigured, Pending): Warning/Risk colour the card.</summary>
+        public static readonly DependencyProperty ClearanceStateProperty = DependencyProperty.Register(nameof(ClearanceState), typeof(string),
+            typeof(IsoShiftCard), new PropertyMetadata("", (d, _) => ((IsoShiftCard)d).UpdateState()));
+        public static readonly DependencyProperty ValueBrushProperty = DependencyProperty.Register(nameof(ValueBrush), typeof(System.Windows.Media.Brush),
+            typeof(IsoShiftCard), new PropertyMetadata(null));
+
+        public string ClearanceState { get => (string)GetValue(ClearanceStateProperty); set => SetValue(ClearanceStateProperty, value); }
+        public System.Windows.Media.Brush? ValueBrush { get => (System.Windows.Media.Brush?)GetValue(ValueBrushProperty); set => SetValue(ValueBrushProperty, value); }
 
         public Vec3? Offset { get => (Vec3?)GetValue(OffsetProperty); set => SetValue(OffsetProperty, value); }
         public string Title { get => (string)GetValue(TitleProperty); set => SetValue(TitleProperty, value); }
         public IReadOnlyList<IsoShiftRow>? Rows => (IReadOnlyList<IsoShiftRow>?)GetValue(RowsProperty);
 
-        public IsoShiftCard() { InitializeComponent(); }
+        public IsoShiftCard()
+        {
+            InitializeComponent();
+            UpdateState();
+        }
+
+        private void UpdateState()
+        {
+            if (Frame == null) return;
+            var state = ClearanceState ?? "";
+            bool risk = state == "Risk", warn = state == "Warning";
+            if (risk || warn)
+            {
+                var b = risk ? Infrastructure.StatusBrushConverter.Bad : Infrastructure.StatusBrushConverter.Caution;
+                Frame.BorderBrush = b;
+                Frame.BorderThickness = new Thickness(3);
+                Banner.Background = b;
+                Banner.Visibility = Visibility.Visible;
+                BannerText.Text = risk ? "✗ COUCH COLLISION RISK at this position" : "⚠ COUCH CLOSE TO THE GANTRY at this position";
+                ValueBrush = b;
+            }
+            else
+            {
+                Frame.SetResourceReference(Border.BorderBrushProperty, "AccentFillColorDefaultBrush");
+                Frame.BorderThickness = new Thickness(2);
+                Banner.Visibility = Visibility.Collapsed;
+                SetResourceReference(ValueBrushProperty, "TextFillColorPrimaryBrush");
+            }
+        }
 
         private void Update()
         {
