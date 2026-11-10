@@ -19,6 +19,7 @@
             <inf:CoverageTextConverter x:Key="CoverageText" />
             <inf:StepGlyphConverter x:Key="StepGlyph" />
             <inf:PrimaryIfTrueConverter x:Key="PrimaryIfTrue" />
+            <inf:PrimaryIfTrueConverter x:Key="SecondaryIfTrue" Invert="True" />
 
             <Style x:Key="PageTitle" TargetType="TextBlock">
                 <Setter Property="FontSize" Value="22" />

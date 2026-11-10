@@ -20,8 +20,13 @@ namespace SrsMcPsqa.App.ViewModels
     }
 
     /// <summary>Per-PTV metrics on one plane, formatted for the metrics table.</summary>
-    public sealed class MetricRowViewModel
+    public sealed partial class MetricRowViewModel : ObservableObject
     {
+        /// <summary>The QA plan(s) this PTV is assigned to, e.g. "Plan 2 · 270°".</summary>
+        [ObservableProperty] private string _planText = "";
+        /// <summary>True when the PTV is assigned to the plan whose table this row is in.</summary>
+        [ObservableProperty] private bool _isOnThisPlan;
+
         public MetricRowViewModel(PtvPlaneMetrics m, Brush brush)
         {
             M = m; Brush = brush;
@@ -46,10 +51,11 @@ namespace SrsMcPsqa.App.ViewModels
     /// <summary>One planned array plane (one future QA plan).</summary>
     public sealed partial class PlanePlanViewModel : ObservableObject
     {
-        public PlanePlanViewModel(int number, PlaneEvaluation evaluation, IReadOnlyList<PtvRowViewModel> rows)
+        public PlanePlanViewModel(int number, PlaneEvaluation evaluation, IReadOnlyList<PtvRowViewModel> rows, Vec3 clinicalIso)
         {
             Number = number;
             Rows = rows;
+            ClinicalIso = clinicalIso;
             RecommendedCentre = evaluation.Plane.Centre;
             Update(evaluation);
         }
@@ -58,6 +64,14 @@ namespace SrsMcPsqa.App.ViewModels
         public Vec3 RecommendedCentre { get; }
 
         public int Number { get; private set; }
+        public Vec3 ClinicalIso { get; }
+
+        /// <summary>
+        /// QA isocentre relative to the MapCHECK (phantom) user origin, which is the array centre: clinical isocentre − array centre
+        /// (<see cref="IsoGeometry.QaIsocentre"/>). Known before the phantom is copied.
+        /// </summary>
+        public Vec3 IsoFromOrigin => ClinicalIso - Centre;
+        public string IsoFromOriginText => ShiftLabels.Describe(IsoFromOrigin);
         public IReadOnlyList<PtvRowViewModel> Rows { get; }
         public PlaneEvaluation Evaluation { get; private set; } = null!;
         public ArrayOrientation Orientation => Evaluation.Plane.Orientation;
@@ -65,9 +79,10 @@ namespace SrsMcPsqa.App.ViewModels
         public ObservableCollection<MetricRowViewModel> Metrics { get; } = new ObservableCollection<MetricRowViewModel>();
 
         [ObservableProperty] private bool _isManual;
-        [ObservableProperty] private string _centreX = "";
-        [ObservableProperty] private string _centreY = "";
-        [ObservableProperty] private string _centreZ = "";
+        // Editable QA isocentre relative to the MapCHECK user origin (mm; +x Left, +y Post, +z Sup).
+        [ObservableProperty] private string _isoX = "";
+        [ObservableProperty] private string _isoY = "";
+        [ObservableProperty] private string _isoZ = "";
 
         public string Title => $"Plan {Number} · {Orientation.Label()}";
         public string OrientationText => Orientation.Label();
@@ -116,21 +131,25 @@ namespace SrsMcPsqa.App.ViewModels
             }
         }
 
-        public void SetNumber(int n) { Number = n; OnPropertyChanged(nameof(Number)); OnPropertyChanged(nameof(Title)); }
+        public void SetNumber(int n) { Number = n; OnPropertyChanged(nameof(Number)); OnPropertyChanged(nameof(Title)); Updated?.Invoke(this, System.EventArgs.Empty); }
+
+        /// <summary>Raised after the evaluation (and so the PTV assignment) changes.</summary>
+        public event System.EventHandler? Updated;
 
         public void Update(PlaneEvaluation evaluation)
         {
             Evaluation = evaluation;
             Metrics.Clear();
             foreach (var m in evaluation.Targets) Metrics.Add(new MetricRowViewModel(m, Rows[m.TargetIndex].Brush));
-            CentreX = Centre.X.ToString("0.0", CultureInfo.InvariantCulture);
-            CentreY = Centre.Y.ToString("0.0", CultureInfo.InvariantCulture);
-            CentreZ = Centre.Z.ToString("0.0", CultureInfo.InvariantCulture);
+            IsoX = IsoFromOrigin.X.ToString("0.0", CultureInfo.InvariantCulture);
+            IsoY = IsoFromOrigin.Y.ToString("0.0", CultureInfo.InvariantCulture);
+            IsoZ = IsoFromOrigin.Z.ToString("0.0", CultureInfo.InvariantCulture);
             foreach (var p in new[] { nameof(Evaluation), nameof(Orientation), nameof(Centre), nameof(Title), nameof(OrientationText),
                                       nameof(DepthText), nameof(CentreText), nameof(CoveredText), nameof(ScoreText),
                                       nameof(UMinusText), nameof(UPlusText), nameof(NMinusText), nameof(NPlusText), nameof(DepthAxisText),
-                                      nameof(PtvText), nameof(StatusText), nameof(StatusBrush) })
+                                      nameof(PtvText), nameof(StatusText), nameof(StatusBrush), nameof(IsoFromOrigin), nameof(IsoFromOriginText) })
                 OnPropertyChanged(p);
+            Updated?.Invoke(this, System.EventArgs.Empty);
         }
     }
 

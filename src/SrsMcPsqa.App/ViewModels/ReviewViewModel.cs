@@ -37,11 +37,27 @@ namespace SrsMcPsqa.App.ViewModels
         }
 
         public PhantomImageInfo Phantom { get; }
+        public PlanningSession Session => _session;
+
+        /// <summary>Fine-tune suggestion for this plan (null until checked).</summary>
+        [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasFineTune), nameof(FineTuneBadge))] private FineTuneRowViewModel? _fineTune;
+        public bool HasFineTune => FineTune != null;
+
+        /// <summary>Short fine-tune state for the plan list.</summary>
+        public string FineTuneBadge => FineTune == null ? (Iterations > 0 ? $"Fine-tuned ×{Iterations}" : "")
+            : FineTune.WillMove ? "Shift pending: " + FineTune.ChosenMoveShort : "Keep current position";
+
+        partial void OnIterationsChanged(int value) => OnPropertyChanged(nameof(FineTuneBadge));
+        public void NotifyFineTuneChanged() => OnPropertyChanged(nameof(FineTuneBadge));
+
+        /// <summary>QA isocentre relative to the MapCHECK user origin (anatomical directions).</summary>
+        public string IsoFromOriginText => ShiftLabels.Describe(Isocentre - Phantom.UserOrigin);
+        public string StatusLine => CalcOk ? "✓ Calculated with the clinical MUs" : "✗ Calculation failed";
         public IReadOnlyList<PtvRowViewModel> AssignedRows { get; }
         public IReadOnlyList<PtvRowViewModel> Rows { get; }
         public ObservableCollection<MetricRowViewModel> Metrics { get; } = new ObservableCollection<MetricRowViewModel>();
 
-        [ObservableProperty] [NotifyPropertyChangedFor(nameof(PlanId), nameof(Isocentre), nameof(ArrayCentre), nameof(IsoText), nameof(ArrayText), nameof(CalcText), nameof(CalcOk), nameof(WarningsText), nameof(HasWarnings))]
+        [ObservableProperty] [NotifyPropertyChangedFor(nameof(PlanId), nameof(Isocentre), nameof(ArrayCentre), nameof(IsoText), nameof(ArrayText), nameof(CalcText), nameof(CalcOk), nameof(WarningsText), nameof(HasWarnings), nameof(IsoFromOriginText), nameof(StatusLine))]
         private QaPlanResult _result;
         [ObservableProperty] private bool _isChecked;
         [ObservableProperty] private int _iterations;
@@ -54,13 +70,17 @@ namespace SrsMcPsqa.App.ViewModels
         public ArrayOrientation Orientation => Result.Orientation;
         public Vec3 Isocentre => Result.Isocentre;
         public Vec3 ClinicalIso => _session.ClinicalPlan!.Isocentre;
-        public string Header => $"{PlanId} ({Orientation.Label()})";
+
+        /// <summary>QA dose is one fraction: compare with Rx per fraction.</summary>
+        public int Fractions => Math.Max(1, _session.ClinicalPlan?.Fractions ?? 1);
+        private double RxScale => 1.0 / Fractions;
+        public string Header => $"{PlanId} · {Orientation.Label()}";
         public string AssignedText => string.Join(", ", AssignedRows.Select(r => r.Id));
 
         /// <summary>Patient point on the array centre.</summary>
         public Vec3 ArrayCentre => IsoGeometry.ArrayCentreInPatient(Phantom.UserOrigin, ClinicalIso, Isocentre);
 
-        public string IsoText => "Isocentre relative to phantom user origin: " + (Isocentre - Phantom.UserOrigin);
+        public string IsoText => "QA isocentre from MapCHECK user origin: " + IsoFromOriginText;
         public string ArrayText => "Array centre in patient: " + ArrayCentre;
         public bool CalcOk => Result.CalculationSucceeded && Result.Dose != null;
         public string CalcText => CalcOk ? "Dose calculated with the clinical MUs." : "Calculation failed: " + string.Join(" ", Result.Messages);
@@ -80,15 +100,17 @@ namespace SrsMcPsqa.App.ViewModels
             var rows = Rows;
             var settings = _settings;
             var best = _bestScores;
+            double rxScale = RxScale;
+            double? referenceGy = _session.ReferenceGy * rxScale; // QA dose is one fraction
             var built = await Task.Run(() =>
             {
-                var targets = rows.Select(r => r.ToTarget()).ToList();
+                var targets = rows.Select(r => r.ToTarget(rxScale)).ToList();
                 var model = new PlanningModel(targets, dose);
                 var reference = best != null && best.Length == targets.Count ? new CoverageReference(best, new bool[targets.Count]) : null;
                 var eval = model.Evaluate(plane, settings, reference);
                 var scene = PlaneRenderBuilder.BuildScene(plane.Orientation, plane.Depth, plane.U, plane.V, dose,
-                    rows.Select(r => (r.ToTarget(), r.Colour)).ToList(), calculated: true,
-                    $"{PlanId} · {plane.Orientation.Label()} · calculated QA dose on the array plane");
+                    rows.Select(r => (r.ToTarget(rxScale), r.Colour)).ToList(), calculated: true,
+                    $"{PlanId} · {plane.Orientation.Label()} · calculated QA dose on the array plane", referenceGy);
                 return (eval, scene);
             });
             Metrics.Clear();
@@ -106,7 +128,7 @@ namespace SrsMcPsqa.App.ViewModels
 
         public FineTuneProposal Propose()
         {
-            var targets = AssignedRows.Select(r => r.ToTarget()).ToList();
+            var targets = AssignedRows.Select(r => r.ToTarget(RxScale)).ToList();
             double[]? best = _bestScores == null ? null : AssignedRows.Select(r => Rows.ToList().IndexOf(r)).Select(i => i >= 0 ? _bestScores[i] : 0).ToArray();
             return FineTuneOptimizer.Propose(QaPlanRequests.FineTune(Result, ClinicalIso, Phantom, targets, best), _settings);
         }
@@ -132,10 +154,53 @@ namespace SrsMcPsqa.App.ViewModels
         public QaPlanViewModel Plan { get; }
         public FineTuneProposal Proposal { get; }
 
-        [ObservableProperty] [NotifyPropertyChangedFor(nameof(ResultText), nameof(IsEditing))] private FineTuneDecision _decision;
-        [ObservableProperty] [NotifyPropertyChangedFor(nameof(ResultText))] private string _customX;
-        [ObservableProperty] [NotifyPropertyChangedFor(nameof(ResultText))] private string _customY;
-        [ObservableProperty] [NotifyPropertyChangedFor(nameof(ResultText))] private string _customZ;
+        [ObservableProperty] [NotifyPropertyChangedFor(nameof(ResultText), nameof(IsEditing), nameof(UseSuggested), nameof(UseCustom), nameof(KeepCurrent), nameof(WillMove), nameof(ChosenMoveShort))]
+        private FineTuneDecision _decision;
+        [ObservableProperty] [NotifyPropertyChangedFor(nameof(ResultText), nameof(WillMove), nameof(ChosenMoveShort))] private string _customX;
+        [ObservableProperty] [NotifyPropertyChangedFor(nameof(ResultText), nameof(WillMove), nameof(ChosenMoveShort))] private string _customY;
+        [ObservableProperty] [NotifyPropertyChangedFor(nameof(ResultText), nameof(WillMove), nameof(ChosenMoveShort))] private string _customZ;
+
+        partial void OnDecisionChanged(FineTuneDecision value) => Plan.NotifyFineTuneChanged();
+        partial void OnCustomXChanged(string value) => Plan.NotifyFineTuneChanged();
+        partial void OnCustomYChanged(string value) => Plan.NotifyFineTuneChanged();
+        partial void OnCustomZChanged(string value) => Plan.NotifyFineTuneChanged();
+
+        // Radio buttons.
+        public bool UseSuggested { get => Decision == FineTuneDecision.Accept; set { if (value) Decision = FineTuneDecision.Accept; } }
+        public bool UseCustom { get => Decision == FineTuneDecision.Edit; set { if (value) Decision = FineTuneDecision.Edit; } }
+        public bool KeepCurrent { get => Decision == FineTuneDecision.Discard; set { if (value) Decision = FineTuneDecision.Discard; } }
+
+        public bool HasSuggestion => Proposal.Improves && Proposal.ArrayMoveRelativeToPatient.Length >= 0.05;
+
+        /// <summary>True when applying would move this plan's isocentre.</summary>
+        public bool WillMove
+        {
+            get
+            {
+                var iso = NewIsocentre(out var error);
+                return error == null && iso != null && (iso.Value - Plan.Isocentre).Length > 1e-6;
+            }
+        }
+
+        /// <summary>The chosen array move, e.g. "Left 0.3 mm, Ant 0.0 mm, Sup 0.0 mm".</summary>
+        public string ChosenMoveShort
+        {
+            get
+            {
+                var iso = NewIsocentre(out var error);
+                if (error != null || iso == null) return "";
+                return ShiftLabels.Describe(IsoGeometry.ArrayCentreInPatient(Plan.Phantom.UserOrigin, Plan.ClinicalIso, iso.Value) - Plan.ArrayCentre);
+            }
+        }
+
+        public string SuggestionHeadline => HasSuggestion
+            ? "Suggested array move: " + Proposal.ArrayMoveDescription
+            : "No better position found. The current position is the best the search found.";
+
+        /// <summary>Predicted change per PTV, one line each.</summary>
+        public IReadOnlyList<string> PredictedLines => Proposal.Predicted.Targets.Zip(Proposal.Current.Targets, (p, c) =>
+            string.Format(CultureInfo.InvariantCulture, "{0}: diodes ≥ Rx {1} → {2}, J {3:0.000} → {4:0.000}{5}",
+                p.TargetId, c.DiodesAtOrAboveRx, p.DiodesAtOrAboveRx, c.Score, p.Score, p.Clipped ? " (clipped)" : "")).ToList();
 
         public bool IsEditing => Decision == FineTuneDecision.Edit;
         public string PlanId => Plan.PlanId;
@@ -188,67 +253,104 @@ namespace SrsMcPsqa.App.ViewModels
             {
                 var iso = NewIsocentre(out var error);
                 if (error != null) return error;
-                if (iso == null) return "Keep current position.";
-                var move = IsoGeometry.ArrayCentreInPatient(Plan.Phantom.UserOrigin, Plan.ClinicalIso, iso.Value) - Plan.ArrayCentre;
-                return $"Array: {ShiftLabels.Describe(move)}\nIso rel. user origin: {iso.Value - Plan.Phantom.UserOrigin}";
+                if (iso == null || (iso.Value - Plan.Isocentre).Length <= 1e-6) return "The plan stays as it is.";
+                return "New QA isocentre from MapCHECK origin: " + ShiftLabels.Describe(iso.Value - Plan.Phantom.UserOrigin);
             }
         }
 
         private static bool TryParse(string s, out double v) => double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out v);
     }
 
-    /// <summary>Screen 5: calculated QA plans, fine-tuning, deletion.</summary>
+    /// <summary>Screen 4: calculated QA plans, fine-tuning, deletion.</summary>
     public sealed partial class ReviewViewModel : PageViewModel
     {
-        public ReviewViewModel(ShellViewModel shell) : base(shell, "Review & fine-tune", SymbolRegular.CheckmarkCircle24, 4) { }
+        public ReviewViewModel(ShellViewModel shell) : base(shell, "Review & fine-tune", SymbolRegular.CheckmarkCircle24, 4)
+        {
+            QaPlans.CollectionChanged += (_, __) => NotifyFooter();
+        }
 
         public ObservableCollection<QaPlanViewModel> QaPlans => Session.QaPlans;
-        public ObservableCollection<FineTuneRowViewModel> Proposals { get; } = new ObservableCollection<FineTuneRowViewModel>();
 
-        [ObservableProperty] private QaPlanViewModel? _selectedQaPlan;
-        [ObservableProperty] private string _proposalStatus = "";
+        [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasSelection))] private QaPlanViewModel? _selectedQaPlan;
+        [ObservableProperty] private bool _isChecking;
 
-        public bool HasProposals => Proposals.Count > 0;
+        public bool HasSelection => SelectedQaPlan != null;
+
+        /// <summary>Plans whose chosen fine-tune option moves the isocentre.</summary>
+        public IReadOnlyList<QaPlanViewModel> PendingPlans => QaPlans.Where(p => p.FineTune?.WillMove == true).ToList();
+        public int PendingCount => PendingPlans.Count;
+        public bool HasPending => PendingCount > 0;
+        public bool AnyChecked => QaPlans.Any(p => p.HasFineTune);
+
+        public string ApplyButtonText => PendingCount == 1 ? "Move isocentre and recalculate 1 plan" : $"Move isocentres and recalculate {PendingCount} plans";
+
+        public string FooterHint => QaPlans.Count == 0 ? "No QA plans yet."
+            : HasPending ? $"{PendingCount} plan(s) will be moved: " + string.Join(", ", PendingPlans.Select(p => p.PlanId)) + ". Plans set to 'Keep' stay as they are."
+            : AnyChecked ? "No moves chosen. Select a plan to review its suggestion, or check again."
+            : "Optional: check whether moving the array would measure the PTVs better.";
+
+        private void NotifyFooter()
+        {
+            foreach (var p in new[] { nameof(PendingPlans), nameof(PendingCount), nameof(HasPending), nameof(AnyChecked), nameof(ApplyButtonText), nameof(FooterHint) })
+                OnPropertyChanged(p);
+        }
 
         public override void OnNavigatedTo()
         {
             if (SelectedQaPlan == null || !QaPlans.Contains(SelectedQaPlan)) SelectedQaPlan = QaPlans.FirstOrDefault();
+            NotifyFooter();
         }
 
         [RelayCommand]
-        private async Task OptimiseFurtherAsync()
+        private Task CheckSelectedAsync() => SelectedQaPlan == null ? Task.CompletedTask : CheckAsync(new[] { SelectedQaPlan });
+
+        [RelayCommand]
+        private Task CheckAllAsync() => CheckAsync(QaPlans.ToList());
+
+        private async Task CheckAsync(IReadOnlyList<QaPlanViewModel> candidates)
         {
-            var plans = QaPlans.Where(p => p.CalcOk).ToList();
+            var plans = candidates.Where(p => p.CalcOk).ToList();
             if (plans.Count == 0) return;
-            ProposalStatus = "Searching for better positions...";
-            var proposals = await Shell.ComputeAsync("Fine-tune", () => plans.Select(p => (p, prop: p.Propose())).ToList());
-            if (proposals == null) { ProposalStatus = ""; return; }
-            Proposals.Clear();
-            foreach (var (p, prop) in proposals) Proposals.Add(new FineTuneRowViewModel(p, prop));
-            ProposalStatus = "Predictions translate the calculated dose (approximation). Choose Accept, Edit or Discard per plan, then Apply.";
-            OnPropertyChanged(nameof(HasProposals));
+            IsChecking = true;
+            try
+            {
+                var proposals = await Shell.ComputeAsync("Fine-tune", () => plans.Select(p => (p, prop: p.Propose())).ToList());
+                if (proposals == null) return;
+                foreach (var (p, prop) in proposals)
+                {
+                    var row = new FineTuneRowViewModel(p, prop);
+                    row.PropertyChanged += (_, __) => NotifyFooter();
+                    p.FineTune = row;
+                }
+            }
+            finally
+            {
+                IsChecking = false;
+                NotifyFooter();
+            }
         }
 
         [RelayCommand]
         private async Task ApplyAsync()
         {
-            var moves = new List<(FineTuneRowViewModel Row, Vec3 Iso)>();
-            foreach (var row in Proposals)
+            var moves = new List<(QaPlanViewModel Plan, Vec3 Iso)>();
+            foreach (var p in QaPlans.Where(p => p.FineTune != null))
             {
-                var iso = row.NewIsocentre(out var error);
-                if (error != null) { Session.Dialogs.ShowInfo("Check the custom shift", error); return; }
-                if (iso != null && (iso.Value - row.Plan.Isocentre).Length > 1e-6) moves.Add((row, iso.Value));
+                var iso = p.FineTune!.NewIsocentre(out var error);
+                if (error != null) { SelectedQaPlan = p; Session.Dialogs.ShowInfo("Check the array move", error); return; }
+                if (iso != null && (iso.Value - p.Isocentre).Length > 1e-6) moves.Add((p, iso.Value));
             }
-            if (moves.Count == 0) { Session.Dialogs.ShowInfo("Nothing to apply", "All rows are set to Discard or have no shift."); return; }
-            if (!Session.Dialogs.Confirm("Move isocentres", $"Move the isocentre and recalculate {moves.Count} QA plan(s)?", "Move and recalculate")) return;
+            if (moves.Count == 0) { Session.Dialogs.ShowInfo("Nothing to apply", "No plan is set to move. Choose 'Use the suggested move' or 'Enter my own move' for a plan first."); return; }
+            var list = string.Join(Environment.NewLine, moves.Select(m => $"  {m.Plan.PlanId}: array {m.Plan.FineTune!.ChosenMoveShort}"));
+            if (!Session.Dialogs.Confirm("Move isocentres",
+                    $"Move the isocentre and recalculate {moves.Count} QA plan(s)?{Environment.NewLine}{Environment.NewLine}{list}", "Move and recalculate")) return;
 
             await Shell.RunAsync($"Moving isocentre and recalculating {moves.Count} plan(s)", async (pr, ct) =>
             {
-                pr.ExpectPlans(moves.Select(m => (m.Item1.Plan.PlanId, "move isocentre and recalculate")));
-                foreach (var (row, iso) in moves)
+                pr.ExpectPlans(moves.Select(m => (m.Plan.PlanId, "move isocentre and recalculate")));
+                foreach (var (plan, iso) in moves)
                 {
                     ct.ThrowIfCancellationRequested();
-                    var plan = row.Plan;
                     pr.AddLog($"{plan.PlanId}: move isocentre, recalculate");
                     var region = QaPlanRequests.DoseRegion(plan.Orientation, plan.Phantom.UserOrigin);
                     QaPlanResult result;
@@ -258,23 +360,22 @@ namespace SrsMcPsqa.App.ViewModels
                     if (!result.CalculationSucceeded) pr.HasErrors = true;
                     plan.Result = result;
                     plan.Iterations++;
+                    plan.FineTune = null;
                     await plan.RefreshAsync();
-                    Proposals.Remove(row);
                 }
             }, keepOpenOnSuccess: true);
-            OnPropertyChanged(nameof(HasProposals));
-            ProposalStatus = Proposals.Count == 0 ? "Applied. Click Optimise further to check again." : ProposalStatus;
+            NotifyFooter();
         }
 
         [RelayCommand]
-        private Task DeleteSelectedAsync() => DeleteAsync(QaPlans.Where(p => p.IsChecked).ToList());
+        private Task DeleteSelectedAsync() => SelectedQaPlan == null ? Task.CompletedTask : DeleteAsync(new List<QaPlanViewModel> { SelectedQaPlan });
 
         [RelayCommand]
         private Task DeleteAllAsync() => DeleteAsync(QaPlans.ToList());
 
         private async Task DeleteAsync(List<QaPlanViewModel> plans)
         {
-            if (plans.Count == 0) { Session.Dialogs.ShowInfo("Delete QA plans", "Tick the plans to delete first."); return; }
+            if (plans.Count == 0) return;
             if (!Session.Dialogs.Confirm("Delete QA plans",
                     $"Delete {plans.Count} QA plan(s) from Eclipse?\n\n{string.Join("\n", plans.Select(p => "  " + p.PlanId))}\n\nOnly plans created by this app (tagged) can be deleted. Phantom images are kept.",
                     "Delete", danger: true))
@@ -285,15 +386,11 @@ namespace SrsMcPsqa.App.ViewModels
                 {
                     pr.BeginStep($"Deleting {g.Count()} plan(s) from course {g.Key}");
                     await Session.Service.DeleteQaPlansAsync(g.Key, g.Select(p => p.PlanId).ToList(), pr.Reporter, ct);
-                    foreach (var p in g)
-                    {
-                        Session.QaPlans.Remove(p);
-                        foreach (var row in Proposals.Where(r => r.Plan == p).ToList()) Proposals.Remove(row);
-                    }
+                    foreach (var p in g) Session.QaPlans.Remove(p);
                 }
             });
-            OnPropertyChanged(nameof(HasProposals));
             SelectedQaPlan = QaPlans.FirstOrDefault();
+            NotifyFooter();
             if (QaPlans.Count == 0) Shell.Navigate(Shell.Planning);
         }
 

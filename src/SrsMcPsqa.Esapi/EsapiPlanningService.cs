@@ -134,6 +134,7 @@ namespace SrsMcPsqa.Esapi
                 var data = new ClinicalPlanData
                 {
                     CourseId = courseId, PlanId = planId, PlanUid = plan.UID, PlanTotalDoseGy = totalGy,
+                    Fractions = plan.NumberOfFractions is int nf && nf > 0 ? nf : 1,
                     Validation = validation,
                 };
                 var iso = plan.Beams.FirstOrDefault(b => !b.IsSetupField)?.IsocenterPosition;

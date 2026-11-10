@@ -52,6 +52,11 @@ namespace SrsMcPsqa.Core.Services
         public string PlanUid { get; set; } = "";
         public Vec3 Isocentre { get; set; }
         public double? PlanTotalDoseGy { get; set; }
+        /// <summary>
+        /// Number of fractions of the clinical plan. The QA plan delivers one fraction, so QA dose is compared with
+        /// each PTV's Rx ÷ this number. PTV Rx values and the clinical dose are for the whole course.
+        /// </summary>
+        public int Fractions { get; set; } = 1;
         public IReadOnlyDictionary<string, double> PrescriptionTargetsGy { get; set; } = new Dictionary<string, double>();
         public IReadOnlyList<PtvInfo> Ptvs { get; set; } = Array.Empty<PtvInfo>();
 

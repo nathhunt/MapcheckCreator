@@ -6,13 +6,15 @@ using SrsMcPsqa.Core.Geometry;
 
 namespace SrsMcPsqa.Core.Models
 {
-    /// <summary>QA plan IDs from a naming pattern, e.g. <c>SMC{n}_{orient}</c> → <c>SMC1_0</c>, <c>SMC2_270</c>.</summary>
+    /// <summary>QA plan IDs from a naming pattern, e.g. <c>MC{n}_{orient}</c> → <c>MC1_0</c>, <c>MC2_270</c>.</summary>
     public static class QaPlanNaming
     {
         /// <summary>Eclipse plan ID limit.</summary>
         public const int MaxIdLength = 13;
 
-        public const string DefaultPattern = "SMC{n}_{orient}";
+        public const string DefaultPattern = "MC{n}_{orient}";
+        /// <summary>Default before 2026-11 (stored user settings still holding it are migrated).</summary>
+        public const string PreviousDefaultPattern = "SMC{n}_{orient}";
 
         /// <summary>
         /// First unique ID for plan number <paramref name="n"/> (or higher, if taken). Placeholders: <c>{n}</c>, <c>{orient}</c>.

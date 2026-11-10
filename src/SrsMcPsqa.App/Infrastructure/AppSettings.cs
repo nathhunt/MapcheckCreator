@@ -99,6 +99,8 @@ namespace SrsMcPsqa.App.Infrastructure
                 {
                     result = Read<AppSettings>(UserPath);
                     source = $"user settings ({UserPath}) over {source}";
+                    // The default naming changed from SMC{n}_{orient} to MC{n}_{orient}; a stored old default follows the department value.
+                    if (result.PlanNamingPattern == Core.Models.QaPlanNaming.PreviousDefaultPattern) result.PlanNamingPattern = dept.PlanNamingPattern;
                 }
             }
             catch (Exception ex)

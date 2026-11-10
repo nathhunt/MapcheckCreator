@@ -6,6 +6,7 @@
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:vm="clr-namespace:SrsMcPsqa.App.ViewModels"
              xmlns:controls="clr-namespace:SrsMcPsqa.App.Controls"
+             xmlns:views="clr-namespace:SrsMcPsqa.App.Views"
              mc:Ignorable="d" d:DataContext="{d:DesignInstance Type=vm:PlanningViewModel}">
     <Grid>
         <Grid.RowDefinitions>
@@ -92,6 +93,7 @@
                                 </StackPanel>
                                 <TextBlock FontSize="12" TextWrapping="Wrap" Text="{Binding PtvText}" />
                                 <TextBlock FontSize="12" Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" />
+                                <TextBlock FontSize="11" TextWrapping="Wrap" Opacity="0.8" Text="{Binding IsoFromOriginText, StringFormat='Iso from MapCHECK origin: {0}'}" />
                             </StackPanel>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -112,9 +114,13 @@
                     <CheckBox DockPanel.Dock="Right" Content="Show diodes" IsChecked="{Binding ShowDiodes}" />
                 </DockPanel>
 
-                <controls:PlaneView Grid.Row="1" MinHeight="260" Scene="{Binding Scene}" Overlay="{Binding Overlay}" AllowDrag="True"
-                                    DragCommand="{Binding DragCommand}"
-                                    Visibility="{Binding Show3D, Converter={StaticResource InverseBoolToVis}}" />
+                <Grid Grid.Row="1" Visibility="{Binding Show3D, Converter={StaticResource InverseBoolToVis}}">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <controls:PlaneView MinHeight="260" Scene="{Binding Scene}" Overlay="{Binding Overlay}" AllowDrag="True"
+                                        DragCommand="{Binding DragCommand}"
+                                        LowerPercent="{Binding Session.DoseWash.LowerPercent}" UpperPercent="{Binding Session.DoseWash.UpperPercent}" />
+                    <views:DoseLegendPanel Grid.Column="1" Margin="4,0,0,0" />
+                </Grid>
                 <controls:Scene3DView Grid.Row="1" Scene="{Binding Scene3D}"
                                       Visibility="{Binding Show3D, Converter={StaticResource BoolToVis}}" />
 
@@ -133,6 +139,23 @@
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
                             <DataGridTextColumn Header="PTV" Binding="{Binding Id}" Width="2*" />
+                            <DataGridTemplateColumn Header="QA plan" Width="1.4*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding PlanText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding PlanText}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsOnThisPlan}" Value="True">
+                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTextColumn Header="Rx (Gy)" Binding="{Binding Rx}" Width="*" />
                             <DataGridTextColumn Header="Area on array (mm²)" Binding="{Binding Area}" Width="1.4*" />
                             <DataGridTextColumn Header="Diodes in PTV" Binding="{Binding Diodes}" Width="*" />
@@ -163,6 +186,12 @@
                 <StackPanel Visibility="{Binding SelectedPlane, Converter={StaticResource BoolToVis}}">
                     <TextBlock Style="{StaticResource Section}" Text="Adjust array" />
                     <TextBlock Style="{StaticResource Hint}" Text="Moves the array relative to the patient. You can also drag it in the view." />
+                    <Border Margin="0,8,0,0" Padding="8,6" CornerRadius="4" Background="{DynamicResource ControlFillColorDefaultBrush}">
+                        <StackPanel>
+                            <TextBlock FontSize="11" Text="QA isocentre from MapCHECK user origin" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <TextBlock FontSize="12" TextWrapping="Wrap" Text="{Binding SelectedPlane.IsoFromOriginText}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                        </StackPanel>
+                    </Border>
 
                     <DockPanel Margin="0,10,0,0">
                         <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,8,0" Text="Step" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
@@ -199,10 +228,18 @@
 
                     <Expander Margin="0,10,0,0" Header="Exact position">
                         <StackPanel Margin="0,4,0,0">
-                            <TextBlock Style="{StaticResource Hint}" Text="Array centre in patient coordinates (mm): x, y, z" />
-                            <ui:TextBox Margin="0,4,0,0" Text="{Binding SelectedPlane.CentreX, UpdateSourceTrigger=PropertyChanged}" />
-                            <ui:TextBox Margin="0,4,0,0" Text="{Binding SelectedPlane.CentreY, UpdateSourceTrigger=PropertyChanged}" />
-                            <ui:TextBox Margin="0,4,0,0" Text="{Binding SelectedPlane.CentreZ, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
+                                       Text="QA isocentre relative to the MapCHECK user origin (array centre), in mm." />
+                            <Grid Margin="0,4,0,0">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" VerticalAlignment="Center" Margin="0,0,6,0" Text="+L / −R" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                <ui:TextBox Grid.Row="0" Grid.Column="1" Margin="0,2" Text="{Binding SelectedPlane.IsoX, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Grid.Row="1" VerticalAlignment="Center" Margin="0,0,6,0" Text="+P / −A" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                <ui:TextBox Grid.Row="1" Grid.Column="1" Margin="0,2" Text="{Binding SelectedPlane.IsoY, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Grid.Row="2" VerticalAlignment="Center" Margin="0,0,6,0" Text="+S / −I" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                <ui:TextBox Grid.Row="2" Grid.Column="1" Margin="0,2" Text="{Binding SelectedPlane.IsoZ, UpdateSourceTrigger=PropertyChanged}" />
+                            </Grid>
                             <ui:Button Margin="0,6,0,0" HorizontalAlignment="Stretch" Content="Apply" Command="{Binding ApplyCentreCommand}" />
                         </StackPanel>
                     </Expander>

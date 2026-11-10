@@ -58,14 +58,56 @@ namespace SrsMcPsqa.App.ViewModels
         }
 
         public PlanningTarget ToTarget() => new PlanningTarget(Id, RxGy, Info.Mask!);
+
+        /// <summary>Target with Rx scaled, e.g. ÷ fractions to compare with the dose of a one-fraction QA plan.</summary>
+        public PlanningTarget ToTarget(double rxScale) => new PlanningTarget(Id, RxGy * rxScale, Info.Mask!);
     }
 
     /// <summary>
     /// Everything shared between screens for the open patient. Owned by the shell; screens read and update it.
     /// All members are used on the UI thread.
     /// </summary>
+    /// <summary>Dose colour-wash levels shared by the array-plane views (% of the reference dose), like Eclipse's colour wash bar.</summary>
+    public sealed partial class DoseWashViewModel : ObservableObject
+    {
+        [ObservableProperty] [NotifyPropertyChangedFor(nameof(LowerText))] private double _lowerPercent = Rendering.DoseWash.DefaultLowerPercent;
+        /// <summary>≤ 0 = maximum dose on the plane.</summary>
+        [ObservableProperty] [NotifyPropertyChangedFor(nameof(UpperText))] private double _upperPercent;
+
+        public string LowerText
+        {
+            get => LowerPercent.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+            set
+            {
+                if (double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) && v >= 0)
+                    LowerPercent = UpperPercent > 0 ? Math.Min(v, UpperPercent - 1) : v;
+                OnPropertyChanged();
+            }
+        }
+
+        /// <summary>Upper level as text; empty or "max" = maximum dose on the plane.</summary>
+        public string UpperText
+        {
+            get => UpperPercent > 0 ? UpperPercent.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) : "max";
+            set
+            {
+                var t = (value ?? "").Trim();
+                if (t.Length == 0 || t.Equals("max", StringComparison.OrdinalIgnoreCase)) UpperPercent = 0;
+                else if (double.TryParse(t, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) && v > LowerPercent)
+                    UpperPercent = v;
+                OnPropertyChanged();
+            }
+        }
+
+        [CommunityToolkit.Mvvm.Input.RelayCommand]
+        private void Reset() { LowerPercent = Rendering.DoseWash.DefaultLowerPercent; UpperPercent = 0; }
+    }
+
     public sealed partial class PlanningSession : ObservableObject
     {
+        /// <summary>Colour-wash levels, shared by the planning and review views.</summary>
+        public DoseWashViewModel DoseWash { get; } = new DoseWashViewModel();
+
         public PlanningSession(IPlanningService service, AppSettings settings, LaunchOptions launch, IDialogService dialogs, bool isDemo)
         {
             Service = service; Settings = settings; Launch = launch; Dialogs = dialogs; IsDemo = isDemo;
@@ -91,6 +133,10 @@ namespace SrsMcPsqa.App.ViewModels
         public event EventHandler? PlanLoaded;
 
         public bool HasPlan => ClinicalPlan != null;
+
+        /// <summary>100 % of the colour wash: the plan's total dose, else the highest PTV Rx (whole course).</summary>
+        public double? ReferenceGy => ClinicalPlan?.PlanTotalDoseGy is double t && t > 0 ? t
+            : Ptvs.Count > 0 ? Ptvs.Max(r => r.RxGy) : (double?)null;
 
         /// <summary>Why QA plans can't be created right now, in plain words; null when they can.</summary>
         public string? CreateBlockedReason

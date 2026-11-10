@@ -23,11 +23,32 @@ namespace SrsMcPsqa.App.Controls
         public static readonly DependencyProperty DragCommandProperty = DependencyProperty.Register(nameof(DragCommand), typeof(ICommand), typeof(PlaneView));
         public static readonly DependencyProperty AllowDragProperty = DependencyProperty.Register(nameof(AllowDrag), typeof(bool), typeof(PlaneView),
             new FrameworkPropertyMetadata(false));
+        /// <summary>Colour-wash lower level (% of the scene's reference dose); dose below it is not coloured.</summary>
+        public static readonly DependencyProperty LowerPercentProperty = DependencyProperty.Register(nameof(LowerPercent), typeof(double), typeof(PlaneView),
+            new FrameworkPropertyMetadata(DoseWash.DefaultLowerPercent, FrameworkPropertyMetadataOptions.AffectsRender));
+        /// <summary>Colour-wash upper level (%); ≤ 0 = maximum dose on the plane.</summary>
+        public static readonly DependencyProperty UpperPercentProperty = DependencyProperty.Register(nameof(UpperPercent), typeof(double), typeof(PlaneView),
+            new FrameworkPropertyMetadata(0.0, FrameworkPropertyMetadataOptions.AffectsRender));
 
         public PlaneScene? Scene { get => (PlaneScene?)GetValue(SceneProperty); set => SetValue(SceneProperty, value); }
         public PlaneOverlay? Overlay { get => (PlaneOverlay?)GetValue(OverlayProperty); set => SetValue(OverlayProperty, value); }
         public ICommand? DragCommand { get => (ICommand?)GetValue(DragCommandProperty); set => SetValue(DragCommandProperty, value); }
         public bool AllowDrag { get => (bool)GetValue(AllowDragProperty); set => SetValue(AllowDragProperty, value); }
+        public double LowerPercent { get => (double)GetValue(LowerPercentProperty); set => SetValue(LowerPercentProperty, value); }
+        public double UpperPercent { get => (double)GetValue(UpperPercentProperty); set => SetValue(UpperPercentProperty, value); }
+
+        // Colour-wash bitmap for the current scene and levels.
+        private (PlaneScene Scene, double Lower, double Upper)? _washKey;
+        private System.Windows.Media.Imaging.BitmapSource? _wash;
+
+        private System.Windows.Media.Imaging.BitmapSource? Wash(PlaneScene s, double lower, double upper)
+        {
+            if (s.DoseImage == null) return null;
+            if (_washKey is { } k && ReferenceEquals(k.Scene, s) && k.Lower == lower && k.Upper == upper) return _wash;
+            _wash = DoseWash.Render(s.DoseImage, s.ReferenceGy, lower, upper);
+            _washKey = (s, lower, upper);
+            return _wash;
+        }
 
         private static readonly Brush Background = Frozen(new SolidColorBrush(Color.FromRgb(0x14, 0x16, 0x1A)));
         private static readonly Brush TextBrush = Frozen(new SolidColorBrush(Color.FromRgb(0xE6, 0xE6, 0xE6)));
@@ -60,11 +81,13 @@ namespace SrsMcPsqa.App.Controls
                 return;
             }
 
-            if (s.DoseBitmap != null)
+            double lower = LowerPercent, upper = DoseWash.EffectiveUpper(UpperPercent, s);
+            var wash = Wash(s, lower, upper);
+            if (wash != null)
             {
                 var a = ToScreen(s.DoseRect.Left, s.DoseRect.Bottom);
                 var b = ToScreen(s.DoseRect.Right, s.DoseRect.Top);
-                dc.DrawImage(s.DoseBitmap, new Rect(a, b));
+                dc.DrawImage(wash, new Rect(a, b));
             }
 
             foreach (var layer in s.Layers)
@@ -86,19 +109,19 @@ namespace SrsMcPsqa.App.Controls
             }
 
             var o = Overlay;
-            if (o != null) DrawArray(dc, s, o);
+            if (o != null) DrawArray(dc, s, o, lower, upper);
             DrawOrientationLabels(dc, s);
 
             DrawText(dc, s.Caption, new Point(10, 8), 12, TextBrush);
             DrawText(dc, s.IsCalculated ? "CALCULATED" : "APPROXIMATION (clinical dose, before QA calculation)",
                 new Point(10, 26), 11, s.IsCalculated ? StatusBrush(true) : StatusBrush(false));
             if (s.DoseMaxGy > 0)
-                DrawText(dc, string.Format(CultureInfo.InvariantCulture, "Colourwash 5–100% of {0:0.0} Gy · solid = PTV · dashed = PTV 100% Rx", s.DoseMaxGy),
-                    new Point(10, ActualHeight - 22), 11, DimText);
+                DrawText(dc, string.Format(CultureInfo.InvariantCulture, "Colour wash {0:0}–{1:0}% (100% = {2:0.##} Gy) · solid = PTV · dashed = PTV 100% Rx",
+                    lower, upper, s.ReferenceGy), new Point(10, ActualHeight - 22), 11, DimText);
             dc.Pop();
         }
 
-        private void DrawArray(DrawingContext dc, PlaneScene s, PlaneOverlay o)
+        private void DrawArray(DrawingContext dc, PlaneScene s, PlaneOverlay o, double lower, double upper)
         {
             double h = DiodeArray.HalfExtent;
             dc.DrawRectangle(null, ArrayPen, new Rect(ToScreen(o.ArrayU - h, o.ArrayV + h), ToScreen(o.ArrayU + h, o.ArrayV - h)));
@@ -111,9 +134,12 @@ namespace SrsMcPsqa.App.Controls
             if (o.ShowDiodes)
             {
                 double r = Math.Max(0.8, 0.45 * Scale);
+                double toPct = s.ReferenceGy > 0 ? 100 / s.ReferenceGy : 0;
                 foreach (var d in o.Diodes)
                 {
-                    var brush = new SolidColorBrush(d.Colour);
+                    var colour = DoseWash.Colour(d.DoseGy * toPct, lower, upper, 255);
+                    if (colour.A == 0) colour = Color.FromArgb(150, 200, 200, 200);
+                    var brush = new SolidColorBrush(colour);
                     brush.Freeze();
                     dc.DrawEllipse(brush, null, ToScreen(d.U, d.V), r, r);
                 }

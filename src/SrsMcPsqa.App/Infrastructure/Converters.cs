@@ -120,7 +120,10 @@ namespace SrsMcPsqa.App.Infrastructure
     public sealed class PrimaryIfTrueConverter : System.Windows.Data.IValueConverter
     {
         public object Convert(object value, System.Type targetType, object parameter, System.Globalization.CultureInfo culture) =>
-            value is bool b && b ? Wpf.Ui.Controls.ControlAppearance.Primary : Wpf.Ui.Controls.ControlAppearance.Secondary;
+            (value is bool b && b) != Invert ? Wpf.Ui.Controls.ControlAppearance.Primary : Wpf.Ui.Controls.ControlAppearance.Secondary;
+
+        /// <summary>true → Secondary, false → Primary.</summary>
+        public bool Invert { get; set; }
 
         public object ConvertBack(object value, System.Type targetType, object parameter, System.Globalization.CultureInfo culture) =>
             throw new System.NotSupportedException();

@@ -116,6 +116,26 @@ namespace SrsMcPsqa.App.ViewModels
             while (ConstraintRows.Count > value) ConstraintRows.RemoveAt(ConstraintRows.Count - 1);
         }
 
+        /// <summary>Fills the "QA plan" column of every plane's PTV table: which plan(s) each PTV is assigned to.</summary>
+        private void RefreshPlanColumn()
+        {
+            var planes = Planes.ToList();
+            var byTarget = new Dictionary<int, List<PlanePlanViewModel>>();
+            foreach (var p in planes)
+                foreach (var k in p.AssignedIndices)
+                {
+                    if (!byTarget.TryGetValue(k, out var list)) byTarget[k] = list = new List<PlanePlanViewModel>();
+                    list.Add(p);
+                }
+            foreach (var p in planes)
+                foreach (var row in p.Metrics)
+                {
+                    var on = byTarget.TryGetValue(row.M.TargetIndex, out var list) ? list : new List<PlanePlanViewModel>();
+                    row.PlanText = on.Count == 0 ? "none" : string.Join(", ", on.Select(x => x.Title));
+                    row.IsOnThisPlan = on.Contains(p);
+                }
+        }
+
         private void Clear()
         {
             _model = null; _analysis = null; _rows = Array.Empty<PtvRowViewModel>();
@@ -199,7 +219,13 @@ namespace SrsMcPsqa.App.ViewModels
         {
             Planes.Clear();
             int n = 1;
-            foreach (var p in rec.Planes) Planes.Add(new PlanePlanViewModel(n++, p.Evaluation, _rows));
+            foreach (var p in rec.Planes)
+            {
+                var vm = new PlanePlanViewModel(n++, p.Evaluation, _rows, Session.ClinicalPlan!.Isocentre);
+                vm.Updated += (_, __) => RefreshPlanColumn();
+                Planes.Add(vm);
+            }
+            RefreshPlanColumn();
             ApplyCoverage(rec);
             if (resetConstraints || ConstraintRows.Count != Planes.Count) ResetConstraints();
             OnPropertyChanged(nameof(HasPlanes));
@@ -305,14 +331,15 @@ namespace SrsMcPsqa.App.ViewModels
         {
             var p = SelectedPlane;
             if (p == null) return;
-            if (!double.TryParse(p.CentreX, NumberStyles.Float, CultureInfo.InvariantCulture, out var x) ||
-                !double.TryParse(p.CentreY, NumberStyles.Float, CultureInfo.InvariantCulture, out var y) ||
-                !double.TryParse(p.CentreZ, NumberStyles.Float, CultureInfo.InvariantCulture, out var z))
+            if (!double.TryParse(p.IsoX, NumberStyles.Float, CultureInfo.InvariantCulture, out var x) ||
+                !double.TryParse(p.IsoY, NumberStyles.Float, CultureInfo.InvariantCulture, out var y) ||
+                !double.TryParse(p.IsoZ, NumberStyles.Float, CultureInfo.InvariantCulture, out var z))
             {
-                Session.Dialogs.ShowInfo("Array centre", "Enter the centre as three numbers in mm (use a decimal point).");
+                Session.Dialogs.ShowInfo("QA isocentre", "Enter the isocentre position as three numbers in mm (use a decimal point).");
                 return;
             }
-            MovePlane(p, new Vec3(x, y, z), full: true);
+            // Iso relative to the MapCHECK origin = clinical iso − array centre.
+            MovePlane(p, p.ClinicalIso - new Vec3(x, y, z), full: true);
         }
 
         [RelayCommand]
@@ -358,7 +385,7 @@ namespace SrsMcPsqa.App.ViewModels
             {
                 var targets = _rows.Select(r => (r.ToTarget(), r.Colour)).ToList();
                 var caption = $"Plan {p.Number} · {o.Label()} · {p.DepthText}";
-                Scene = PlaneRenderBuilder.BuildScene(o, depth, u, v, plan.Dose, targets, calculated: false, caption);
+                Scene = PlaneRenderBuilder.BuildScene(o, depth, u, v, plan.Dose, targets, calculated: false, caption, Session.ReferenceGy);
             }
             Overlay = PlaneRenderBuilder.BuildOverlay(Scene, u, v, _analysis.Settings.UsableHalfWidth, ShowDiodes);
         }

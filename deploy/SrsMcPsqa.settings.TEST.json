@@ -6,7 +6,7 @@
   "Template270ImageId": "SRSMC_270_AXB",
   "CopyTemplateStructures": false,
   "HelperPatterns": "z*, *eval*",
-  "PlanNamingPattern": "SMC{n}_{orient}",
+  "PlanNamingPattern": "MC{n}_{orient}",
   "EdgeMarginMm": 3,
   "Tau": 0.85,
   "MinDiodes": 5,

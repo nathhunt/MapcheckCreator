@@ -36,10 +36,14 @@ namespace SrsMcPsqa.App.Rendering
         public double ViewCentreU { get; set; }
         public double ViewCentreV { get; set; }
         public double HalfView { get; set; }
-        public BitmapSource? DoseBitmap { get; set; }
-        /// <summary>Plane-coordinate rectangle covered by <see cref="DoseBitmap"/> (outer pixel edges).</summary>
+        /// <summary>Dose sampled on the plane (Gy); coloured by the view with the current colour-wash levels.</summary>
+        public PlaneImage? DoseImage { get; set; }
+        /// <summary>Plane-coordinate rectangle covered by <see cref="DoseImage"/> (outer pixel edges).</summary>
         public Rect DoseRect { get; set; }
         public double DoseMaxGy { get; set; }
+        /// <summary>Dose shown as 100 % in the colour wash (plan prescription; per fraction for QA dose).</summary>
+        public double ReferenceGy { get; set; }
+        public double MaxPercent => ReferenceGy > 0 ? 100 * DoseMaxGy / ReferenceGy : 0;
         public IReadOnlyList<ContourLayer> Layers { get; set; } = Array.Empty<ContourLayer>();
         public bool IsCalculated { get; set; }
         public string Caption { get; set; } = "";
@@ -49,10 +53,11 @@ namespace SrsMcPsqa.App.Rendering
 
     public readonly struct DiodeDot
     {
-        public DiodeDot(double u, double v, Color colour) { U = u; V = v; Colour = colour; }
+        public DiodeDot(double u, double v, double doseGy) { U = u; V = v; DoseGy = doseGy; }
         public double U { get; }
         public double V { get; }
-        public Color Colour { get; }
+        /// <summary>Dose at the diode (Gy), NaN when there is no dose.</summary>
+        public double DoseGy { get; }
     }
 
     /// <summary>Array position on the plane (moves with nudges and dragging).</summary>
@@ -74,16 +79,56 @@ namespace SrsMcPsqa.App.Rendering
         public bool Completed { get; }
     }
 
+    /// <summary>Colour-wash window in % of the reference dose, like Eclipse's dose colour wash bar.</summary>
+    public static class DoseWash
+    {
+        public const double DefaultLowerPercent = 20;
+
+        /// <summary>Effective upper level: <paramref name="upperPercent"/> ≤ 0 means "maximum dose on the plane".</summary>
+        public static double EffectiveUpper(double upperPercent, PlaneScene? scene) =>
+            upperPercent > 0 ? upperPercent : Math.Max(scene?.MaxPercent ?? 100, 1);
+
+        /// <summary>Colour for a dose in % of the reference; transparent below the lower level, top colour above the upper.</summary>
+        public static Color Colour(double percent, double lower, double upper, byte alpha = 165)
+        {
+            if (double.IsNaN(percent) || percent < lower) return Colors.Transparent;
+            double t = upper > lower ? (percent - lower) / (upper - lower) : 1;
+            return ColourMap.Ramp(Math.Max(0, Math.Min(1, t)), alpha);
+        }
+
+        public static BitmapSource Render(PlaneImage img, double referenceGy, double lower, double upper)
+        {
+            int w = img.Width, h = img.Height;
+            var pixels = new byte[w * h * 4];
+            double toPct = referenceGy > 0 ? 100 / referenceGy : 0;
+            for (int l = 0; l < h; l++)
+            {
+                int row = h - 1 - l; // bitmap row 0 = top = highest v
+                for (int i = 0; i < w; i++)
+                {
+                    var c = Colour(img[i, l] * toPct, lower, upper);
+                    int k = (row * w + i) * 4;
+                    // Premultiplied BGRA.
+                    pixels[k] = (byte)(c.B * c.A / 255);
+                    pixels[k + 1] = (byte)(c.G * c.A / 255);
+                    pixels[k + 2] = (byte)(c.R * c.A / 255);
+                    pixels[k + 3] = c.A;
+                }
+            }
+            var bmp = BitmapSource.Create(w, h, 96, 96, PixelFormats.Pbgra32, null, pixels, w * 4);
+            bmp.Freeze();
+            return bmp;
+        }
+    }
+
     public static class ColourMap
     {
-        /// <summary>Rainbow colourwash; transparent below 5% of max.</summary>
-        public static Color Dose(double fraction, byte alpha = 165)
+        /// <summary>Eclipse-like ramp from blue (t = 0) through cyan, green and yellow to red (t = 1).</summary>
+        public static Color Ramp(double t, byte alpha = 165)
         {
-            if (double.IsNaN(fraction) || fraction < 0.05) return Colors.Transparent;
-            double t = Math.Min(1, fraction);
             (double, byte, byte, byte)[] stops =
             {
-                (0.0, 20, 20, 140), (0.3, 0, 120, 255), (0.55, 0, 220, 120), (0.8, 255, 230, 0), (1.0, 255, 30, 30),
+                (0.0, 0, 0, 255), (0.25, 0, 200, 255), (0.5, 0, 220, 0), (0.75, 255, 230, 0), (1.0, 255, 0, 0),
             };
             for (int i = 1; i < stops.Length; i++)
             {
@@ -92,7 +137,7 @@ namespace SrsMcPsqa.App.Rendering
                 double f = (t - a.Item1) / (b.Item1 - a.Item1);
                 return Color.FromArgb(alpha, Lerp(a.Item2, b.Item2, f), Lerp(a.Item3, b.Item3, f), Lerp(a.Item4, b.Item4, f));
             }
-            return Color.FromArgb(alpha, 255, 30, 30);
+            return Color.FromArgb(alpha, 255, 0, 0);
         }
 
         private static byte Lerp(byte a, byte b, double f) => (byte)Math.Round(a + (b - a) * f);
@@ -105,7 +150,8 @@ namespace SrsMcPsqa.App.Rendering
         private const double Pixel = 0.5;
 
         public static PlaneScene BuildScene(ArrayOrientation o, double depth, double viewU, double viewV, DoseGrid? dose,
-            IReadOnlyList<(PlanningTarget Target, Color Colour)> targets, bool calculated, string caption, double halfView = DefaultHalfView)
+            IReadOnlyList<(PlanningTarget Target, Color Colour)> targets, bool calculated, string caption, double? referenceGy = null,
+            double halfView = DefaultHalfView)
         {
             var scene = new PlaneScene
             {
@@ -117,7 +163,8 @@ namespace SrsMcPsqa.App.Rendering
             {
                 img = PlaneSampler.SampleDose(dose, o, depth, viewU, viewV, halfView, Pixel);
                 scene.DoseMaxGy = img.Max();
-                scene.DoseBitmap = ToBitmap(img, scene.DoseMaxGy);
+                scene.DoseImage = img;
+                scene.ReferenceGy = referenceGy is double r && r > 0 ? r : scene.DoseMaxGy;
                 scene.DoseRect = new Rect(img.U0 - Pixel / 2, img.V0 - Pixel / 2, img.Width * Pixel, img.Height * Pixel);
             }
 
@@ -151,43 +198,14 @@ namespace SrsMcPsqa.App.Rendering
             if (showDiodes)
             {
                 var o = scene?.Orientation ?? ArrayOrientation.Deg0;
-                double max = scene?.DoseMaxGy ?? 0;
                 foreach (var d in DiodeArray.Positions)
                 {
                     double u = arrayU + d.U, v = arrayV + d.V;
-                    Color c = Color.FromArgb(150, 200, 200, 200);
-                    if (scene?.Dose != null && max > 0)
-                    {
-                        double frac = scene.Dose.Sample(o.FromPlane(u, v, scene.Depth)) / max;
-                        if (frac >= 0.05) c = ColourMap.Dose(frac, 255);
-                    }
-                    dots.Add(new DiodeDot(u, v, c));
+                    double gy = scene?.Dose != null ? scene.Dose.Sample(o.FromPlane(u, v, scene.Depth)) : double.NaN;
+                    dots.Add(new DiodeDot(u, v, gy));
                 }
             }
             return new PlaneOverlay { ArrayU = arrayU, ArrayV = arrayV, UsableHalf = usableHalf, Diodes = dots, ShowDiodes = showDiodes };
-        }
-
-        private static BitmapSource ToBitmap(PlaneImage img, double max)
-        {
-            int w = img.Width, h = img.Height;
-            var pixels = new byte[w * h * 4];
-            for (int l = 0; l < h; l++)
-            {
-                int row = h - 1 - l; // bitmap row 0 = top = highest v
-                for (int i = 0; i < w; i++)
-                {
-                    var c = ColourMap.Dose(max > 0 ? img[i, l] / max : 0);
-                    int k = (row * w + i) * 4;
-                    // Premultiplied BGRA.
-                    pixels[k] = (byte)(c.B * c.A / 255);
-                    pixels[k + 1] = (byte)(c.G * c.A / 255);
-                    pixels[k + 2] = (byte)(c.R * c.A / 255);
-                    pixels[k + 3] = c.A;
-                }
-            }
-            var bmp = BitmapSource.Create(w, h, 96, 96, PixelFormats.Pbgra32, null, pixels, w * 4);
-            bmp.Freeze();
-            return bmp;
         }
     }
 }

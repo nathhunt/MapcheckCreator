@@ -38,13 +38,13 @@ namespace SrsMcPsqa.Core.Tests
         [Fact]
         public void DefaultPattern()
         {
-            Assert.Equal("SMC1_0", QaPlanNaming.Generate(null, 1, ArrayOrientation.Deg0, new string[0]));
+            Assert.Equal("MC1_0", QaPlanNaming.Generate(null, 1, ArrayOrientation.Deg0, new string[0]));
             Assert.Equal("SMC2_270", QaPlanNaming.Generate("SMC{n}_{orient}", 2, ArrayOrientation.Deg270, new string[0]));
         }
 
         [Fact]
         public void SkipsExistingIdsCaseInsensitively() =>
-            Assert.Equal("SMC3_0", QaPlanNaming.Generate(null, 1, ArrayOrientation.Deg0, new[] { "smc1_0", "SMC2_0" }));
+            Assert.Equal("MC3_0", QaPlanNaming.Generate(null, 1, ArrayOrientation.Deg0, new[] { "mc1_0", "MC2_0" }));
 
         [Fact]
         public void TruncatesTo13KeepingNumber()
