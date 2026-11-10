@@ -10,7 +10,7 @@ confirmations.
 Room frame with the isocentre at the origin, aligned with the phantom's DICOM axes at couch 0: x = phantom left,
 y = posterior (down), z = superior (towards the gantry).
 
-- **Head:** a cylinder of radius *R* around the beam axis, from *D* (head face) to *D* + 300 mm from the isocentre.
+- **Head:** a cylinder of radius *R* around the beam axis, from *D* (head face) to *D* + 200 mm from the isocentre.
   Gantry θ (IEC 61217) puts the source at (sin θ, −cos θ, 0): 0° above, 90° on the phantom's left (HFS).
 - **Couch top:** a box *W* wide and *T* thick, top surface *H* below the MapCHECK user origin, centred laterally on the
   phantom (unless offset), from *E* superior of the origin to 2 m towards the feet. It rotates with the couch angle φ
@@ -33,9 +33,21 @@ available.
 | Phantom lateral offset on the couch | 0 | + = towards the phantom's left. |
 | Largest lateral offset to suggest | 50 | |
 | Warning / risk clearance | 50 / 20 | |
-| Head face distance from iso (*D*) | 380 | Conservative approximation for TrueBeam: **check the vendor specification**. |
-| Head radius (*R*) | 400 | Conservative approximation: **check**. |
-| Couch top width / thickness (*W*, *T*) | 530 / 60 | Approximation for Exact IGRT: **check**. |
+| Head face distance from iso (*D*) | 415 | 41.5 cm, as used by two open-source ESAPI collision scripts for Varian C-arm linacs (see below). |
+| Head radius (*R*) | 385 | Head 76.5 cm across (CollisionCheck) / 75 cm hub (PlanCheck), rounded up. |
+| Couch top width / thickness (*W*, *T*) | 530 / 60 | Width: Exact IGRT 53 cm. Thickness: estimate, **check** (measure, or the Eclipse couch model). |
+
+### Where the head values come from
+
+- [zackmorelli/CollisionCheck](https://github.com/zackmorelli/CollisionCheck) (ESAPI, "designed using the physical
+  dimensions of Varian C-Arm linacs"): head face 585 mm from the source at SAD 1000 mm, i.e. 41.5 cm from the isocentre;
+  head modelled as a disc of radius 382.5 mm (76.5 cm); alerts below 5 cm.
+- [LDClark/PlanCheck](https://github.com/LDClark/PlanCheck) (ESAPI, distances "from a Trilogy"): iso to collimator
+  face 41.5 cm; 47 cm metal face plate and 75 cm plastic hub (20 cm deep); warning below 4 cm, collision below 3 cm.
+- Neither is a Varian specification; the 5 cm warning margin covers the difference. A published prone-breast clearance
+  study on TrueBeam used 39.4 cm from the head to the isocentre when checking clearance in the planning system
+  ([Med Dosim 2021](https://www.sciencedirect.com/science/article/abs/pii/S0958394721000248)); if you prefer that more
+  cautious figure, enter 394.
 
 ## Before relying on it
 

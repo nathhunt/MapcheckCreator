@@ -7,17 +7,19 @@ using SrsMcPsqa.Core.Geometry;
 namespace SrsMcPsqa.Core.Collision
 {
     /// <summary>
-    /// Geometry for the gantry–couch clearance check (mm). Defaults are deliberately conservative approximations for a
-    /// TrueBeam with an Exact IGRT couch top; verify them against the vendor specification and your own setup (Settings).
+    /// Geometry for the gantry–couch clearance check (mm). Head defaults follow two open-source ESAPI collision scripts for
+    /// Varian C-arm linacs: 41.5 cm from the isocentre to the head face, head 76.5 cm across (zackmorelli/CollisionCheck;
+    /// LDClark/PlanCheck: 41.5 cm, 75 cm hub). Couch: Exact IGRT top 53 cm wide; thickness estimated. Verify against your
+    /// machine (Settings); the warning margin covers the remaining uncertainty.
     /// </summary>
     public sealed class CollisionSettings
     {
         /// <summary>Distance from the isocentre to the face of the treatment head (collimator cover).</summary>
-        public double HeadClearanceMm { get; set; } = 380;
+        public double HeadClearanceMm { get; set; } = 415;
         /// <summary>Radius of the head, modelled as a cylinder around the beam axis.</summary>
-        public double HeadRadiusMm { get; set; } = 400;
+        public double HeadRadiusMm { get; set; } = 385;
         /// <summary>Length of the head cylinder from its face towards the source (only the part near the couch matters).</summary>
-        public double HeadDepthMm { get; set; } = 300;
+        public double HeadDepthMm { get; set; } = 200;
 
         public double CouchWidthMm { get; set; } = 530;
         public double CouchThicknessMm { get; set; } = 60;

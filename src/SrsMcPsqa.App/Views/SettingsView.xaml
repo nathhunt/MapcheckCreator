@@ -58,7 +58,7 @@
                 <StackPanel>
                     <TextBlock Style="{StaticResource Section}" Text="Gantry–couch collision check" />
                     <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
-                               Text="Warns (never blocks) when the treatment head comes close to the couch top for a QA isocentre, and suggests a lateral phantom offset on the couch. Simple geometric model: the head is a cylinder, the couch top a box; the phantom isn't modelled. Head and couch defaults are conservative approximations for a TrueBeam with an Exact IGRT top: check them against the vendor specifications. All values in mm." />
+                               Text="Warns (never blocks) when the treatment head comes close to the couch top for a QA isocentre, and suggests a lateral phantom offset on the couch. Simple geometric model: the head is a cylinder, the couch top a box; the phantom isn't modelled. Head defaults (41.5 cm from the isocentre, 76.5 cm across) are the values used by open-source ESAPI collision scripts for Varian C-arm linacs; couch width is the 53 cm Exact IGRT top, thickness an estimate. Check them for your machine. All values in mm." />
                     <Grid Margin="0,4,0,0">
                         <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition /></Grid.ColumnDefinitions>
                         <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>

@@ -37,9 +37,10 @@ namespace SrsMcPsqa.App.Infrastructure
         [DataMember] public double FineTuneNormalRangeMm { get; set; } = 10.0;
         [DataMember] public bool AutoSave { get; set; } = true;
 
-        // Gantry–couch collision check (mm). Head/couch defaults: conservative approximations for TrueBeam + Exact IGRT.
-        [DataMember] public double CollisionHeadClearanceMm { get; set; } = 380;
-        [DataMember] public double CollisionHeadRadiusMm { get; set; } = 400;
+        // Gantry–couch collision check (mm). Head: 41.5 cm iso to face, 76.5 cm across (open-source ESAPI collision scripts);
+        // couch: Exact IGRT 53 cm wide, thickness estimated. See docs/COLLISION_CHECK.md.
+        [DataMember] public double CollisionHeadClearanceMm { get; set; } = 415;
+        [DataMember] public double CollisionHeadRadiusMm { get; set; } = 385;
         [DataMember] public double CollisionCouchWidthMm { get; set; } = 530;
         [DataMember] public double CollisionCouchThicknessMm { get; set; } = 60;
         /// <summary>MapCHECK user origin height above the couch top; 0 = not set (check disabled).</summary>
