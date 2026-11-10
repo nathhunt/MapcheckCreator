@@ -11,7 +11,7 @@
                  d:DataContext="{d:DesignInstance Type=vm:ShellViewModel}"
                  Title="{Binding WindowTitle}"
                  Width="1340" Height="740" MinWidth="1100" MinHeight="620"
-                 WindowStartupLocation="Manual"
+                 WindowStartupLocation="CenterScreen"
                  ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="None"
                  Background="{DynamicResource ApplicationBackgroundBrush}">
