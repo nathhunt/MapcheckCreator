@@ -76,7 +76,8 @@
                     </Expander>
                 </StackPanel>
 
-                <ListBox ItemsSource="{Binding Planes}" SelectedItem="{Binding SelectedPlane}">
+                <!-- No horizontal scrolling, so the item text wraps to the column width -->
+                <ListBox ItemsSource="{Binding Planes}" SelectedItem="{Binding SelectedPlane}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
                             <Setter Property="Padding" Value="10,8" />
