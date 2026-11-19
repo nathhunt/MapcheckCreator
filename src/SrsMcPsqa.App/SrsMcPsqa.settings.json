@@ -24,7 +24,7 @@
   "CollisionCouchHeadEndSupMm": -60,
   "CollisionPhantomLateralOffsetMm": 0,
   "CollisionMaxLateralOffsetMm": 50,
-  "CollisionWarningMm": 50,
-  "CollisionRiskMm": 20,
+  "CollisionWarningMm": 30,
+  "CollisionRiskMm": 15,
   "QaCourseId": "QA"
 }

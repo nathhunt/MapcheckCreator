@@ -22,8 +22,8 @@ y = posterior (down), z = superior (towards the gantry).
   against the head cylinder computed exactly; the smaller wins. Gantry angles every 1° between control points, in the
   arc's direction (a conformal arc may have only start and stop control points).
 
-Clearance per beam = smallest gap between head and couch over its gantry angles. Below **Warning** (default 50 mm):
-amber; below **Risk** (default 20 mm) or overlapping: red. When below Warning, the app tries lateral phantom offsets in
+Clearance per beam = smallest gap between head and couch over its gantry angles. Below **Warning** (default 30 mm):
+amber; below **Risk** (default 15 mm) or overlapping: red. When below Warning, the app tries lateral phantom offsets in
 5 mm steps up to ±*max* (default 50 mm) and suggests the smallest one that clears the warning level, or the best one
 available.
 
@@ -50,7 +50,7 @@ available.
 | Couch head end, superior of the origin (*E*) | −60 | Department setup: the array centre overhangs the couch end by 60 mm. |
 | Phantom lateral offset on the couch | 0 | + = towards the phantom's left. |
 | Largest lateral offset to suggest | 50 | |
-| Warning / risk clearance | 50 / 20 | |
+| Warning / risk clearance | 30 / 15 | Department values. |
 | Head face distance from iso (*D*) | 395 | The machine's clearance circle: 39.5 cm radius (department value). The scripts below use 41.5 cm. |
 | Head radius (*R*) | 385 | Head 76.5 cm across (CollisionCheck) / 75 cm hub (PlanCheck), rounded up. |
 | Couch top width / thickness (*W*, *T*) | 530 / 50 | Exact IGRT, from the Eclipse couch structure (53.02 × 5.03 cm); the profile shape scales with these. |

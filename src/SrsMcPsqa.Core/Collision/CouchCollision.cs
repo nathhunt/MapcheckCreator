@@ -53,9 +53,9 @@ namespace SrsMcPsqa.Core.Collision
         public double LateralStepMm { get; set; } = 5;
 
         /// <summary>Clearance below this is a warning.</summary>
-        public double WarningMm { get; set; } = 50;
+        public double WarningMm { get; set; } = 30;
         /// <summary>Clearance below this is a collision risk.</summary>
-        public double RiskMm { get; set; } = 20;
+        public double RiskMm { get; set; } = 15;
 
         public bool IsConfigured => OriginAboveCouchMm > 0 && HeadClearanceMm > 0 && HeadRadiusMm > 0 && CouchWidthMm > 0 && CouchThicknessMm > 0;
 

@@ -10,7 +10,7 @@ namespace SrsMcPsqa.Core.Tests
         // Defaults: head face 395 mm from iso (clearance circle), radius 385; couch: Exact IGRT profile, 530 wide at its
         // widest (11 mm below the top), 50 thick, 428 wide at the bottom. Test setup: couch top 110 mm below the MapCHECK
         // user origin, head end 200 mm superior of it.
-        private static CollisionSettings S() => new CollisionSettings { OriginAboveCouchMm = 110, CouchHeadEndSupMm = 200 };
+        private static CollisionSettings S() => new CollisionSettings { OriginAboveCouchMm = 110, CouchHeadEndSupMm = 200, WarningMm = 50, RiskMm = 20 };
 
         private static BeamGeometry Static(double gantry, double couch = 0) => new BeamGeometry("B", couch, new[] { gantry });
         private static BeamGeometry FullArc() => new BeamGeometry("ARC", 0, Enumerable.Range(0, 181).Select(i => (181 + 2.0 * i) % 360).ToList());
@@ -134,6 +134,8 @@ namespace SrsMcPsqa.Core.Tests
             Assert.True(d.IsConfigured);
             Assert.Equal(200, d.OriginAboveCouchMm);
             Assert.Equal(-60, d.CouchHeadEndSupMm);
+            Assert.Equal(30, d.WarningMm);
+            Assert.Equal(15, d.RiskMm);
         }
     }
 }

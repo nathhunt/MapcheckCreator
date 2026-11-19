@@ -52,8 +52,8 @@ namespace SrsMcPsqa.App.Infrastructure
         [DataMember] public double CollisionCouchHeadEndSupMm { get; set; } = -60;
         [DataMember] public double CollisionPhantomLateralOffsetMm { get; set; }
         [DataMember] public double CollisionMaxLateralOffsetMm { get; set; } = 50;
-        [DataMember] public double CollisionWarningMm { get; set; } = 50;
-        [DataMember] public double CollisionRiskMm { get; set; } = 20;
+        [DataMember] public double CollisionWarningMm { get; set; } = 30;
+        [DataMember] public double CollisionRiskMm { get; set; } = 15;
         [DataMember] public string LogLevel { get; set; } = "Info";
         /// <summary>System, Light or Dark.</summary>
         [DataMember] public string Theme { get; set; } = "System";
