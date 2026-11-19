@@ -42,10 +42,10 @@ namespace SrsMcPsqa.App.Infrastructure
 
         // Gantry–couch collision check (mm). Head: 41.5 cm iso to face, 76.5 cm across (open-source ESAPI collision scripts);
         // couch: Exact IGRT 53 cm wide, thickness estimated. See docs/COLLISION_CHECK.md.
-        [DataMember] public double CollisionHeadClearanceMm { get; set; } = 415;
+        [DataMember] public double CollisionHeadClearanceMm { get; set; } = 395;
         [DataMember] public double CollisionHeadRadiusMm { get; set; } = 385;
         [DataMember] public double CollisionCouchWidthMm { get; set; } = 530;
-        [DataMember] public double CollisionCouchThicknessMm { get; set; } = 60;
+        [DataMember] public double CollisionCouchThicknessMm { get; set; } = 50;
         /// <summary>MapCHECK user origin (array centre) height above the couch top; 0 = not set (check disabled).</summary>
         [DataMember] public double CollisionOriginAboveCouchMm { get; set; } = 200;
         /// <summary>Couch top head end superior of the array centre; −60 = the array centre overhangs the couch end by 60 mm.</summary>

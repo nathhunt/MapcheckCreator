@@ -7,22 +7,33 @@ using SrsMcPsqa.Core.Geometry;
 namespace SrsMcPsqa.Core.Collision
 {
     /// <summary>
-    /// Geometry for the gantry–couch clearance check (mm). Head defaults follow two open-source ESAPI collision scripts for
-    /// Varian C-arm linacs: 41.5 cm from the isocentre to the head face, head 76.5 cm across (zackmorelli/CollisionCheck;
-    /// LDClark/PlanCheck: 41.5 cm, 75 cm hub). Couch: Exact IGRT top 53 cm wide; thickness estimated. Verify against your
-    /// machine (Settings); the warning margin covers the remaining uncertainty.
+    /// Geometry for the gantry–couch clearance check (mm). Head: the machine's clearance circle, 39.5 cm radius around the
+    /// isocentre (department value), as the head face distance; head 76.5 cm across (open-source ESAPI collision scripts
+    /// zackmorelli/CollisionCheck and LDClark/PlanCheck). Couch: Exact IGRT top profile measured on the Eclipse couch
+    /// structure (53.0 cm wide, 5.0 cm thick).
     /// </summary>
     public sealed class CollisionSettings
     {
         /// <summary>Distance from the isocentre to the face of the treatment head (collimator cover).</summary>
-        public double HeadClearanceMm { get; set; } = 415;
+        public double HeadClearanceMm { get; set; } = 395;
         /// <summary>Radius of the head, modelled as a cylinder around the beam axis.</summary>
         public double HeadRadiusMm { get; set; } = 385;
         /// <summary>Length of the head cylinder from its face towards the source (only the part near the couch matters).</summary>
         public double HeadDepthMm { get; set; } = 200;
 
+        /// <summary>Couch top width at its widest (about 1 cm below the top surface).</summary>
         public double CouchWidthMm { get; set; } = 530;
-        public double CouchThicknessMm { get; set; } = 60;
+        public double CouchThicknessMm { get; set; } = 50;
+
+        /// <summary>
+        /// Exact IGRT couch top cross-section, one side, from the top surface down: (depth as a fraction of the thickness,
+        /// half-width as a fraction of half the maximum width). Measured on the Eclipse couch structure (53.0 cm wide,
+        /// 5.0 cm thick): rounded top corner, widest ~1.1 cm below the top, sides curving in to a ~43 cm bottom. Convex.
+        /// </summary>
+        public static IReadOnlyList<(double Depth, double HalfWidth)> CouchProfile { get; } = new[]
+        {
+            (0.0, 0.962), (0.076, 0.983), (0.219, 1.0), (0.437, 0.975), (0.676, 0.925), (0.855, 0.875), (1.0, 0.808),
+        };
         /// <summary>Length of the couch top from its head end towards the feet.</summary>
         public double CouchLengthMm { get; set; } = 2000;
         /// <summary>
@@ -136,7 +147,8 @@ namespace SrsMcPsqa.Core.Collision
     /// <item>The head is a cylinder of radius <c>HeadRadiusMm</c> along the beam axis, from <c>HeadClearanceMm</c> to
     /// <c>HeadClearanceMm + HeadDepthMm</c> from the isocentre. Gantry angle θ (IEC 61217, increasing clockwise seen from
     /// the foot of the couch) puts the source at (sin θ, −cos θ, 0): 0° above, 90° on the phantom's left (HFS).</item>
-    /// <item>The couch top is a box below the phantom (top surface <c>OriginAboveCouchMm</c> below the user origin), centred
+    /// <item>The couch top is a prism with the Exact IGRT cross-section (<see cref="CollisionSettings.CouchProfile"/>) below the
+    /// phantom (top surface <c>OriginAboveCouchMm</c> below the user origin), centred
     /// laterally on the phantom unless offset, from <c>CouchHeadEndSupMm</c> superior of the origin towards the feet.
     /// It rotates with the couch angle φ about the vertical axis through the isocentre, counter-clockwise seen from above
     /// for positive φ (IEC 61217).</item>
@@ -154,7 +166,7 @@ namespace SrsMcPsqa.Core.Collision
         {
             double offset = lateralOffsetMm ?? s.PhantomLateralOffsetMm;
             var head = HeadArrays.From(HeadPoints(s));
-            var couch = CouchBox(isoFromOrigin, s, offset);
+            var couch = BuildCouch(isoFromOrigin, s, offset);
             var edges = HeadArrays.From(EdgeSamples(couch, s));
             // Bounding sphere of the head (centre on the beam axis) for a quick lower bound per gantry angle.
             double centreDepth = s.HeadClearanceMm + s.HeadDepthMm / 2;
@@ -212,31 +224,73 @@ namespace SrsMcPsqa.Core.Collision
 
         // ------------------------------------------------------------------ geometry
 
-        /// <summary>Axis-aligned couch box in the couch frame (isocentre at the origin, couch 0).</summary>
-        private readonly struct Box
+        /// <summary>
+        /// Couch top in the couch frame (isocentre at the origin, couch 0): a prism along z whose cross-section (x, y) is the
+        /// convex Exact IGRT profile (<see cref="CollisionSettings.CouchProfile"/>), from zMin to zMax.
+        /// </summary>
+        private sealed class CouchShape
         {
-            public Box(Vec3 min, Vec3 max) { Min = min; Max = max; }
-            public Vec3 Min { get; }
-            public Vec3 Max { get; }
+            public double[] Vx = Array.Empty<double>(), Vy = Array.Empty<double>(); // polygon vertices, in order
+            public double ZMin, ZMax, BoxMinX, BoxMaxX, BoxMinY, BoxMaxY;
 
-            /// <summary>Euclidean distance from p to the box; negative (minus the depth) inside.</summary>
-            public double SignedDistance(Vec3 p)
+            /// <summary>Signed distance from (x, y, z) to the prism: negative inside.</summary>
+            public double SignedDistance(double x, double y, double z)
             {
-                double dx = Math.Max(Min.X - p.X, p.X - Max.X), dy = Math.Max(Min.Y - p.Y, p.Y - Max.Y), dz = Math.Max(Min.Z - p.Z, p.Z - Max.Z);
-                double ox = Math.Max(dx, 0), oy = Math.Max(dy, 0), oz = Math.Max(dz, 0);
-                double outside = Math.Sqrt(ox * ox + oy * oy + oz * oz);
-                return outside > 0 ? outside : Math.Max(dx, Math.Max(dy, dz));
+                double d2 = SignedDistance2D(x, y);
+                double dz = Math.Max(ZMin - z, z - ZMax);
+                if (d2 <= 0 && dz <= 0) return Math.Max(d2, dz);
+                double a = d2 > 0 ? d2 : 0, b = dz > 0 ? dz : 0;
+                return Math.Sqrt(a * a + b * b);
+            }
+
+            /// <summary>Lower bound (outside the bounding box) used to skip points quickly; 0 when inside the box.</summary>
+            public double BoxDistanceSquared(double x, double y, double z)
+            {
+                double dx = Math.Max(Math.Max(BoxMinX - x, x - BoxMaxX), 0), dy = Math.Max(Math.Max(BoxMinY - y, y - BoxMaxY), 0);
+                double dz = Math.Max(Math.Max(ZMin - z, z - ZMax), 0);
+                return dx * dx + dy * dy + dz * dz;
+            }
+
+            private double SignedDistance2D(double x, double y)
+            {
+                int n = Vx.Length;
+                double best = double.PositiveInfinity;
+                bool inside = true;
+                for (int i = 0, j = n - 1; i < n; j = i++)
+                {
+                    double ax = Vx[j], ay = Vy[j], ex = Vx[i] - ax, ey = Vy[i] - ay, px = x - ax, py = y - ay;
+                    double t = (px * ex + py * ey) / (ex * ex + ey * ey);
+                    t = t < 0 ? 0 : t > 1 ? 1 : t;
+                    double qx = px - t * ex, qy = py - t * ey, d = qx * qx + qy * qy;
+                    if (d < best) best = d;
+                    if (ex * py - ey * px < 0) inside = false; // positive signed area (see BuildCouch) → interior on the left of each edge
+                }
+                double dist = Math.Sqrt(best);
+                return inside ? -dist : dist;
             }
         }
 
-        private static Box CouchBox(Vec3 iso, CollisionSettings s, double lateralOffset)
+        private static CouchShape BuildCouch(Vec3 iso, CollisionSettings s, double lateralOffset)
         {
             // Phantom frame relative to the user origin, then relative to the isocentre.
-            double centreX = -lateralOffset; // phantom moved towards +x on the couch = couch centre at −x of the phantom
-            double top = s.OriginAboveCouchMm; // +y is posterior (down)
-            var min = new Vec3(centreX - s.CouchWidthMm / 2, top, s.CouchHeadEndSupMm - s.CouchLengthMm);
-            var max = new Vec3(centreX + s.CouchWidthMm / 2, top + s.CouchThicknessMm, s.CouchHeadEndSupMm);
-            return new Box(min - iso, max - iso);
+            double centreX = -lateralOffset - iso.X; // phantom moved towards +x on the couch = couch centre at −x of the phantom
+            double top = s.OriginAboveCouchMm - iso.Y; // +y is posterior (down)
+            double half = s.CouchWidthMm / 2, t = s.CouchThicknessMm;
+            var prof = CollisionSettings.CouchProfile;
+            var xs = new List<double>(); var ys = new List<double>();
+            // Right side from the top down, then the left side from the bottom up: a closed convex polygon.
+            for (int i = 0; i < prof.Count; i++) { xs.Add(centreX + half * prof[i].HalfWidth); ys.Add(top + t * prof[i].Depth); }
+            for (int i = prof.Count - 1; i >= 0; i--) { xs.Add(centreX - half * prof[i].HalfWidth); ys.Add(top + t * prof[i].Depth); }
+            // Orientation for the inside test: make the vertex order consistent (positive signed area in x-right, y-down).
+            double area = 0;
+            for (int i = 0, j = xs.Count - 1; i < xs.Count; j = i++) area += xs[j] * ys[i] - xs[i] * ys[j];
+            if (area < 0) { xs.Reverse(); ys.Reverse(); }
+            return new CouchShape
+            {
+                Vx = xs.ToArray(), Vy = ys.ToArray(),
+                ZMin = s.CouchHeadEndSupMm - s.CouchLengthMm - iso.Z, ZMax = s.CouchHeadEndSupMm - iso.Z,
+                BoxMinX = xs.Min(), BoxMaxX = xs.Max(), BoxMinY = ys.Min(), BoxMaxY = ys.Max(),
+            };
         }
 
         /// <summary>Sample points on the head at gantry 0 (beam axis along −y: the head is above, at y &lt; 0).</summary>
@@ -258,9 +312,6 @@ namespace SrsMcPsqa.Core.Collision
             return pts;
         }
 
-        private static double Clearance(IReadOnlyList<Vec3> head, double gantryDeg, double couchDeg, Box couch) =>
-            Clearance(HeadArrays.From(head), gantryDeg, couchDeg, couch);
-
         /// <summary>Head sample points as flat arrays (the hot loop avoids enumerators and struct copies).</summary>
         private sealed class HeadArrays
         {
@@ -271,7 +322,7 @@ namespace SrsMcPsqa.Core.Collision
             };
         }
 
-        private static double Clearance(HeadArrays head, double gantryDeg, double couchDeg, Box couch)
+        private static double Clearance(HeadArrays head, double gantryDeg, double couchDeg, CouchShape couch)
         {
             // Head point at gantry 0 → room: rotate about z by θ (y-down frame: source at (sin θ, −cos θ, 0)).
             double g = gantryDeg * Math.PI / 180, cg = Math.Cos(g), sg = Math.Sin(g);
@@ -279,33 +330,26 @@ namespace SrsMcPsqa.Core.Collision
             // Couch rotation R(φ) maps couch → room in the top view (x right, z towards the gantry):
             // (x, z) → (x cos φ − z sin φ, x sin φ + z cos φ); its inverse is applied below.
             double c = couchDeg * Math.PI / 180, cc = Math.Cos(c), sc = Math.Sin(c);
-            double minX = couch.Min.X, minY = couch.Min.Y, minZ = couch.Min.Z, maxX = couch.Max.X, maxY = couch.Max.Y, maxZ = couch.Max.Z;
             double best = double.PositiveInfinity;
             var hx = head.X; var hy = head.Y; var hz = head.Z;
             for (int i = 0; i < hx.Length; i++)
             {
                 double x = hx[i] * cg - hy[i] * sg, y = hx[i] * sg + hy[i] * cg, z = hz[i];
                 double xc = x * cc + z * sc, zc = -x * sc + z * cc;
-                double dx = Math.Max(minX - xc, xc - maxX), dy = Math.Max(minY - y, y - maxY), dz = Math.Max(minZ - zc, zc - maxZ);
-                double d;
-                if (dx <= 0 && dy <= 0 && dz <= 0) d = Math.Max(dx, Math.Max(dy, dz));
-                else
-                {
-                    double ox = dx > 0 ? dx : 0, oy = dy > 0 ? dy : 0, oz = dz > 0 ? dz : 0;
-                    double sq = ox * ox + oy * oy + oz * oz;
-                    if (sq >= best * best && best > 0) continue; // can't beat the current best
-                    d = Math.Sqrt(sq);
-                }
+                if (best > 0 && couch.BoxDistanceSquared(xc, y, zc) >= best * best) continue; // can't beat the current best
+                double d = couch.SignedDistance(xc, y, zc);
                 if (d < best) best = d;
             }
             return best;
         }
 
-        /// <summary>Points along the couch box edges (10 mm apart) that the head could reach, in the couch frame.</summary>
-        private static List<Vec3> EdgeSamples(Box b, CollisionSettings s)
+        /// <summary>
+        /// Points along the couch's long edges (at every profile vertex) and around its end profiles, 10 mm apart, that the
+        /// head could reach, in the couch frame.
+        /// </summary>
+        private static List<Vec3> EdgeSamples(CouchShape b, CollisionSettings s)
         {
             double reach = Math.Sqrt(Math.Pow(s.HeadClearanceMm + s.HeadDepthMm, 2) + s.HeadRadiusMm * s.HeadRadiusMm) + 2 * s.WarningMm;
-            var xs = new[] { b.Min.X, b.Max.X }; var ys = new[] { b.Min.Y, b.Max.Y }; var zs = new[] { b.Min.Z, b.Max.Z };
             var pts = new List<Vec3>();
             void Line(Vec3 p, Vec3 q)
             {
@@ -316,9 +360,13 @@ namespace SrsMcPsqa.Core.Collision
                     if (v.Length <= reach) pts.Add(v);
                 }
             }
-            foreach (var y in ys) foreach (var z in zs) Line(new Vec3(xs[0], y, z), new Vec3(xs[1], y, z));
-            foreach (var x in xs) foreach (var z in zs) Line(new Vec3(x, ys[0], z), new Vec3(x, ys[1], z));
-            foreach (var x in xs) foreach (var y in ys) Line(new Vec3(x, y, zs[0]), new Vec3(x, y, zs[1]));
+            int m = b.Vx.Length;
+            for (int i = 0; i < m; i++)
+            {
+                Line(new Vec3(b.Vx[i], b.Vy[i], b.ZMin), new Vec3(b.Vx[i], b.Vy[i], b.ZMax));
+                int j = (i + 1) % m;
+                foreach (var z in new[] { b.ZMin, b.ZMax }) Line(new Vec3(b.Vx[i], b.Vy[i], z), new Vec3(b.Vx[j], b.Vy[j], z));
+            }
             return pts;
         }
 

@@ -12,8 +12,10 @@ y = posterior (down), z = superior (towards the gantry).
 
 - **Head:** a cylinder of radius *R* around the beam axis, from *D* (head face) to *D* + 200 mm from the isocentre.
   Gantry θ (IEC 61217) puts the source at (sin θ, −cos θ, 0): 0° above, 90° on the phantom's left (HFS).
-- **Couch top:** a box *W* wide and *T* thick, top surface *H* below the MapCHECK user origin, centred laterally on the
-  phantom (unless offset), from *E* superior of the origin to 2 m towards the feet. It rotates with the couch angle φ
+- **Couch top:** a prism with the Exact IGRT cross-section, measured on the Eclipse couch structure: *W* = 53.0 cm at
+  its widest (about 1.1 cm below the top surface, rounded top corners), *T* = 5.0 cm thick, the sides curving in to a
+  bottom about 43 cm wide. Top surface *H* below the MapCHECK user origin, centred laterally on the phantom (unless
+  offset), from *E* superior of the origin to 2 m towards the feet. It rotates with the couch angle φ
   about the vertical axis through the isocentre, counter-clockwise seen from above for positive φ (IEC 61217).
 - **Not modelled:** the phantom, the imaging arms (assumed retracted), couch rails and accessories.
 - Distance: head surface samples (25 mm face grid, rings every 6°) against the couch box, plus couch edge samples (10 mm)
@@ -49,9 +51,9 @@ available.
 | Phantom lateral offset on the couch | 0 | + = towards the phantom's left. |
 | Largest lateral offset to suggest | 50 | |
 | Warning / risk clearance | 50 / 20 | |
-| Head face distance from iso (*D*) | 415 | 41.5 cm, as used by two open-source ESAPI collision scripts for Varian C-arm linacs (see below). |
+| Head face distance from iso (*D*) | 395 | The machine's clearance circle: 39.5 cm radius (department value). The scripts below use 41.5 cm. |
 | Head radius (*R*) | 385 | Head 76.5 cm across (CollisionCheck) / 75 cm hub (PlanCheck), rounded up. |
-| Couch top width / thickness (*W*, *T*) | 530 / 60 | Width: Exact IGRT 53 cm. Thickness: estimate, **check** (measure, or the Eclipse couch model). |
+| Couch top width / thickness (*W*, *T*) | 530 / 50 | Exact IGRT, from the Eclipse couch structure (53.02 × 5.03 cm); the profile shape scales with these. |
 
 ### Where the head values come from
 

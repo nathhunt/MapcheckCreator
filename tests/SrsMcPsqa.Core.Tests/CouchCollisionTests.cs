@@ -7,8 +7,9 @@ namespace SrsMcPsqa.Core.Tests
 {
     public class CouchCollisionTests
     {
-        // Defaults: head face 415 mm from iso, radius 385; couch 530 wide, 60 thick, head end 200 mm sup.
-        // Test setup: couch top 110 mm below the MapCHECK user origin.
+        // Defaults: head face 395 mm from iso (clearance circle), radius 385; couch: Exact IGRT profile, 530 wide at its
+        // widest (11 mm below the top), 50 thick, 428 wide at the bottom. Test setup: couch top 110 mm below the MapCHECK
+        // user origin, head end 200 mm superior of it.
         private static CollisionSettings S() => new CollisionSettings { OriginAboveCouchMm = 110, CouchHeadEndSupMm = 200 };
 
         private static BeamGeometry Static(double gantry, double couch = 0) => new BeamGeometry("B", couch, new[] { gantry });
@@ -17,17 +18,17 @@ namespace SrsMcPsqa.Core.Tests
         [Fact]
         public void LateralFieldClearsCouchEdge()
         {
-            // Iso at the origin, gantry 270: head face at x = −415, couch edge at x = −265 → 150 mm.
+            // Iso at the origin, gantry 270: head face at x = −395, couch widest edge at x = −265 → 130 mm.
             var r = CouchCollision.Check(Vec3.Zero, new[] { Static(270) }, S());
-            Assert.Equal(150, r.MinClearanceMm, 0);
+            Assert.Equal(130, r.MinClearanceMm, 0);
             Assert.Equal(ClearanceLevel.Clear, r.Level);
         }
 
         [Fact]
         public void IsoShiftedLeftBringsCouchCloseOnTheRight()
         {
-            // Iso 140 mm to the phantom's left: couch right edge at x = −405 relative to iso → 10 mm at gantry 270.
-            var r = CouchCollision.Check(new Vec3(140, 0, 0), new[] { Static(270) }, S());
+            // Iso 120 mm to the phantom's left: couch right edge at x = −385 relative to iso → 10 mm at gantry 270.
+            var r = CouchCollision.Check(new Vec3(120, 0, 0), new[] { Static(270) }, S());
             Assert.Equal(10, r.MinClearanceMm, 0);
             Assert.Equal(ClearanceLevel.Risk, r.Level);
             Assert.Equal(270, r.Worst!.GantryAtMin, 0);
@@ -36,10 +37,10 @@ namespace SrsMcPsqa.Core.Tests
         [Fact]
         public void PosteriorFieldAndPosteriorShift()
         {
-            // Gantry 180: head face 415 mm below iso; couch underside 170 mm below the origin.
-            Assert.Equal(245, CouchCollision.Check(Vec3.Zero, new[] { Static(180) }, S()).MinClearanceMm, 0);
-            // Iso 100 mm posterior: couch underside only 70 mm below iso → 345 mm.
-            Assert.Equal(345, CouchCollision.Check(new Vec3(0, 100, 0), new[] { Static(180) }, S()).MinClearanceMm, 0);
+            // Gantry 180: head face 395 mm below iso; couch underside 160 mm below the origin → 235 mm.
+            Assert.Equal(235, CouchCollision.Check(Vec3.Zero, new[] { Static(180) }, S()).MinClearanceMm, 0);
+            // Iso 100 mm posterior: couch underside only 60 mm below iso → 335 mm.
+            Assert.Equal(335, CouchCollision.Check(new Vec3(0, 100, 0), new[] { Static(180) }, S()).MinClearanceMm, 0);
         }
 
         [Fact]
@@ -58,7 +59,7 @@ namespace SrsMcPsqa.Core.Tests
         {
             // Couch 90 (counter-clockwise from above): the couch body points to +x, its head end 200 mm towards −x.
             Assert.True(CouchCollision.Check(Vec3.Zero, new[] { Static(90, 90) }, S()).MinClearanceMm < 0);
-            Assert.Equal(215, CouchCollision.Check(Vec3.Zero, new[] { Static(270, 90) }, S()).MinClearanceMm, 0);
+            Assert.Equal(195, CouchCollision.Check(Vec3.Zero, new[] { Static(270, 90) }, S()).MinClearanceMm, 0);
         }
 
         [Fact]
@@ -93,7 +94,7 @@ namespace SrsMcPsqa.Core.Tests
             // gantry θ: head face centre = iso + d·(cos φ sin θ, −cos θ, −sin φ sin θ). zackmorelli/CollisionCheck uses the
             // same source position (1000·sin θ, −1000·cos θ) and couch rotation. Put a 2 mm "couch" on that point: it must
             // touch the head face here, and be far away with the couch angle mirrored.
-            double d = 415, t = gantry * System.Math.PI / 180, p = couch * System.Math.PI / 180;
+            double d = 395, t = gantry * System.Math.PI / 180, p = couch * System.Math.PI / 180;
             var c = new Vec3(d * System.Math.Cos(p) * System.Math.Sin(t), -d * System.Math.Cos(t), -d * System.Math.Sin(p) * System.Math.Sin(t));
             CollisionSettings Box(Vec3 centre) => new CollisionSettings
             {
@@ -111,7 +112,7 @@ namespace SrsMcPsqa.Core.Tests
         [Fact]
         public void ConformalArcWithOnlyStartAndStopFollowsItsDirection()
         {
-            // 181° → 179° clockwise passes 270° (couch edge 150 mm away); taken the short way it would only see ~180°.
+            // 181° → 179° clockwise passes 270°; taken the short way it would only see ~180°.
             var cw = new BeamGeometry("DCA", 0, new[] { 181.0, 179.0 }, ArcDirection.Clockwise);
             var r = CouchCollision.Check(new Vec3(140, 0, 0), new[] { cw }, S());
             Assert.Equal(ClearanceLevel.Risk, r.Level);
@@ -120,7 +121,7 @@ namespace SrsMcPsqa.Core.Tests
             // Counter-clockwise from 90° to 270° goes over the top (through 0°): never under the couch.
             var ccw = new BeamGeometry("DCA", 0, new[] { 90.0, 270.0 }, ArcDirection.CounterClockwise);
             Assert.InRange(CouchCollision.Check(Vec3.Zero, new[] { ccw }, S()).Worst!.GantryAtMin, 0, 360);
-            Assert.Equal(150, CouchCollision.Check(Vec3.Zero, new[] { ccw }, S()).MinClearanceMm, 0);
+            Assert.Equal(130, CouchCollision.Check(Vec3.Zero, new[] { ccw }, S()).MinClearanceMm, 0);
         }
 
         [Fact]
