@@ -26,15 +26,15 @@ namespace SrsMcPsqa.Core.Collision
         /// <summary>Length of the couch top from its head end towards the feet.</summary>
         public double CouchLengthMm { get; set; } = 2000;
         /// <summary>
-        /// Vertical distance from the MapCHECK user origin down to the couch top surface. 0 = not set: the check
-        /// can't run until this is entered.
+        /// Vertical distance from the MapCHECK user origin down to the couch top surface (department setup: 200 mm).
+        /// 0 = not set: the check doesn't run.
         /// </summary>
-        public double OriginAboveCouchMm { get; set; }
+        public double OriginAboveCouchMm { get; set; } = 200;
         /// <summary>
         /// How far the couch top extends superior of the MapCHECK user origin (towards the gantry at couch 0);
         /// negative when the phantom overhangs the head end.
         /// </summary>
-        public double CouchHeadEndSupMm { get; set; } = 200;
+        public double CouchHeadEndSupMm { get; set; } = -60;
         /// <summary>Phantom lateral offset on the couch (+ = towards the phantom's left, −x); 0 = centred.</summary>
         public double PhantomLateralOffsetMm { get; set; }
         /// <summary>Largest lateral offset that may be suggested.</summary>

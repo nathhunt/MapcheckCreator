@@ -44,8 +44,8 @@ available.
 
 | Setting | Default | Notes |
 |---|---|---|
-| MapCHECK user origin height above couch top (*H*) | **not set** | Required: the check is off until entered. |
-| Couch head end, superior of the origin (*E*) | 200 | Negative if the phantom overhangs the head end. |
+| MapCHECK user origin height above couch top (*H*) | 200 | Department setup. 0 switches the check off. |
+| Couch head end, superior of the origin (*E*) | −60 | Department setup: the array centre overhangs the couch end by 60 mm. |
 | Phantom lateral offset on the couch | 0 | + = towards the phantom's left. |
 | Largest lateral offset to suggest | 50 | |
 | Warning / risk clearance | 50 / 20 | |

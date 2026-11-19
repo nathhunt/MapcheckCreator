@@ -9,7 +9,7 @@ namespace SrsMcPsqa.Core.Tests
     {
         // Defaults: head face 415 mm from iso, radius 385; couch 530 wide, 60 thick, head end 200 mm sup.
         // Test setup: couch top 110 mm below the MapCHECK user origin.
-        private static CollisionSettings S() => new CollisionSettings { OriginAboveCouchMm = 110 };
+        private static CollisionSettings S() => new CollisionSettings { OriginAboveCouchMm = 110, CouchHeadEndSupMm = 200 };
 
         private static BeamGeometry Static(double gantry, double couch = 0) => new BeamGeometry("B", couch, new[] { gantry });
         private static BeamGeometry FullArc() => new BeamGeometry("ARC", 0, Enumerable.Range(0, 181).Select(i => (181 + 2.0 * i) % 360).ToList());
@@ -126,8 +126,13 @@ namespace SrsMcPsqa.Core.Tests
         [Fact]
         public void NotConfiguredUntilTheOriginHeightIsSet()
         {
-            Assert.False(new CollisionSettings().IsConfigured);
+            Assert.False(new CollisionSettings { OriginAboveCouchMm = 0 }.IsConfigured);
             Assert.True(S().IsConfigured);
+            // Department setup defaults: array centre 200 mm above the couch top, overhanging the couch end by 60 mm.
+            var d = new CollisionSettings();
+            Assert.True(d.IsConfigured);
+            Assert.Equal(200, d.OriginAboveCouchMm);
+            Assert.Equal(-60, d.CouchHeadEndSupMm);
         }
     }
 }

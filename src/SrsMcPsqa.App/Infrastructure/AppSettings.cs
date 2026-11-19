@@ -46,9 +46,10 @@ namespace SrsMcPsqa.App.Infrastructure
         [DataMember] public double CollisionHeadRadiusMm { get; set; } = 385;
         [DataMember] public double CollisionCouchWidthMm { get; set; } = 530;
         [DataMember] public double CollisionCouchThicknessMm { get; set; } = 60;
-        /// <summary>MapCHECK user origin height above the couch top; 0 = not set (check disabled).</summary>
-        [DataMember] public double CollisionOriginAboveCouchMm { get; set; }
-        [DataMember] public double CollisionCouchHeadEndSupMm { get; set; } = 200;
+        /// <summary>MapCHECK user origin (array centre) height above the couch top; 0 = not set (check disabled).</summary>
+        [DataMember] public double CollisionOriginAboveCouchMm { get; set; } = 200;
+        /// <summary>Couch top head end superior of the array centre; −60 = the array centre overhangs the couch end by 60 mm.</summary>
+        [DataMember] public double CollisionCouchHeadEndSupMm { get; set; } = -60;
         [DataMember] public double CollisionPhantomLateralOffsetMm { get; set; }
         [DataMember] public double CollisionMaxLateralOffsetMm { get; set; } = 50;
         [DataMember] public double CollisionWarningMm { get; set; } = 50;
