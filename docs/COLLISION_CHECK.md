@@ -34,9 +34,9 @@ available.
   (`CollisionCalculator.AddCylinderToMesh`); zackmorelli/CollisionCheck uses the same source position
   (1000·sin θ, −1000·cos θ) and couch-rotation sign. Unit test `HeadPositionMatchesOtherEsapiCollisionScripts` places a
   2 mm box at that point for four gantry/couch pairs and checks it touches the head (and is far away with φ mirrored).
-- **Accuracy of the distance:** against a brute-force reference (2 mm face grid, 0.5° rings) over 140 random isocentre
-  shifts, gantry and couch angles: within +0.6 / −0.1 mm when clear, and the same collide/clear verdict in every
-  overlapping case.
+- **Accuracy of the distance:** against brute-force references (dense head surface; 1 mm couch outline): with the
+  original box couch, 140 random cases within +0.6 / −0.1 mm and the same verdict in every overlapping case; with the
+  Exact IGRT profile (2026-11-19), 40 random clear cases (gantry 90–270°, couch kicks) within +0.24 / −0.16 mm.
 - **Hand-calculated cases** (unit tests): lateral and posterior fields, lateral/posterior shifts, couch kicks, conformal
   arcs with two control points, lateral offset suggestions.
 - **Not verifiable here:** the machine dimensions (see below) and the couch rotation direction on your machine; compare
