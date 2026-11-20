@@ -17,6 +17,10 @@ own script approval. Nothing is installed: the app runs from a folder the Citrix
 
    Output: `src/SrsMcPsqa.App/bin/Release/net48/` (x64). The version is shown in the window title.
 
+   In VS Code, **Terminal → Run Build Task** (Ctrl+Shift+B) runs **Release build + launcher**: the Release build plus a
+   copy of the launcher (`SrsMcPsqa.Launcher.cs`) in that folder. Deploy that folder's contents (not a `publish`
+   subfolder, which only appears if Publish was run).
+
 ## 2. Install the app folder
 
 1. Copy the whole Release output folder to the environment's app location, e.g. a share readable from the Citrix
