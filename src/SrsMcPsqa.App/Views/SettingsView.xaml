@@ -67,52 +67,115 @@
             <ui:Card Margin="0,0,0,12">
                 <StackPanel>
                     <TextBlock Style="{StaticResource Section}" Text="Gantry–couch collision check" />
-                    <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
-                               Text="Warns (never blocks) when the treatment head comes close to the couch top for a QA isocentre, and suggests a lateral phantom offset on the couch. Simple geometric model: the head is a cylinder, the couch top a prism with the Exact IGRT cross-section; the phantom isn't modelled. Head: 37.5 cm from the isocentre (laser guard trip radius) and 76.5 cm across. Couch: the Exact IGRT cross-section (53.0 × 5.0 cm, sides curving in towards the bottom), as in the Eclipse couch structure. All values in mm." />
-                    <Grid Margin="0,4,0,0">
-                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition /></Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
-                        <StackPanel Grid.Row="0" Grid.Column="0">
-                            <TextBlock Style="{StaticResource Label}" Text="MapCHECK user origin height above the couch top (required)" />
-                            <ui:TextBox Text="{Binding Edit.CollisionOriginAboveCouchMm}" />
+                    <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,0,0,12"
+                               Text="Warns when the treatment head comes close to the couch top, and suggests a lateral phantom offset. It never blocks creating plans." />
+
+                    <TextBlock Style="{StaticResource Label}" FontWeight="SemiBold" Margin="0,0,0,8" Text="Phantom on the couch" />
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="140" /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <TextBlock VerticalAlignment="Center" Margin="0,0,12,0" TextWrapping="Wrap" Text="Array centre height above the couch top" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <DockPanel Grid.Column="1">
+                                <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Margin="6,0,0,0" Width="24" Text="mm" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                <ui:TextBox Text="{Binding Edit.CollisionOriginAboveCouchMm}" TextAlignment="Right" />
+                            </DockPanel>
+                                <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap" Text="Required. 0 switches the check off." />
+                        </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="140" /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <TextBlock VerticalAlignment="Center" Margin="0,0,12,0" TextWrapping="Wrap" Text="Couch head end, superior of the array centre" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <DockPanel Grid.Column="1">
+                                <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Margin="6,0,0,0" Width="24" Text="mm" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                <ui:TextBox Text="{Binding Edit.CollisionCouchHeadEndSupMm}" TextAlignment="Right" />
+                            </DockPanel>
+                                <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap" Text="Negative when the array centre overhangs the end of the couch." />
+                        </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="140" /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <TextBlock VerticalAlignment="Center" Margin="0,0,12,0" TextWrapping="Wrap" Text="Lateral offset on the couch" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <DockPanel Grid.Column="1">
+                                <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Margin="6,0,0,0" Width="24" Text="mm" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                <ui:TextBox Text="{Binding Edit.CollisionPhantomLateralOffsetMm}" TextAlignment="Right" />
+                            </DockPanel>
+                                <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap" Text="+ towards the phantom's left; 0 = centred." />
+                        </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="140" /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <TextBlock VerticalAlignment="Center" Margin="0,0,12,0" TextWrapping="Wrap" Text="Largest lateral offset to suggest" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <DockPanel Grid.Column="1">
+                                <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Margin="6,0,0,0" Width="24" Text="mm" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                <ui:TextBox Text="{Binding Edit.CollisionMaxLateralOffsetMm}" TextAlignment="Right" />
+                            </DockPanel>
+                                <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap" Text="Suggestions stay within ± this value." />
+                        </Grid>
+
+                    <TextBlock Style="{StaticResource Label}" FontWeight="SemiBold" Margin="0,6,0,8" Text="Tolerances (clearance before the laser guard trips)" />
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="140" /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <TextBlock VerticalAlignment="Center" Margin="0,0,12,0" TextWrapping="Wrap" Text="Warning below" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <DockPanel Grid.Column="1">
+                                <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Margin="6,0,0,0" Width="24" Text="mm" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                <ui:TextBox Text="{Binding Edit.CollisionWarningMm}" TextAlignment="Right" />
+                            </DockPanel>
+                        </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="140" /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <TextBlock VerticalAlignment="Center" Margin="0,0,12,0" TextWrapping="Wrap" Text="Collision risk below" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <DockPanel Grid.Column="1">
+                                <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Margin="6,0,0,0" Width="24" Text="mm" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                <ui:TextBox Text="{Binding Edit.CollisionRiskMm}" TextAlignment="Right" />
+                            </DockPanel>
+                        </Grid>
+
+                    <Expander Margin="0,6,0,0" Header="Head and couch dimensions">
+                        <StackPanel Margin="0,8,0,0">
+                            <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                       Text="The head is a cylinder around the beam axis; the couch top has the Exact IGRT cross-section (sides curving in towards the bottom), scaled to the width and thickness below." />
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="140" /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <TextBlock VerticalAlignment="Center" Margin="0,0,12,0" TextWrapping="Wrap" Text="Head face from the isocentre" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <DockPanel Grid.Column="1">
+                                <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Margin="6,0,0,0" Width="24" Text="mm" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                <ui:TextBox Text="{Binding Edit.CollisionHeadClearanceMm}" TextAlignment="Right" />
+                            </DockPanel>
+                                <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap" Text="37.5 cm: the TrueBeam laser guard trip radius." />
+                        </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="140" /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <TextBlock VerticalAlignment="Center" Margin="0,0,12,0" TextWrapping="Wrap" Text="Head radius" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <DockPanel Grid.Column="1">
+                                <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Margin="6,0,0,0" Width="24" Text="mm" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                <ui:TextBox Text="{Binding Edit.CollisionHeadRadiusMm}" TextAlignment="Right" />
+                            </DockPanel>
+                                <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap" Text="Half the head's width (76.5 cm across)." />
+                        </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="140" /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <TextBlock VerticalAlignment="Center" Margin="0,0,12,0" TextWrapping="Wrap" Text="Couch top width at its widest" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <DockPanel Grid.Column="1">
+                                <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Margin="6,0,0,0" Width="24" Text="mm" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                <ui:TextBox Text="{Binding Edit.CollisionCouchWidthMm}" TextAlignment="Right" />
+                            </DockPanel>
+                        </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="140" /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <TextBlock VerticalAlignment="Center" Margin="0,0,12,0" TextWrapping="Wrap" Text="Couch top thickness" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <DockPanel Grid.Column="1">
+                                <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Margin="6,0,0,0" Width="24" Text="mm" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                <ui:TextBox Text="{Binding Edit.CollisionCouchThicknessMm}" TextAlignment="Right" />
+                            </DockPanel>
+                        </Grid>
                         </StackPanel>
-                        <StackPanel Grid.Row="0" Grid.Column="2">
-                            <TextBlock Style="{StaticResource Label}" Text="Couch top head end, superior of the user origin (− if the phantom overhangs)" />
-                            <ui:TextBox Text="{Binding Edit.CollisionCouchHeadEndSupMm}" />
-                        </StackPanel>
-                        <StackPanel Grid.Row="1" Grid.Column="0">
-                            <TextBlock Style="{StaticResource Label}" Text="Phantom lateral offset on the couch (+ towards phantom left; 0 = centred)" />
-                            <ui:TextBox Text="{Binding Edit.CollisionPhantomLateralOffsetMm}" />
-                        </StackPanel>
-                        <StackPanel Grid.Row="1" Grid.Column="2">
-                            <TextBlock Style="{StaticResource Label}" Text="Largest lateral offset to suggest (±)" />
-                            <ui:TextBox Text="{Binding Edit.CollisionMaxLateralOffsetMm}" />
-                        </StackPanel>
-                        <StackPanel Grid.Row="2" Grid.Column="0">
-                            <TextBlock Style="{StaticResource Label}" Text="Warning below (clearance)" />
-                            <ui:TextBox Text="{Binding Edit.CollisionWarningMm}" />
-                        </StackPanel>
-                        <StackPanel Grid.Row="2" Grid.Column="2">
-                            <TextBlock Style="{StaticResource Label}" Text="Collision risk below (clearance)" />
-                            <ui:TextBox Text="{Binding Edit.CollisionRiskMm}" />
-                        </StackPanel>
-                        <StackPanel Grid.Row="3" Grid.Column="0">
-                            <TextBlock Style="{StaticResource Label}" Text="Head: isocentre to head face (laser guard trip radius)" />
-                            <ui:TextBox Text="{Binding Edit.CollisionHeadClearanceMm}" />
-                        </StackPanel>
-                        <StackPanel Grid.Row="3" Grid.Column="2">
-                            <TextBlock Style="{StaticResource Label}" Text="Head: radius around the beam axis" />
-                            <ui:TextBox Text="{Binding Edit.CollisionHeadRadiusMm}" />
-                        </StackPanel>
-                        <StackPanel Grid.Row="4" Grid.Column="0">
-                            <TextBlock Style="{StaticResource Label}" Text="Couch top width (widest; Exact IGRT profile shape)" />
-                            <ui:TextBox Text="{Binding Edit.CollisionCouchWidthMm}" />
-                        </StackPanel>
-                        <StackPanel Grid.Row="4" Grid.Column="2">
-                            <TextBlock Style="{StaticResource Label}" Text="Couch top thickness" />
-                            <ui:TextBox Text="{Binding Edit.CollisionCouchThicknessMm}" />
-                        </StackPanel>
-                    </Grid>
+                    </Expander>
                 </StackPanel>
             </ui:Card>
 
