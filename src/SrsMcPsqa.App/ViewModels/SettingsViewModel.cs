@@ -30,7 +30,7 @@ namespace SrsMcPsqa.App.ViewModels
 
         public string UserPath => SettingsStore.UserPath;
         public string DepartmentPath => SettingsStore.DepartmentPath;
-        public string LogFolder => Log.Folder;
+        public string LogFolder => Log.CurrentFile;
         public string InstallationFolder => SettingsStore.InstallationFolder;
         /// <summary>Site settings file time when this screen was opened (to detect someone else's change).</summary>
         private System.DateTime? _departmentTimeAtOpen;

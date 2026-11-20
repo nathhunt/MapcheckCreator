@@ -253,7 +253,7 @@
                             <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.LogLevels}" SelectedItem="{Binding Edit.LogLevel}" />
                         </StackPanel>
                     </Grid>
-                    <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0" Text="{Binding LogFolder, StringFormat='Logs: {0}'}" />
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0" Text="{Binding LogFolder, StringFormat='Your log file: {0}'}" />
                 </StackPanel>
             </ui:Card>
 

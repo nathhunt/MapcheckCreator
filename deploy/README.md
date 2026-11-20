@@ -69,16 +69,23 @@ Set once per installation:
 | Collision check: MapCHECK origin height above the couch top, couch head end | **Required** for the collision check; see [docs/COLLISION_CHECK.md](../docs/COLLISION_CHECK.md). |
 | Optimisation (edge margin, coverage threshold, minimum diodes, α) | Defaults are fine to start with. |
 
-## 6. Files written at run time (per user)
+## 6. Folder permissions
+
+- **App folder** (exe, DLLs, `SrsMcPsqa.settings.json`): read for all users; write only for the people who may change
+  department settings.
+- **`logs` subfolder**: create it and give all users **modify** rights there, so everyone's log can be written. Logs
+  contain patient IDs, so keep read access to that folder to staff who should see them.
+
+## 7. Files written at run time
 
 | Path | Content |
 |---|---|
 | `%APPDATA%\SrsMcPsqa\settings.json` | Personal preferences (theme, log level) |
 | `<app folder>\SrsMcPsqa.settings.json` (+ `.bak`) | Department settings, written only after confirmation |
-| `%LOCALAPPDATA%\SrsMcPsqa\logs\srsmcpsqa-<date>.log` | Log (each step, timings, Eclipse calculation messages) |
+| `<app folder>\logs\srsmcpsqa_<user>_<computer>.log` | Log, one file per user per computer (each step, timings, Eclipse calculation messages); over 10 MB it moves to `…_previous.log`. If the `logs` folder can't be written, the same file goes to `%LOCALAPPDATA%\SrsMcPsqa\logs`. |
 | `%LOCALAPPDATA%\SrsMcPsqa\calc-timing.json` | Calculation timings for the progress estimate |
 
-## 7. First run in a new environment
+## 8. First run in a new environment
 
 1. Launch from Eclipse on a test patient; check there's no yellow "Read-only" note (approval).
 2. **Settings**: template phantom IDs → **Validate** (all green); collision check values; **Save**.
