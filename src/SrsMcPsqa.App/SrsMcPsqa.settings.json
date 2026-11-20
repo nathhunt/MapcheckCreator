@@ -27,5 +27,5 @@
   "CollisionWarningMm": 30,
   "CollisionRiskMm": 15,
   "QaCourseId": "PHYS_QA",
-  "ShiftThresholdMm": 1.0
+  "ShiftThresholdMm": 2.0
 }

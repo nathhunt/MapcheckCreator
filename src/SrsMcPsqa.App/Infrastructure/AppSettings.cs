@@ -42,7 +42,7 @@ namespace SrsMcPsqa.App.Infrastructure
         /// Shift components smaller than this (mm) are rounded to zero: the QA isocentre shift from the MapCHECK origin in
         /// array planning, and the change in position when fine-tuning. 0 = off.
         /// </summary>
-        [DataMember] public double ShiftThresholdMm { get; set; } = 1.0;
+        [DataMember] public double ShiftThresholdMm { get; set; } = 2.0;
         [DataMember] public bool AutoSave { get; set; } = true;
 
         // Gantry–couch collision check (mm). Head: 41.5 cm iso to face, 76.5 cm across (open-source ESAPI collision scripts);

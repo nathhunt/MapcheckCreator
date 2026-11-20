@@ -89,7 +89,7 @@ namespace SrsMcPsqa.App.ViewModels
 
         /// <summary>Step size for the move buttons (mm).</summary>
         [ObservableProperty] private double _nudgeStep = 1.0;
-        public static IReadOnlyList<double> NudgeSteps { get; } = new[] { 0.5, 1.0, 5.0 };
+        public static IReadOnlyList<double> NudgeSteps { get; } = new[] { 0.5, 1.0, 2.0, 5.0 };
 
         public bool HasPlanes => Planes.Count > 0;
         public bool HasProblems => Warnings.Count > 0;
@@ -309,7 +309,17 @@ namespace SrsMcPsqa.App.ViewModels
                 "v" => o.FromPlane(0, amount, 0),
                 _ => o.FromPlane(0, 0, amount),
             };
-            MovePlane(p, p.Centre + delta, full: true);
+            var target = p.Centre + delta;
+            // A step smaller than the shift threshold would be rounded straight back near zero: go to the threshold instead.
+            double thr = Session.Settings.ShiftThresholdMm;
+            if (thr > 0 && (SnapCentre(target) - p.Centre).Length < 1e-9)
+            {
+                var iso = Session.ClinicalPlan!.Isocentre;
+                Vec3 off = iso - target, d = iso - p.Centre;
+                double Bump(double t, double cur) => Math.Abs(t) < thr && Math.Abs(t - cur) > 1e-9 ? Math.Sign(t - cur) * thr : t;
+                target = iso - new Vec3(Bump(off.X, d.X), Bump(off.Y, d.Y), Bump(off.Z, d.Z));
+            }
+            MovePlane(p, target, full: true);
         }
 
         /// <summary>Back to the recommended position for the selected plan.</summary>
