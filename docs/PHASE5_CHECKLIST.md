@@ -1,7 +1,7 @@
 # Phase 5 + UI round: test on Citrix
 
 Build the latest `claude/adoring-ritchie-5cjxh0` in Release and install as in [deploy/README.md](../deploy/README.md).
-The window title shows the version (0.9.0). A rebuilt exe may need approving again.
+The window title shows the version (1.0.0-beta+<commit>). A rebuilt exe may need approving again.
 
 | # | Do | Expect / check |
 |---|---|---|
@@ -16,4 +16,4 @@ The window title shows the version (0.9.0). A rebuilt exe may need approving aga
 | 7 | (Optional) Re-optimise or change MUs of a copy of the clinical plan, make QA plans for it, change the clinical MUs again, Find existing. | The plan is flagged **OUT OF DATE**. |
 | 8 | Clinical plan with a setup field. | The check says it's ignored; QA plans have no setup field. |
 
-Please send back anything that differs, with screenshots, and the log (`%LOCALAPPDATA%\SrsMcPsqa\logs`).
+Please send back anything that differs, with screenshots, and your log file (`<app folder>\logs\srsmcpsqa_<user>_<computer>.log`; Settings shows the path).

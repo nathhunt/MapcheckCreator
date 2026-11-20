@@ -1,0 +1,30 @@
+{
+  // Build the app in Release and put the Eclipse launcher next to it, ready to copy to the app folder.
+  // Run: Terminal > Run Build Task (Ctrl+Shift+B) > "Release build + launcher".
+  // Needs EsapiPath.user.props (repository root) pointing at the ESAPI v18 DLLs; see deploy/README.md.
+  "version": "2.0.0",
+  "options": {
+    "shell": { "executable": "powershell.exe", "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"] }
+  },
+  "tasks": [
+    {
+      "label": "Release build",
+      "type": "shell",
+      "command": "dotnet build src/SrsMcPsqa.App/SrsMcPsqa.App.csproj -c Release -nologo",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Copy launcher to Release folder",
+      "type": "shell",
+      "command": "Copy-Item -Force src/SrsMcPsqa.Launcher/SrsMcPsqa.Launcher.cs src/SrsMcPsqa.App/bin/Release/net48/; Write-Host 'Release folder:' (Resolve-Path src/SrsMcPsqa.App/bin/Release/net48)",
+      "problemMatcher": []
+    },
+    {
+      "label": "Release build + launcher",
+      "dependsOrder": "sequence",
+      "dependsOn": ["Release build", "Copy launcher to Release folder"],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    }
+  ]
+}

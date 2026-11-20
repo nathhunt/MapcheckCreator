@@ -196,6 +196,7 @@ namespace SrsMcPsqa.App.ViewModels
             _model = model; _rows = rows; _analysis = result.Item1;
             Apply(result.Item2, resetConstraints: true);
             ResultSummary = $"{result.Item2.Planes.Count} QA plan(s) needed for {rows.Count} PTV(s). Based on the clinical dose (before QA calculation).";
+            LogPlanes("Recommended");
             OptionsChanged = false;
         }
 
@@ -211,6 +212,7 @@ namespace SrsMcPsqa.App.ViewModels
             if (rec == null) return;
             Apply(rec, resetConstraints: false);
             ResultSummary = $"Re-optimised with your constraints: {rec.Planes.Count} plan(s).";
+            LogPlanes("Re-optimised");
         }
 
         [RelayCommand]
@@ -460,6 +462,7 @@ namespace SrsMcPsqa.App.ViewModels
                     $"Create {planes.Count} QA plan(s) in course '{course.Id}'{(course.WillBeCreated ? " (new course, created now)" : "")} and calculate dose with the clinical MUs?{Environment.NewLine}{Environment.NewLine}{list}",
                     "Create and calculate"))
                 return;
+            LogPlanes("Creating");
 
             var rows = _rows;
             bool ok = await Shell.RunAsync($"Creating {planes.Count} QA plan(s)", async (pr, ct) =>
@@ -512,6 +515,21 @@ namespace SrsMcPsqa.App.ViewModels
         }
 
         private static void Log(string m) => Infrastructure.Log.Warn(m);
+
+        /// <summary>Each plan's position, QA isocentre shift, PTVs (with metrics) and couch clearance, for the log.</summary>
+        private void LogPlanes(string what)
+        {
+            foreach (var p in Planes)
+            {
+                var ptvs = string.Join("; ", p.Evaluation.Targets.Where(t => t.AreaInSquare > 0).Select(t => string.Format(CultureInfo.InvariantCulture,
+                    "{0} area {1:0} mm², diodes {2} (≥Rx {3}), J {4:0.000}{5}{6}", t.TargetId, t.AreaInSquare, t.DiodesInPtv, t.DiodesAtOrAboveRx, t.Score,
+                    t.Covered ? ", covered" : "", t.Clipped ? ", clipped" : "")));
+                Infrastructure.Log.Info($"{what} plan {p.Number} ({p.Orientation.Label()}){(p.IsManual ? " moved by user" : "")}: array centre {Infrastructure.Diagnostics.Vec(p.Centre)}, " +
+                    $"iso from MapCHECK origin {p.IsoFromOriginText}; assigned {p.PtvText}; {ptvs}; clearance: {(p.Clearance.Summary.Length > 0 ? p.Clearance.Summary : "still being checked")}");
+                if (p.Clearance.HasProblem)
+                    Infrastructure.Log.Info($"  per beam: {p.Clearance.Details.Replace(Environment.NewLine, "; ")}. {p.Clearance.Suggestion}");
+            }
+        }
 
         /// <summary>Called by Review → "Add new QA plans": pre-select PTVs not yet on any QA plan.</summary>
         public void PrepareForNewPlans(ISet<string> alreadyCoveredIds)

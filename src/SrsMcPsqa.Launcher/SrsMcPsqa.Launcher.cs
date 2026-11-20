@@ -2,7 +2,8 @@
 // Single-file, READ-ONLY Eclipse plugin script. Copy this file into the Eclipse scripts folder
 // (e.g. the published-scripts folder on the Citrix servers) and run it from Tools > Scripts.
 // Written in conservative C# (no nullable annotations, no ?. operators) in case Eclipse compiles it with an older language version.
-// It starts the standalone spike executable with the current patient/course/plan.
+// It starts SrsMcPsqa.exe with the current patient/course/plan and shows nothing else: a dialog appears only on an error
+// (exe not found, or it could not be started).
 //
 // Where the exe is looked for, in order:
 //   1. environment variable SRSMCPSQA_EXE
@@ -49,16 +50,8 @@ namespace VMS.TPS
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Could not start " + exe + "\n\n" + ex, "SRS MapCHECK PSQA", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
+                MessageBox.Show("Could not start " + exe + "\n\n" + ex.Message, "SRS MapCHECK PSQA", MessageBoxButton.OK, MessageBoxImage.Error);
             }
-
-            MessageBox.Show(
-                "The PSQA Plan Creator is starting for patient " + patientId + ".\n\n" +
-                "If it reports that it cannot modify the patient, close the patient in Eclipse and click Retry.\n" +
-                "Re-open the patient in Eclipse afterwards to see the new plans.\n\n" +
-                "Launcher diagnostics :\n" + tried,
-                "SRS MapCHECK PSQA", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private static string FindExe(StringBuilder tried)

@@ -23,7 +23,9 @@ namespace SrsMcPsqa.App
             var launch = LaunchOptions.Parse(e.Args);
             var settings = SettingsStore.Load(out var source);
             Log.Initialise(settings.LogLevel);
-            Log.Info($"Start {Assembly.GetExecutingAssembly().GetName().Version}; {launch}; settings from {source}");
+            Log.Info($"Start {Diagnostics.AppVersion}; {launch}; settings from {source}");
+            Log.Info(Diagnostics.Environment());
+            Log.Info(Diagnostics.Settings(settings));
 
             var dialogs = new DialogService();
             DispatcherUnhandledException += (_, args) =>

@@ -128,7 +128,7 @@ These are choices I made where the brief left room. Each is easy to change.
 
 - **No JSON library.** Settings use `DataContractJsonSerializer` from .NET Framework, which avoids an assembly that could clash with what ESAPI loads.
 - **Settings files.** Department defaults live in `SrsMcPsqa.settings.json` next to the exe (read-only, optional), one per installation; see [deploy/README.md](deploy/README.md). Personal preferences are in `%APPDATA%\SrsMcPsqa\settings.json`. Template phantom IDs entered in Settings are saved **per installation folder** (`%APPDATA%\SrsMcPsqa\template-<hash>.json`), because test and production use different template patients and `%APPDATA%` may follow you between them. "Reset to department defaults" deletes both personal files.
-- **Errors.** Every error opens a dialog with **Copy details** and is logged to `%LOCALAPPDATA%\SrsMcPsqa\logs` (30 days kept).
+- **Errors.** Every error opens a dialog with **Copy details** and is logged to `<app folder>\logs\srsmcpsqa_<user>_<computer>.log` (falls back to `%LOCALAPPDATA%\SrsMcPsqa\logs` if that folder can't be written).
 - **Navigation.** It's a simple list rather than WPF-UI's `NavigationView`, which needs a page service. Screens unlock as the workflow progresses.
 - **Review screen.** Each QA plan has its own tab. Values from before calculation and from fine-tune predictions are labelled as approximations. Calculated values are labelled "CALCULATED".
 - **Array plane view.** u runs to the right, v (superior) up. At 0° patient left is on the right (seen from anterior). At 270° patient posterior is on the right.

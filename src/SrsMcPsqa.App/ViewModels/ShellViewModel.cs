@@ -386,10 +386,15 @@ namespace SrsMcPsqa.App.ViewModels
             SelectedPage = value;
         }
 
-        public static string Version { get; } = typeof(ShellViewModel).Assembly.GetName().Version?.ToString(3) ?? "";
+        /// <summary>Version with the git commit it was built from, e.g. 1.0.0-beta+a1b2c3d (-dirty: uncommitted changes).</summary>
+        public static string Version { get; } = Infrastructure.Diagnostics.AppVersion;
         public string WindowTitle => $"SRS MapCHECK PSQA Plan Creator {Version}" + (IsFake ? " · DEMO DATA" : "");
 
-        partial void OnSelectedPageChanged(PageViewModel value) => value?.OnNavigatedTo();
+        partial void OnSelectedPageChanged(PageViewModel value)
+        {
+            if (value != null) Log.Info($"Screen: {value.Title}");
+            value?.OnNavigatedTo();
+        }
 
         public void Navigate(PageViewModel page)
         {
@@ -417,15 +422,18 @@ namespace SrsMcPsqa.App.ViewModels
             if (Progress.IsRunning) return false;
             var ct = Progress.Start(title);
             Log.Info($"Start: {title}");
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             try
             {
                 await body(Progress, ct);
                 Progress.AddLog("Finished.");
+                Log.Info($"Finished: {title} in {sw.Elapsed.TotalSeconds:0.0} s.");
                 Progress.Finish(keepOpenOnSuccess);
                 return true;
             }
             catch (OperationCanceledException)
             {
+                Log.Info($"Cancelled: {title} after {sw.Elapsed.TotalSeconds:0.0} s.");
                 Progress.AddLog("Cancelled.");
                 Progress.HasErrors = true;
                 Progress.Finish(keepOpen: true);
@@ -433,6 +441,7 @@ namespace SrsMcPsqa.App.ViewModels
             }
             catch (Exception ex)
             {
+                Log.Error($"Failed: {title} after {sw.Elapsed.TotalSeconds:0.0} s.", ex);
                 Progress.HasErrors = true;
                 Progress.AddLog("Error: " + ex.Message);
                 Progress.Finish(keepOpen: true);
@@ -444,12 +453,16 @@ namespace SrsMcPsqa.App.ViewModels
         /// <summary>Run a short CPU-bound task off the UI thread with error handling (no progress panel).</summary>
         public async Task<T?> ComputeAsync<T>(string what, Func<T> work) where T : class
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             try
             {
-                return await Task.Run(work);
+                var r = await Task.Run(work);
+                Log.Info($"Computed: {what} in {sw.Elapsed.TotalSeconds:0.00} s.");
+                return r;
             }
             catch (Exception ex)
             {
+                Log.Error($"Compute failed: {what} after {sw.Elapsed.TotalSeconds:0.00} s.", ex);
                 Session.Dialogs.ShowError(what, ex.Message, ex);
                 return null;
             }

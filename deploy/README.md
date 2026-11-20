@@ -15,7 +15,13 @@ own script approval. Nothing is installed: the app runs from a folder the Citrix
    dotnet build src/SrsMcPsqa.App/SrsMcPsqa.App.csproj -c Release
    ```
 
-   Output: `src/SrsMcPsqa.App/bin/Release/net48/` (x64). The version is shown in the window title.
+   Output: `src/SrsMcPsqa.App/bin/Release/net48/` (x64). The window title and the log show the version with the git
+   commit it was built from, e.g. `1.0.0-beta+a1b2c3d`; `-dirty` means the build had uncommitted changes, `+unknown` that git
+   wasn't available. Deploy builds from a clean, pushed commit so the log identifies the exact code.
+
+   In VS Code, **Terminal → Run Build Task** (Ctrl+Shift+B) runs **Release build + launcher**: the Release build plus a
+   copy of the launcher (`SrsMcPsqa.Launcher.cs`) in that folder. Deploy that folder's contents (not a `publish`
+   subfolder, which only appears if Publish was run).
 
 ## 2. Install the app folder
 
@@ -65,16 +71,38 @@ Set once per installation:
 | Collision check: MapCHECK origin height above the couch top, couch head end | **Required** for the collision check; see [docs/COLLISION_CHECK.md](../docs/COLLISION_CHECK.md). |
 | Optimisation (edge margin, coverage threshold, minimum diodes, α) | Defaults are fine to start with. |
 
-## 6. Files written at run time (per user)
+## 6. Folder permissions
+
+- **App folder** (exe, DLLs, `SrsMcPsqa.settings.json`): read for all users; write only for the people who may change
+  department settings.
+- **`logs` subfolder**: create it and give all users **modify** rights there, so everyone's log can be written. Logs
+  contain patient IDs, so keep read access to that folder to staff who should see them.
+
+## 7. Files written at run time
 
 | Path | Content |
 |---|---|
 | `%APPDATA%\SrsMcPsqa\settings.json` | Personal preferences (theme, log level) |
 | `<app folder>\SrsMcPsqa.settings.json` (+ `.bak`) | Department settings, written only after confirmation |
-| `%LOCALAPPDATA%\SrsMcPsqa\logs\srsmcpsqa-<date>.log` | Log (each step, timings, Eclipse calculation messages) |
+| `<app folder>\logs\srsmcpsqa_<user>_<computer>.log` | Log, one file per user per computer (each step, timings, Eclipse calculation messages); over 10 MB it moves to `…_previous.log`. If the `logs` folder can't be written, the same file goes to `%LOCALAPPDATA%\SrsMcPsqa\logs`. |
 | `%LOCALAPPDATA%\SrsMcPsqa\calc-timing.json` | Calculation timings for the progress estimate |
 
-## 7. First run in a new environment
+### What the log records
+
+- **Start:** version, launch arguments (patient, course, plan), user, computer, Windows, .NET, ESAPI and WPF-UI versions,
+  and every setting in use (site and personal).
+- **Every Eclipse operation:** name and duration, or the full error with stack trace; beam copies, saves, the
+  calculation progress, Eclipse's warnings and the MU check.
+- **What the user did:** screens visited, PTVs included with their Rx and its source, each plan as recommended and as
+  created (array centre, QA isocentre shift, PTV metrics, couch clearance per beam and any suggested phantom offset),
+  fine-tune suggestions and the decision taken, moves applied, plans deleted, settings changed.
+- **Every message shown and every confirmation answered** (OK or Cancel), with its text.
+- **Errors:** the full exception (type, message, inner exceptions, stack trace), the operation that failed and how
+  long it ran. Unhandled errors are logged too.
+
+Only the patient ID is logged as a patient identifier.
+
+## 8. First run in a new environment
 
 1. Launch from Eclipse on a test patient; check there's no yellow "Read-only" note (approval).
 2. **Settings**: template phantom IDs → **Validate** (all green); collision check values; **Save**.

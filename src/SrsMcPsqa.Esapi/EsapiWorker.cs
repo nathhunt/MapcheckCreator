@@ -40,23 +40,27 @@ namespace SrsMcPsqa.Esapi
             Interlocked.Increment(ref _pending);
             _queue.Add(() =>
             {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
                 try
                 {
                     EnsureApplication();
-                    tcs.SetResult(work(_app!));
+                    var result = work(_app!);
+                    _log($"{operation}: done in {sw.Elapsed.TotalSeconds:0.00} s.");
+                    tcs.SetResult(result);
                 }
                 catch (OperationCanceledException oce)
                 {
                     tcs.SetCanceled();
-                    _log($"{operation}: cancelled ({oce.Message}).");
+                    _log($"{operation}: cancelled after {sw.Elapsed.TotalSeconds:0.00} s ({oce.Message}).");
                 }
                 catch (EsapiOperationException ex)
                 {
+                    _log($"{operation} failed after {sw.Elapsed.TotalSeconds:0.00} s: {ex}");
                     tcs.SetException(ex);
                 }
                 catch (Exception ex)
                 {
-                    _log($"{operation} failed: {ex}");
+                    _log($"{operation} failed after {sw.Elapsed.TotalSeconds:0.00} s: {ex}");
                     tcs.SetException(new EsapiOperationException(operation, ex));
                 }
                 finally
