@@ -63,6 +63,8 @@ namespace SrsMcPsqa.App.ViewModels
                 Session.Dialogs.ShowInfo("No PTVs selected", "Tick at least one PTV.");
                 return;
             }
+            Infrastructure.Log.Info("PTVs: " + string.Join("; ", Rows.Select(r =>
+                $"{r.Id} {(r.Include ? "included" : "excluded")} Rx {r.RxGy.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)} Gy ({r.RxSource})")));
             Shell.Navigate(Shell.Planning);
         }
     }

@@ -85,6 +85,21 @@ Set once per installation:
 | `<app folder>\logs\srsmcpsqa_<user>_<computer>.log` | Log, one file per user per computer (each step, timings, Eclipse calculation messages); over 10 MB it moves to `…_previous.log`. If the `logs` folder can't be written, the same file goes to `%LOCALAPPDATA%\SrsMcPsqa\logs`. |
 | `%LOCALAPPDATA%\SrsMcPsqa\calc-timing.json` | Calculation timings for the progress estimate |
 
+### What the log records
+
+- **Start:** version, launch arguments (patient, course, plan), user, computer, Windows, .NET, ESAPI and WPF-UI versions,
+  and every setting in use (site and personal).
+- **Every Eclipse operation:** name and duration, or the full error with stack trace; beam copies, saves, the
+  calculation progress, Eclipse's warnings and the MU check.
+- **What the user did:** screens visited, PTVs included with their Rx and its source, each plan as recommended and as
+  created (array centre, QA isocentre shift, PTV metrics, couch clearance per beam and any suggested phantom offset),
+  fine-tune suggestions and the decision taken, moves applied, plans deleted, settings changed.
+- **Every message shown and every confirmation answered** (OK or Cancel), with its text.
+- **Errors:** the full exception (type, message, inner exceptions, stack trace), the operation that failed and how
+  long it ran. Unhandled errors are logged too.
+
+Only the patient ID is logged as a patient identifier.
+
 ## 8. First run in a new environment
 
 1. Launch from Eclipse on a test patient; check there's no yellow "Read-only" note (approval).

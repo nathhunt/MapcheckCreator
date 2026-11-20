@@ -141,6 +141,10 @@ namespace SrsMcPsqa.App.ViewModels
             Clearance.Update(IsoFromOrigin);
             _patientDose = QaPlanRequests.DoseInPatientFrame(Result.Dose!, Isocentre, ClinicalIso);
             _current = await BuildViewAsync(ArrayCentre, $"{PlanId} · {Orientation.Label()} · calculated QA dose on the array plane", null);
+            Infrastructure.Log.Info($"{PlanId} ({Orientation.Label()}): iso {Infrastructure.Diagnostics.Vec(Isocentre)}, from MapCHECK origin {IsoFromOriginText}; " +
+                $"Rx per fraction ({Fractions} fx); calculated metrics: " + string.Join("; ", _current.Value.Metrics.Select(m =>
+                $"{m.Id} area {m.Area} mm², diodes {m.Diodes} (≥Rx {m.DiodesAtRx}), J {m.Score}")) +
+                (HasWarnings ? $"; Eclipse: {WarningsText.Replace(Environment.NewLine, " | ")}" : ""));
             await UpdatePreviewAsync();
         }
 
@@ -418,6 +422,11 @@ namespace SrsMcPsqa.App.ViewModels
                 if (proposals == null) return;
                 foreach (var (p, prop) in proposals)
                 {
+                    Infrastructure.Log.Info(string.Format(CultureInfo.InvariantCulture,
+                        "Fine-tune {0}: optimiser move {1} (objective {2:0.000} -> {3:0.000}, improves {4}); per PTV: {5}",
+                        p.PlanId, prop.ArrayMoveDescription, prop.CurrentObjective, prop.PredictedObjective, prop.Improves,
+                        string.Join("; ", prop.Predicted.Targets.Zip(prop.Current.Targets, (a, c) =>
+                            $"{a.TargetId} ≥Rx diodes {c.DiodesAtOrAboveRx}->{a.DiodesAtOrAboveRx}, J {c.Score:0.000}->{a.Score:0.000}"))));
                     var row = new FineTuneRowViewModel(p, prop);
                     row.PropertyChanged += (_, __) => NotifyFooter();
                     p.FineTune = row;
@@ -455,6 +464,8 @@ namespace SrsMcPsqa.App.ViewModels
                 {
                     ct.ThrowIfCancellationRequested();
                     pr.AddLog($"{plan.PlanId}: move isocentre, recalculate");
+                    Infrastructure.Log.Info($"{plan.PlanId}: decision {plan.FineTune?.Decision}; array move {plan.FineTune?.ChosenMoveShort}; " +
+                        $"iso {Infrastructure.Diagnostics.Vec(plan.Isocentre)} -> {Infrastructure.Diagnostics.Vec(iso)}; clearance after: {plan.PreviewClearance.Summary}");
                     var region = QaPlanRequests.DoseRegion(plan.Orientation, plan.Phantom.UserOrigin);
                     QaPlanResult result;
                     try { result = await Session.Service.MoveIsocentreAsync(plan.CourseId, plan.PlanId, iso, region, pr.Reporter, ct, pr.Events); }
@@ -548,6 +559,7 @@ namespace SrsMcPsqa.App.ViewModels
                     $"Delete {plans.Count} QA plan(s) from Eclipse?\n\n{string.Join("\n", plans.Select(p => "  " + p.PlanId))}\n\nOnly plans created by this app (tagged) can be deleted. Phantom images are kept.",
                     "Delete", danger: true))
                 return;
+            Infrastructure.Log.Info("Deleting QA plans: " + string.Join(", ", plans.Select(p => $"{p.CourseId}/{p.PlanId}")));
             await Shell.RunAsync("Deleting QA plans", async (pr, ct) =>
             {
                 foreach (var g in plans.GroupBy(p => p.CourseId))

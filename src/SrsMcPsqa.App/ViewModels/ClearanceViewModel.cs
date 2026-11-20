@@ -75,7 +75,7 @@ namespace SrsMcPsqa.App.ViewModels
             catch (Exception ex)
             {
                 if (version != _version) return;
-                Log.Warn("Clearance check failed: " + ex.Message);
+                Log.Error("Clearance check failed", ex);
                 Set("NotConfigured", "Couch clearance check failed: " + ex.Message, "", "", null);
             }
         }

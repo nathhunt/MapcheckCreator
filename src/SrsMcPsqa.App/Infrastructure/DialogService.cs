@@ -37,8 +37,11 @@ namespace SrsMcPsqa.App.Infrastructure
             new MessageDialog(title, message, details, MessageDialogKind.Error, "OK", null) { Owner = Owner }.ShowDialog();
         }
 
-        public void ShowInfo(string title, string message) =>
+        public void ShowInfo(string title, string message)
+        {
+            Log.Info($"Dialog shown: {title}: {message.Replace(Environment.NewLine, " | ")}");
             new MessageDialog(title, message, null, MessageDialogKind.Info, "OK", null) { Owner = Owner }.ShowDialog();
+        }
 
         public bool ShowChangePlans(object planningViewModel) =>
             new ChangePlansDialog { DataContext = planningViewModel, Owner = Owner }.ShowDialog() == true;
@@ -46,7 +49,9 @@ namespace SrsMcPsqa.App.Infrastructure
         public bool Confirm(string title, string message, string confirmText = "OK", bool danger = false)
         {
             var d = new MessageDialog(title, message, null, danger ? MessageDialogKind.Warning : MessageDialogKind.Question, confirmText, "Cancel") { Owner = Owner };
-            return d.ShowDialog() == true;
+            bool ok = d.ShowDialog() == true;
+            Log.Info($"Confirm '{title}': {(ok ? confirmText : "Cancel")}. Message: {message.Replace(Environment.NewLine, " | ")}");
+            return ok;
         }
     }
 }

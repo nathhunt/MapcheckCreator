@@ -108,6 +108,7 @@ namespace SrsMcPsqa.App.ViewModels
                 Edit = loaded.Clone();
                 _departmentTimeAtOpen = SettingsStore.DepartmentFileTimeUtc;
                 Status = "Reloaded: " + source + ".";
+                Log.Info("Settings reloaded: " + source + ". " + Diagnostics.Settings(loaded));
             }
             catch (System.Exception ex)
             {
