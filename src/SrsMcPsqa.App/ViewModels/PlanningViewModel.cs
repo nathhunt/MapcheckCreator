@@ -97,6 +97,9 @@ namespace SrsMcPsqa.App.ViewModels
         // ------------------------------------------------------------------ create-button state
         public bool CanCreate => HasPlanes && Session.CanCreatePlans;
         public string CreateButtonText => Planes.Count == 1 ? "Create 1 QA plan" : $"Create {Planes.Count} QA plans";
+        [RelayCommand]
+        private void OpenSettings() => Shell.Navigate(Shell.Settings);
+
         public string CreateHint => !HasPlanes
             ? "Waiting for the recommendation."
             : Session.CreateBlockedReason ?? "Creates the plans in Eclipse on the phantom and calculates them with the clinical MUs.";

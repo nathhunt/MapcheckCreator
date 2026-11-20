@@ -9,7 +9,7 @@ Start it from Eclipse with the clinical plan open: **Tools → Scripts → SrsMc
 ## 1 · Patient & plan
 
 - The patient, course and plan from Eclipse are preselected. Click **Load plan and continue**.
-- **Course for the QA plans**: the QA course from Settings (default `QA`) is used, and created with the first QA plan if
+- **Course for the QA plans**: the QA course from Settings (default `PHYS_QA`) is used, and created with the first QA plan if
   the patient doesn't have it. You can pick another open course.
 - The checks list what the app found (dose, single isocentre, beams; setup fields are ignored). Errors stop here.
 - **Find existing QA plans for this plan** loads QA plans the app made earlier for this plan into Review (only when you

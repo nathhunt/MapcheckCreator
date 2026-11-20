@@ -26,5 +26,5 @@
   "CollisionMaxLateralOffsetMm": 50,
   "CollisionWarningMm": 30,
   "CollisionRiskMm": 15,
-  "QaCourseId": "QA"
+  "QaCourseId": "PHYS_QA"
 }

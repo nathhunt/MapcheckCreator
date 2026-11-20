@@ -31,7 +31,7 @@ namespace SrsMcPsqa.App.Infrastructure
         [DataMember] public string HelperPatterns { get; set; } = Core.Prescription.PtvFilter.DefaultHelperPatterns;
         [DataMember] public string PlanNamingPattern { get; set; } = Core.Models.QaPlanNaming.DefaultPattern;
         /// <summary>QA course ID: preselected when it exists, otherwise created with the first QA plan.</summary>
-        [DataMember] public string QaCourseId { get; set; } = "QA";
+        [DataMember] public string QaCourseId { get; set; } = "PHYS_QA";
         [DataMember] public double EdgeMarginMm { get; set; } = 3.0;
         [DataMember] public double Tau { get; set; } = 0.85;
         [DataMember] public int MinDiodes { get; set; } = 5;

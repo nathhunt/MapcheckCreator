@@ -147,12 +147,15 @@ namespace SrsMcPsqa.App.ViewModels
                 if (Patient == null) return "Open a patient first (step 1).";
                 if (!Patient.CanModify) return "Eclipse doesn't allow changes to this patient yet (the app isn't approved, or the patient is locked). You can still plan.";
                 if (QaCourse == null) return "Choose a QA course in step 1.";
-                if (!IsDemo && !Settings.HasTemplate) return "Set the template phantom in Settings.";
+                if (NeedsTemplateSettings) return "Creating is off: the template phantom (patient and image IDs) isn't set for this installation. Open Settings, enter it and Save.";
                 return null;
             }
         }
 
         public bool CanCreatePlans => CreateBlockedReason == null;
+
+        /// <summary>The department settings file has no template phantom yet (creating QA plans needs it).</summary>
+        public bool NeedsTemplateSettings => !IsDemo && !Settings.HasTemplate;
 
         partial void OnPatientChanged(PatientSummary? value) => NotifyCreateState();
         partial void OnQaCourseChanged(CourseSummary? value) => NotifyCreateState();
@@ -162,6 +165,7 @@ namespace SrsMcPsqa.App.ViewModels
         {
             OnPropertyChanged(nameof(CreateBlockedReason));
             OnPropertyChanged(nameof(CanCreatePlans));
+            OnPropertyChanged(nameof(NeedsTemplateSettings));
         }
 
         public void SetClinicalPlan(ClinicalPlanData plan)

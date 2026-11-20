@@ -81,7 +81,7 @@ namespace SrsMcPsqa.App.ViewModels
                              ?? Courses.FirstOrDefault(c => c.Plans.Any(p => !p.IsQaPlan));
             if (SelectedPlan == null) SelectedPlan = Plans.FirstOrDefault(p => p.PlanId == launch.PlanId) ?? Plans.FirstOrDefault();
             // The configured QA course if it exists; otherwise offer to create it (it's made with the first QA plan).
-            string qaId = string.IsNullOrWhiteSpace(Session.Settings.QaCourseId) ? "QA" : Session.Settings.QaCourseId.Trim();
+            string qaId = string.IsNullOrWhiteSpace(Session.Settings.QaCourseId) ? "PHYS_QA" : Session.Settings.QaCourseId.Trim();
             var configured = QaCourses.FirstOrDefault(c => string.Equals(c.Id, qaId, System.StringComparison.OrdinalIgnoreCase));
             if (configured == null && !patient.Courses.Any(c => string.Equals(c.Id, qaId, System.StringComparison.OrdinalIgnoreCase)))
             {

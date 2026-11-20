@@ -60,7 +60,7 @@ Set once per installation:
 | Setting | Notes |
 |---|---|
 | Template phantom: patient, 0° and 270° image IDs (study IDs optional) | Saved per installation folder, so test and production never mix. **Validate** checks them. |
-| QA course ID | Default `QA`; created with the first QA plan if the patient doesn't have it. |
+| QA course ID | Default `PHYS_QA`; created with the first QA plan if the patient doesn't have it. |
 | Plan ID pattern | Default `MC{n}_{orient}`. |
 | Collision check: MapCHECK origin height above the couch top, couch head end | **Required** for the collision check; see [docs/COLLISION_CHECK.md](../docs/COLLISION_CHECK.md). |
 | Optimisation (edge margin, coverage threshold, minimum diodes, α) | Defaults are fine to start with. |
