@@ -1,7 +1,7 @@
 # Phase 5 + UI round: test on Citrix
 
 Build the latest `claude/adoring-ritchie-5cjxh0` in Release and install as in [deploy/README.md](../deploy/README.md).
-The window title shows the version (0.9.0). A rebuilt exe may need approving again.
+The window title shows the version (1.0.0-beta+<commit>). A rebuilt exe may need approving again.
 
 | # | Do | Expect / check |
 |---|---|---|
