@@ -386,7 +386,8 @@ namespace SrsMcPsqa.App.ViewModels
             SelectedPage = value;
         }
 
-        public static string Version { get; } = typeof(ShellViewModel).Assembly.GetName().Version?.ToString(3) ?? "";
+        /// <summary>Version with the git commit it was built from, e.g. 0.9.0+a1b2c3d (-dirty: uncommitted changes).</summary>
+        public static string Version { get; } = Infrastructure.Diagnostics.AppVersion;
         public string WindowTitle => $"SRS MapCHECK PSQA Plan Creator {Version}" + (IsFake ? " · DEMO DATA" : "");
 
         partial void OnSelectedPageChanged(PageViewModel value)

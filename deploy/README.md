@@ -15,7 +15,9 @@ own script approval. Nothing is installed: the app runs from a folder the Citrix
    dotnet build src/SrsMcPsqa.App/SrsMcPsqa.App.csproj -c Release
    ```
 
-   Output: `src/SrsMcPsqa.App/bin/Release/net48/` (x64). The version is shown in the window title.
+   Output: `src/SrsMcPsqa.App/bin/Release/net48/` (x64). The window title and the log show the version with the git
+   commit it was built from, e.g. `0.9.0+a1b2c3d`; `-dirty` means the build had uncommitted changes, `+unknown` that git
+   wasn't available. Deploy builds from a clean, pushed commit so the log identifies the exact code.
 
    In VS Code, **Terminal → Run Build Task** (Ctrl+Shift+B) runs **Release build + launcher**: the Release build plus a
    copy of the launcher (`SrsMcPsqa.Launcher.cs`) in that folder. Deploy that folder's contents (not a `publish`
