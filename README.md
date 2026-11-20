@@ -92,7 +92,7 @@ the app folder. Department settings are:
 - **Tests:** `dotnet test tests/SrsMcPsqa.Core.Tests` runs on any OS. Without Eclipse, build against the stand-in DLLs
   in `tools/EsapiStubs`.
 - **Background:** [technical notes](docs/TECHNICAL_NOTES.md) cover ESAPI behaviour, design decisions and algorithms.
-  The `docs/PHASE*_CHECKLIST.md` files and `spike/` record the development and test history.
+  The `docs/PHASE*_CHECKLIST.md` files record the development and test history.
 
 ```
 src/SrsMcPsqa.App/        the WPF app (screens, settings, logging)

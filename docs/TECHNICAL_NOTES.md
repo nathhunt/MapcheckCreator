@@ -20,7 +20,7 @@ ESAPI 18.1.0.472 (API assembly 1.0.700.247). A probe confirmed every member belo
 | V9 | `CalculateDoseWithPresetValues` | **Preset MUs are ignored** on v18 verification plans: MU = weight × dose/fraction × MU/Gy, with MU/Gy = 100 (no reference point). ✓ Verified workaround: beam weights = clinical MU ÷ (dose/fraction × 100). Four arcs gave exactly the clinical MUs, on creation and after an isocentre move. The app checks every beam after each calculation. Calculation ~10 min per 4-arc plan (AcurosXB, 1 mm, whole phantom). Exists; `CalculationResult` has **only `Success`**; progress (`Progress N%`, one 0–100 count per plan, ~25 % per beam) and the warnings/errors summary come from Eclipse's .NET trace output (`EclipseTraceListener`). |
 | V10 | `BeamParameters.Isocenter` setter | ✓ moving the isocentre via `GetEditableParameters`/`ApplyParameters` works (tested). |
 | V11 | `Course.RemovePlanSetup` | ✓ tested, plus `CanRemovePlanSetup`. Don't touch the plan object after removal. |
-| V12 | Dose units | ✓ `DoseValuePresentation = Absolute` works even without BeginModifications. Previously: Test plan is `DoseValuePresentation=Relative`, so `VoxelToDoseValue` returns %. Must switch to Absolute (the spike now tests whether that works read-only). `GetVoxels` takes ~190 ms per plane at 468×241, so extraction must read only the z-planes around the PTVs. |
+| V12 | Dose units | ✓ `DoseValuePresentation = Absolute` works even without BeginModifications. The test plan is `DoseValuePresentation=Relative`, so `VoxelToDoseValue` returns % until switched to Absolute. `GetVoxels` takes ~190 ms per plane at 468×241, so extraction must read only the z-planes around the PTVs. |
 | V13 | `TotalDose`, `RTPrescription` | ✓ `TotalDose` (30 Gy); `RTPrescription` null for the test plan. |
 | V14 | Launcher | ✓ Passes patient, course and plan to the exe. `Assembly.Location` is **empty** for a single-file plugin, so the config file next to the script can't work; use the constant path or the environment variable. |
 | V15 | ESAPI on a dedicated STA thread | ✓ `CreateApplication` in 1.7 s, calls fine. |
@@ -62,7 +62,7 @@ Choices made where the brief left room. Each is easy to change.
 - **Dose.** The app switches the plan to absolute dose if it can. Otherwise it converts % with the plan total dose (100% = total dose) and says so. Voxel→Gy is calibrated from `VoxelToDoseValue` at three points. Only the z-planes within the PTVs + 45 mm are read: `GetVoxels` always reads a whole plane, about 0.2 s each.
 - **Validation blocks the plan** (instead of just warning) for: no valid dose, more than one isocentre, non-HFS, non-photon beams, or no non-empty PTV.
 - **Template check.** **Settings → Validate** closes your patient, opens the template read-only and re-opens your patient. ESAPI allows only one open patient.
-- **Members not in the probe.** The ESAPI code also relies on `VVector.x/y/z`, `DoseValue.Dose`/`UnitAsString` and the standard enums. These weren't in the probe dump but are used the same way in the spike, which compiled on Citrix.
+- **Members not in the probe.** The ESAPI code also relies on `VVector.x/y/z`, `DoseValue.Dose`/`UnitAsString` and the standard enums. These weren't in the probe dump but compiled and ran on Citrix (Phase 0 test tool, since removed).
 
 ## Writing to Eclipse
 
