@@ -38,6 +38,11 @@ namespace SrsMcPsqa.App.Infrastructure
         [DataMember] public double Alpha { get; set; } = 0.5;
         [DataMember] public double FineTuneInPlaneRangeMm { get; set; } = 15.0;
         [DataMember] public double FineTuneNormalRangeMm { get; set; } = 10.0;
+        /// <summary>
+        /// Shift components smaller than this (mm) are rounded to zero: the QA isocentre shift from the MapCHECK origin in
+        /// array planning, and the change in position when fine-tuning. 0 = off.
+        /// </summary>
+        [DataMember] public double ShiftThresholdMm { get; set; } = 1.0;
         [DataMember] public bool AutoSave { get; set; } = true;
 
         // Gantry–couch collision check (mm). Head: 41.5 cm iso to face, 76.5 cm across (open-source ESAPI collision scripts);
@@ -93,7 +98,7 @@ namespace SrsMcPsqa.App.Infrastructure
             TemplatePatientId = d.TemplatePatientId; Template0StudyId = d.Template0StudyId; Template270StudyId = d.Template270StudyId; Template0ImageId = d.Template0ImageId;
             Template270ImageId = d.Template270ImageId; HelperPatterns = d.HelperPatterns; PlanNamingPattern = d.PlanNamingPattern; QaCourseId = d.QaCourseId; EdgeMarginMm = d.EdgeMarginMm;
             Tau = d.Tau; MinDiodes = d.MinDiodes; Alpha = d.Alpha; FineTuneInPlaneRangeMm = d.FineTuneInPlaneRangeMm;
-            FineTuneNormalRangeMm = d.FineTuneNormalRangeMm; AutoSave = d.AutoSave; LogLevel = d.LogLevel; Theme = d.Theme;
+            FineTuneNormalRangeMm = d.FineTuneNormalRangeMm; ShiftThresholdMm = d.ShiftThresholdMm; AutoSave = d.AutoSave; LogLevel = d.LogLevel; Theme = d.Theme;
             CollisionHeadClearanceMm = d.CollisionHeadClearanceMm; CollisionHeadRadiusMm = d.CollisionHeadRadiusMm;
             CollisionCouchWidthMm = d.CollisionCouchWidthMm; CollisionCouchThicknessMm = d.CollisionCouchThicknessMm;
             CollisionOriginAboveCouchMm = d.CollisionOriginAboveCouchMm; CollisionCouchHeadEndSupMm = d.CollisionCouchHeadEndSupMm;

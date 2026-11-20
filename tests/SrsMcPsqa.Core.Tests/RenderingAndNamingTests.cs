@@ -77,3 +77,26 @@ namespace SrsMcPsqa.Core.Tests
         }
     }
 }
+
+namespace SrsMcPsqa.Core.Tests
+{
+    public class ShiftRoundingTests
+    {
+        [Fact]
+        public void RoundsSmallComponentsToZero()
+        {
+            var v = Geometry.ShiftRounding.Snap(new Geometry.Vec3(0.6, -0.99, 1.0), 1.0);
+            Assert.Equal(0, v.X); Assert.Equal(0, v.Y); Assert.Equal(1.0, v.Z); // exactly the threshold is kept
+            Assert.Equal(0.3, Geometry.ShiftRounding.Snap(0.3, 0)); // 0 = off
+        }
+
+        [Fact]
+        public void SnapsTheIsocentreShiftNotTheCentre()
+        {
+            var iso = new Geometry.Vec3(10, 20, 30);
+            // Array centre 0.4 mm right, 12 mm ant, 0.7 mm inf of the clinical iso → shift (0.4, 12, 0.7) → (0, 12, 0).
+            var c = Geometry.ShiftRounding.SnapArrayCentre(iso, new Geometry.Vec3(9.6, 8, 29.3), 1.0);
+            Assert.True(c.ApproxEquals(new Geometry.Vec3(10, 8, 30), 1e-9));
+        }
+    }
+}

@@ -232,12 +232,19 @@ namespace SrsMcPsqa.App.ViewModels
         public FineTuneRowViewModel(QaPlanViewModel plan, FineTuneProposal proposal)
         {
             Plan = plan; Proposal = proposal;
-            var m = proposal.ArrayMoveRelativeToPatient;
+            Threshold = plan.Session.Settings.ShiftThresholdMm;
+            var m = SuggestedMove;
             _customX = m.X.ToString("0.0#", CultureInfo.InvariantCulture);
             _customY = m.Y.ToString("0.0#", CultureInfo.InvariantCulture);
             _customZ = m.Z.ToString("0.0#", CultureInfo.InvariantCulture);
-            _decision = proposal.Improves ? FineTuneDecision.Accept : FineTuneDecision.Discard;
+            _decision = HasSuggestion ? FineTuneDecision.Accept : FineTuneDecision.Discard;
         }
+
+        /// <summary>Changes in position smaller than this (mm, per axis) are rounded to zero (Settings: shift threshold).</summary>
+        public double Threshold { get; }
+
+        /// <summary>The optimiser's array move with small components rounded to zero.</summary>
+        public Vec3 SuggestedMove => ShiftRounding.Snap(Proposal.ArrayMoveRelativeToPatient, Threshold);
 
         public static IReadOnlyList<FineTuneDecision> Decisions { get; } = new[] { FineTuneDecision.Accept, FineTuneDecision.Edit, FineTuneDecision.Discard };
 
@@ -260,7 +267,7 @@ namespace SrsMcPsqa.App.ViewModels
         public bool UseCustom { get => Decision == FineTuneDecision.Edit; set { if (value) Decision = FineTuneDecision.Edit; } }
         public bool KeepCurrent { get => Decision == FineTuneDecision.Discard; set { if (value) Decision = FineTuneDecision.Discard; } }
 
-        public bool HasSuggestion => Proposal.Improves && Proposal.ArrayMoveRelativeToPatient.Length >= 0.05;
+        public bool HasSuggestion => Proposal.Improves && SuggestedMove.Length >= 0.05;
 
         /// <summary>True when applying would move this plan's isocentre.</summary>
         public bool WillMove
@@ -284,8 +291,10 @@ namespace SrsMcPsqa.App.ViewModels
         }
 
         public string SuggestionHeadline => HasSuggestion
-            ? "Suggested: move the array from its current position " + Proposal.ArrayMoveDescription
-            : "No better position found. The current position is the best the search found.";
+            ? "Suggested: move the array from its current position " + ShiftLabels.Describe(SuggestedMove)
+            : Proposal.Improves
+                ? string.Format(CultureInfo.InvariantCulture, "No worthwhile change: the better position found is less than {0:0.#} mm away on every axis.", Threshold)
+                : "No better position found. The current position is the best the search found.";
 
         /// <summary>Predicted change per PTV, one line each.</summary>
         public IReadOnlyList<string> PredictedLines => Proposal.Predicted.Targets.Zip(Proposal.Current.Targets, (p, c) =>
@@ -317,14 +326,15 @@ namespace SrsMcPsqa.App.ViewModels
             switch (Decision)
             {
                 case FineTuneDecision.Accept:
-                    return Proposal.ProposedQaIsocentre;
+                    // The suggested move with small components rounded to zero; array moves by m → isocentre moves by −m.
+                    return Plan.Isocentre + IsoGeometry.IsoShiftForArrayMove(Plan.ArrayCentre, Plan.ArrayCentre + SuggestedMove);
                 case FineTuneDecision.Edit:
                     if (!TryParse(CustomX, out var x) || !TryParse(CustomY, out var y) || !TryParse(CustomZ, out var z))
                     {
                         error = $"{PlanId}: enter the array move as numbers in mm.";
                         return null;
                     }
-                    var move = new Vec3(x, y, z);
+                    var move = ShiftRounding.Snap(new Vec3(x, y, z), Threshold);
                     if (Math.Abs(x) > 50 || Math.Abs(y) > 50 || Math.Abs(z) > 50)
                     {
                         error = $"{PlanId}: moves larger than 50 mm are not allowed here.";

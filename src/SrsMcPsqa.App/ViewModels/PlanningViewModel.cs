@@ -233,7 +233,18 @@ namespace SrsMcPsqa.App.ViewModels
                 vm.Updated += (_, __) => RefreshPlanColumn();
                 Planes.Add(vm);
             }
+            // Round small components of each plan's QA isocentre shift to zero (Settings: shift threshold).
+            bool snapped = false;
+            if (_model != null && _analysis != null)
+                foreach (var p in Planes)
+                {
+                    var c = SnapCentre(p.Centre);
+                    if ((c - p.Centre).Length < 1e-9) continue;
+                    p.Update(_model.Evaluate(new ArrayPlane(p.Orientation, c), _analysis.Settings, _analysis.Reference));
+                    snapped = true;
+                }
             RefreshPlanColumn();
+            if (snapped) { var re = Recommender.Build(_model!, _analysis!, Planes.Select(p => p.Evaluation.Plane), null, keepOrder: true); rec = re; }
             ApplyCoverage(rec);
             if (resetConstraints || ConstraintRows.Count != Planes.Count) ResetConstraints();
             OnPropertyChanged(nameof(HasPlanes));
@@ -361,12 +372,17 @@ namespace SrsMcPsqa.App.ViewModels
             if (args.Completed) _dragStart = null;
         }
 
+        /// <summary>Array centre with the small components of its QA isocentre shift rounded to zero.</summary>
+        private Vec3 SnapCentre(Vec3 centre) =>
+            ShiftRounding.SnapArrayCentre(Session.ClinicalPlan!.Isocentre, centre, Session.Settings.ShiftThresholdMm);
+
         private void MovePlane(PlanePlanViewModel p, Vec3 centre, bool full)
         {
             if (_model == null || _analysis == null) return;
             p.IsManual = true;
             if (full)
             {
+                centre = SnapCentre(centre);
                 p.Update(_model.Evaluate(new ArrayPlane(p.Orientation, centre), _analysis.Settings, _analysis.Reference));
                 Reevaluate();
             }

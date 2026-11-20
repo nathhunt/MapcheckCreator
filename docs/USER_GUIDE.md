@@ -45,6 +45,8 @@ Start it from Eclipse with the clinical plan open: **Tools → Scripts → SrsMc
   every plan.
 - Plans from an earlier session are marked; **OUT OF DATE** means their beams or MUs no longer match the clinical plan
   (delete and recreate them). **Recalculate this plan** appears for a plan without dose.
+- Small changes are rounded away: with the **Round shifts smaller than** setting (default 1 mm), any axis of a suggested
+  or entered move smaller than that becomes 0, and the same applies to the QA isocentre shift in array planning.
 - **Delete plan** / **Delete all** remove the app's own QA plans from Eclipse (only tagged plans; phantom images stay).
 
 ## At the linac

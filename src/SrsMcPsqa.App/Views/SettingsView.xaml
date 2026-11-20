@@ -195,6 +195,17 @@
             <ui:Card Margin="0,0,0,12">
                 <StackPanel>
                     <TextBlock Style="{StaticResource Section}" Text="Optimisation defaults" />
+                    <Grid Margin="0,4,0,10">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="140" /></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <TextBlock VerticalAlignment="Center" Margin="0,0,12,0" Text="Round shifts smaller than" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                        <DockPanel Grid.Column="1">
+                            <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Margin="6,0,0,0" Width="24" Text="mm" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <ui:TextBox Text="{Binding Edit.ShiftThresholdMm}" TextAlignment="Right" />
+                        </DockPanel>
+                        <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap"
+                                   Text="Per axis, to zero: the QA isocentre shift from the MapCHECK origin in array planning, and the change in position when fine-tuning. 0 = off." />
+                    </Grid>
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition />
