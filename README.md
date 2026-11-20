@@ -1,156 +1,106 @@
-# SRS MapCHECK PSQA Plan Creator (Eclipse ESAPI v18)
+# SRS MapCHECK PSQA Plan Creator
 
-Creates patient-specific QA plans for single-isocentre SRS plans, measured with a Sun Nuclear SRS MapCHECK in a StereoPHAN. It recommends the minimum number of QA plans and the array position for each, creates and calculates the plans in Eclipse, and supports iterative fine-tuning of the array position.
+**Version 1.0.0-beta** · Eclipse 18.1 (ESAPI) · Varian TrueBeam · Sun Nuclear SRS MapCHECK
 
-## Status
+Creates the patient-specific QA plans for a single-isocentre SRS plan in a few clicks. The app works out how few
+MapCHECK measurements cover every PTV, places the array for each one, then creates and calculates the QA plans in
+Eclipse with the clinical MUs. You can review the calculated dose on the array, fine-tune the position and recalculate.
+It also warns you before a setup would bring the couch too close to the gantry.
 
-| Phase | Content | State |
-|---|---|---|
-| 0 | Spike: test the risky ESAPI behaviour on Citrix | **Done**: all questions answered on Citrix (2026-11-09) |
-| 1 | Core: geometry, detector model, scoring, optimisation (+ unit tests) | **Done**: 84 tests passing |
-| 2 | App shell on fake data | **Done**: full UI flow on demo data ([try it](docs/PHASE2_UI_CHECKLIST.md)) |
-| 3 | ESAPI read path | **Done**: tested on Citrix (dose and PTVs match Eclipse) |
-| 4 | ESAPI write path | **Done, tested on Citrix** 2026-11-10 ([checklist](docs/PHASE4_CHECKLIST.md)): 3 plans created, calculated (MUs exact), fine-tuned and deleted |
-| 5 | Hardening, deployment docs | **Done, to test on Citrix** ([checklist](docs/PHASE5_CHECKLIST.md), [deployment](deploy/README.md), [user guide](docs/USER_GUIDE.md)) |
+## What it does for you
 
-## Repository layout
+- **Fewest QA plans.** Suggests the smallest set of array planes (0° horizontal or 270° vertical) that measures every
+  selected PTV, with the array placed where the diodes see the most of each PTV's high-dose region.
+- **QA plans built for you.** Copies the phantom images, creates verification plans in the QA course (made for you if
+  missing), copies the beams in clinical order, and calculates with one fraction at the clinical dose per fraction.
+  Every beam's MU is checked against the clinical plan.
+- **Clear positions.** The QA isocentre is always shown as the shift from the MapCHECK user origin, ready to set up at
+  the linac. Shifts under 2 mm are rounded to zero.
+- **Collision warnings.** Checks the clearance between the TrueBeam head and the Exact IGRT couch for every beam, and
+  suggests a lateral phantom offset when it's tight. It warns and never blocks.
+- **Review and fine-tune.** Shows the calculated dose on the array with the PTVs and diodes, suggests a better
+  position, previews the move, and recalculates the plans you choose.
+- **Live progress.** Shows each plan's steps, Eclipse's own calculation progress, and the MU check.
+- **Pick up later.** Finds the QA plans it made earlier for a plan, and flags any that no longer match the clinical plan.
+
+## Before you start
+
+| You need | Notes |
+|---|---|
+| Eclipse 18.1 with the app approved for writing | Your physics/ARIA administrator approves it in Script Approvals. Without approval the app opens read-only: you can plan, but not create QA plans. |
+| A single-isocentre, head-first supine, photon SRS plan with calculated dose | Setup fields are fine; they're left out of the QA plans. |
+| PTV names that carry the total dose, e.g. `PTV1_24Gy`, `PTV_2000cGy`, `PTV30` | Otherwise the plan prescription is used. You can change any Rx before planning. |
+| The template phantom patient with the 0° and 270° SRS MapCHECK images | User origin at the centre of the array. Set once per installation in **Settings**. |
+
+## Using the app
+
+Open the clinical plan in Eclipse, then run **Tools → Scripts → SrsMcPsqa.Launcher**. The app opens on your patient and
+plan.
+
+1. **Patient & plan.** Check the plan and the QA course (default `PHYS_QA`), then **Load plan and continue**. To return
+   to earlier QA plans, use **Find existing QA plans for this plan**.
+2. **PTVs.** Tick the PTVs to measure and check each prescription. Helper structures (`z*`, `*eval*`) start unticked.
+3. **Array planning.** Review the suggested QA plans. Select one to see where the array cuts the PTVs, move it if you
+   want, and check the QA isocentre shift and couch clearance. Then **Create N QA plans**.
+4. **Review & fine-tune.** Check each plan's calculated dose on the array. Optionally check for a better position,
+   choose to use it, enter your own move or keep the current one, and recalculate.
+
+At the linac, set up the MapCHECK at the QA isocentre shift shown on the plan's card. If the app suggested a lateral
+phantom offset, move the phantom that far on the couch.
+
+Step-by-step details are in the [user guide](docs/USER_GUIDE.md).
+
+## Good to know
+
+- **The clinical plan is never changed.** The app only creates, recalculates and deletes its own QA plans. It marks
+  them with a tag in the plan Comment and will not touch any plan without it.
+- **Calculation takes minutes.** Each QA plan is a full Eclipse calculation. **Cancel** stops after the current plan,
+  so nothing is left half-made.
+- **Approximations are labelled.** Positions before calculation, fine-tune previews and the collision check are
+  approximations and say so. Calculated doses are labelled **CALCULATED**.
+- **The collision check is a guide.** It models the head as a cylinder 37.5 cm from the isocentre (the laser guard
+  trip radius) and the couch top with its real cross-section. Confirm unusual setups with a dry run. See
+  [how it works](docs/COLLISION_CHECK.md).
+
+## Settings
+
+Everything on the **Settings** page except theme and log level is a **department setting**, shared by everyone who
+uses the same installation. Saving a change lists what changes and asks you to confirm. It also needs write access to
+the app folder. Department settings are:
+
+- the template phantom
+- the QA course ID and plan ID pattern (`MC1_0`, `MC2_270`, …)
+- the phantom position on the couch, collision tolerances and machine dimensions
+- the shift rounding threshold and the optimisation values
+
+## When something goes wrong
+
+- **Error messages** explain what happened. **Copy details** puts the full error on the clipboard.
+- **Logs** are in the `logs` folder next to the app, one file per user per computer:
+  `srsmcpsqa_<user>_<computer>.log`. **Settings** shows the path of yours. The log records each step, Eclipse's
+  messages, your choices and any error in full.
+- **The version** in the window title includes the exact build, e.g. `1.0.0-beta+f1bc032`. Quote it with the log when
+  reporting a problem.
+
+## For administrators and developers
+
+- **Installing and approving:** [deploy/README.md](deploy/README.md) covers building, the app folder, the launcher,
+  script approval, folder permissions and the department settings file.
+- **Building:** Windows with Visual Studio 2022 or the .NET SDK, and the ESAPI v18 DLLs (`EsapiPath.user.props`). In VS
+  Code, **Ctrl+Shift+B** runs *Release build + launcher*. Try it without Eclipse with `SrsMcPsqa.exe --fake`, which
+  uses demo data.
+- **Tests:** `dotnet test tests/SrsMcPsqa.Core.Tests` runs on any OS. Without Eclipse, build against the stand-in DLLs
+  in `tools/EsapiStubs`.
+- **Background:** [technical notes](docs/TECHNICAL_NOTES.md) cover ESAPI behaviour, design decisions and algorithms.
+  The `docs/PHASE*_CHECKLIST.md` files and `spike/` record the development and test history.
 
 ```
-Directory.Build.props              shared settings; EsapiPath (override in EsapiPath.user.props)
-SrsMcPsqa.sln                      Core, Fake, Esapi, App, tests
-src/SrsMcPsqa.Core/                netstandard2.0, no ESAPI/WPF. Units mm and Gy, DICOM patient coordinates
-  Geometry/                        Vec3, ArrayOrientation/PlaneAxes, IsoGeometry + ShiftLabels (sign conventions),
-                                   DoseGrid, StructureMask, ContourRasterizer (even-odd)
-  Detector/DiodeArray.cs           1,013-diode SRS MapCHECK lattice
-  Prescription/                    PTV-ID prescription parser and resolver
-  Optimisation/                    Scoring (J_k), PlanningModel (summed-area tables), CandidateSearch,
-                                   SetCoverSolver, Recommender, ConstrainedOptimizer, FineTuneOptimizer
-  Rendering/                       plane sampling and marching-squares isolines for the 2D view
-  Models/                          DTOs, QA plan naming + Comment tag, request builders
-  Services/IPlanningService.cs     draft UI <-> Eclipse contract (revised after spike results)
-src/SrsMcPsqa.Fake/                netstandard2.0 synthetic patient + simulated IPlanningService (--fake)
-src/SrsMcPsqa.Esapi/               net48 x64: ESAPI IPlanningService (EsapiWorker STA thread, extraction, validation)
-src/SrsMcPsqa.Launcher/            read-only single-file Eclipse plugin that starts SrsMcPsqa.exe
-src/SrsMcPsqa.App/                 net48 x64 WPF: WPF-UI 3.0.5, CommunityToolkit.Mvvm 8.2.2, HelixToolkit.Wpf 2.25.0
-  ViewModels/                      shell, patient & plan, PTVs, planning, review & fine-tune, settings
-  Views/, MainWindow.xaml          Fluent UI; left navigation; progress panel
-  Controls/PlaneView.cs            2D array-plane renderer (dose, PTVs, 100% isodose, array, diodes, rulers, drag)
-  Controls/Scene3DView.cs          3D overview (HelixToolkit)
-  Infrastructure/                  settings (JSON, department + per-user), rolling log, dialogs, converters
-tests/SrsMcPsqa.Core.Tests/        net8.0 xUnit, synthetic PTVs with analytic dose; end-to-end workflow on the fake service
-tools/EsapiStubs/                  compile-check stand-ins for the ESAPI DLLs (from the v18 probe; never deployed)
-deploy/                            per-environment department settings (test / production)
-spike/
-  SrsMcPsqa.Spike.sln
-  SrsMcPsqa.Spike/                 net48 x64 WPF (WPF-UI 3.0.5), write-enabled ESAPI standalone
-    EsapiWorker.cs                 all ESAPI calls on one dedicated STA thread
-    SpikeRunner.cs                 steps 0-3b, cleanup
-    BeamCopier.cs                  beam copy at a new isocentre (prototype for Phase 4)
-    Reflect.cs                     reflection helpers for VERIFY items
-  SrsMcPsqa.Spike.Launcher/        read-only single-file plugin that starts the exe
-  SPIKE_CHECKLIST.md               what to run on Citrix and what to report back
+src/SrsMcPsqa.App/        the WPF app (screens, settings, logging)
+src/SrsMcPsqa.Core/       planning, scoring, fine-tune and collision geometry (no Eclipse dependency)
+src/SrsMcPsqa.Esapi/      everything that talks to Eclipse
+src/SrsMcPsqa.Fake/       demo data for --fake
+src/SrsMcPsqa.Launcher/   the Eclipse script that starts the app
+tests/                    unit and workflow tests
+deploy/                   department settings files and deployment guide
+docs/                     user guide, collision check, technical notes, test checklists
 ```
-
-## Build
-
-Core and tests (any OS with the .NET 8 SDK, no ESAPI needed):
-
-```bash
-dotnet test tests/SrsMcPsqa.Core.Tests/SrsMcPsqa.Core.Tests.csproj
-```
-
-The app (Windows, .NET SDK 6+ or VS 2022). It references ESAPI, so it needs the v18 DLLs (`EsapiPath.user.props`) to build, even for demo data:
-
-```bash
-dotnet build SrsMcPsqa.sln -c Release
-```
-
-```bash
-src/SrsMcPsqa.App/bin/Release/net48/SrsMcPsqa.exe --fake
-```
-
-Without `--fake` the app connects to Eclipse. On a machine without Eclipse (CI, Linux), compile against the stubs:
-
-```bash
-dotnet build tools/EsapiStubs/API/VMS.TPS.Common.Model.API.csproj -c Release
-```
-
-```bash
-dotnet build SrsMcPsqa.sln -p:EsapiPath=$PWD/tools/EsapiStubs/out
-```
-
-The spike needs Windows, Visual Studio 2022 or the .NET SDK (6+), and the ESAPI v18 DLLs. See [spike/SPIKE_CHECKLIST.md](spike/SPIKE_CHECKLIST.md#a-build-windows-dev-machine-with-visual-studio-2022-or-the-net-sdk).
-
-## VERIFY items
-
-Status after the first Citrix run (ESAPI 18.1.0.472, API assembly 1.0.700.247). The probe confirmed every member below exists with the signature the code uses.
-
-| # | Item | Result |
-|---|---|---|
-| V1 | Default `EsapiPath` for v18 | ESAPI DLLs are in the GAC on the Citrix server; set `EsapiPath.user.props` on the dev PC. |
-| V2 | `CopyImageFromOtherPatient` | ✓ tested: ~18 s, new study, user origin kept, BODY with HU 250 comes across. Returns `StructureSet`; there's also an overload taking a target `Study`, and `CanCopyImageFromOtherPatient(...)`. **Whether structures come across is still untested (needs approval).** Template `SRSMC_0_AXB` has one structure, BODY with assigned HU 250. |
-| V3 | `BeginModifications` | ✓ works once approved (2026-11-09), also with the patient open in Eclipse. |
-| V4 | `AddExternalPlanSetupAsVerificationPlan` | ✓ creates an empty plan (no beams), links `VerifiedPlan`, **inherits the calculation model** (AcurosXB_1612); ~2 s. |
-| V5 | `PlanSetup.Comment` writable | ✓ `{ get; set; }` |
-| V6 | `ExternalBeamMachineParameters` | ✓ ctor (machine, energy, doseRate, technique, fluence) plus a settable `MLCId`. |
-| V7 | `Add*Beam`, control-point editing | ✓ `AddVMATBeam` + per-control-point jaws/leaves reproduce a 180-CP SRS ARC (6X-FFF, 1400 MU/min, MLC 1934) with identical meterset weights; beam ID settable. |
-| V8 | Calculation model / options | `GetCalculationModel(PhotonVolumeDose)` returns **empty** for the clinical plans; use `PhotonCalculationModel`, else keep the model the verification plan inherits. The earlier material-table error was a test-data issue, fixed in Eclipse; calculations now succeed. |
-| V9 | `CalculateDoseWithPresetValues` | **Preset MUs are ignored** on v18 verification plans: MU = weight × dose/fraction × MU/Gy, with MU/Gy = 100 (no reference point). ✓ Verified workaround: beam weights = clinical MU ÷ (dose/fraction × 100). Four arcs gave exactly the clinical MUs, on creation and after an isocentre move. The app checks every beam after each calculation. Calculation ~10 min per 4-arc plan (AcurosXB, 1 mm, whole phantom). Exists; `CalculationResult` has **only `Success`**; progress (`Progress N%`, one 0–100 count per plan, ~25 % per beam) and the warnings/errors summary come from Eclipse's .NET trace output (`EclipseTraceListener`). |
-| V10 | `BeamParameters.Isocenter` setter | ✓ moving the isocentre via `GetEditableParameters`/`ApplyParameters` works (tested). |
-| V11 | `Course.RemovePlanSetup` | ✓ tested, plus `CanRemovePlanSetup`. Don't touch the plan object after removal. |
-| V12 | Dose units | ✓ `DoseValuePresentation = Absolute` works even without BeginModifications. Previously: Test plan is `DoseValuePresentation=Relative`, so `VoxelToDoseValue` returns %. Must switch to Absolute (the spike now tests whether that works read-only). `GetVoxels` takes ~190 ms per plane at 468×241, so extraction must read only the z-planes around the PTVs. |
-| V13 | `TotalDose`, `RTPrescription` | ✓ `TotalDose` (30 Gy); `RTPrescription` null for the test plan. |
-| V14 | Launcher | ✓ Passes patient, course and plan to the exe. `Assembly.Location` is **empty** for a single-file plugin, so the config file next to the script can't work; use the constant path or the environment variable. |
-| V15 | ESAPI on a dedicated STA thread | ✓ `CreateApplication` in 1.7 s, calls fine. |
-| V16 | WPF-UI on Citrix | ✓ renders. |
-| V17 | Calculation progress | ✓ `CalculateDoseWithPresetValues` writes `Progress N%` (one 0–100 count per plan) and a warnings summary to .NET trace output, read by `EclipseTraceListener`. |
-| V18 | Cancel during a calculation | ✓ Cancel now acts between plans; a started plan is always calculated, read and saved. |
-| V19 | `Patient.AddCourse` + `Course.Id` setter (create the QA course) | **To test** ([Phase 5 checklist](docs/PHASE5_CHECKLIST.md)). |
-| V20 | Finding earlier QA plans (tag, dose read without `BeginModifications`) | **To test**. |
-| V21 | Collision check geometry (head 41.5 cm / 76.5 cm, couch, rotation direction) | Conventions match two open-source ESAPI collision scripts; dimensions and couch direction **to confirm on the machine** ([details](docs/COLLISION_CHECK.md)). |
-| V22 | Maximised window | ✓ maximise after load (WPF-UI pads only on a state change). |
-
-## Phase 1 design notes and decisions to review
-
-These are choices I made where the brief left room. Each is easy to change.
-
-1. **Prescription parser.** PTV names only ever carry the total dose (confirmed), so there is no per-fraction rule. Department convention (confirmed): `PTV30` = 30 Gy, so a two-digit number straight after "PTV" is read as Gy. A single digit (`PTV1`) is a PTV number. Parsed values outside 1–100 Gy are rejected. Planning helpers (`z*` and `*eval*` by default; `HelperPatterns` setting) are listed but unticked.
-2. **Coverage and the diode rule.** If no position near a PTV's best plane puts N_min diodes inside it (a very small PTV), the diode rule is waived for that PTV and it is reported as **LowDiodeCount**. Confirmed acceptable: the plane still intersects the PTV, and PTVs below ~1 cm equivalent diameter aren't treated.
-3. **"Partial coverage".** A PTV is partial when, on its primary plane, more than 1% of its cross-section lies outside the usable square (e.g. a PTV bigger than the array). The tolerance is configurable (`ClipTolerance`).
-4. **Ties are centred.** Once covered PTVs are fully inside the usable square, many positions score the same. The optimiser then centres the **intersected cross-sections** at that depth in the array (not the PTVs' 3D bounding boxes, which can be far off for irregular PTVs). The planning screen also has a **Centre on PTVs** button.
-5. **Diode counts in the sweep.** These are expensive, so the diode rule is checked on the best candidate for each (covered set, orientation) rather than on every candidate. That candidate's set shrinks if the rule fails.
-6. **Constrained re-optimisation.** Planes with assigned PTVs are optimised first, then the rest are covered by the free planes. Plans that are still unused get the plane adding the most to Σ max J_k, or else the best plane of the lowest-scoring PTV, so the requested plan count is honoured. If an assignment is impossible, the minimum J_k (not normalised) is maximised and a warning is given.
-7. **Fine-tune constraint.** "Keep assigned PTVs inside the usable square" means no PTV may end up more clipped than it is now (or more than the clip tolerance, if that's larger), and PTVs on the plane must stay on it. If scores are equal, the smallest move is preferred, so an already-optimal plan gets Δ = 0.
-8. **Manual edits.** The area and score terms use the nearest 0.5 mm depth (the cached tables). Diode counts use the exact plane.
-9. **Limit.** At most 64 PTVs per model. Selected PTVs are passed in as the model's targets.
-
-## Phase 2 notes
-
-- **No JSON library.** Settings use `DataContractJsonSerializer` from .NET Framework, which avoids an assembly that could clash with what ESAPI loads.
-- **Settings files.** Department defaults live in `SrsMcPsqa.settings.json` next to the exe (read-only, optional), one per installation; see [deploy/README.md](deploy/README.md). Personal preferences are in `%APPDATA%\SrsMcPsqa\settings.json`. Template phantom IDs entered in Settings are saved **per installation folder** (`%APPDATA%\SrsMcPsqa\template-<hash>.json`), because test and production use different template patients and `%APPDATA%` may follow you between them. "Reset to department defaults" deletes both personal files.
-- **Errors.** Every error opens a dialog with **Copy details** and is logged to `<app folder>\logs\srsmcpsqa_<user>_<computer>.log` (falls back to `%LOCALAPPDATA%\SrsMcPsqa\logs` if that folder can't be written).
-- **Navigation.** It's a simple list rather than WPF-UI's `NavigationView`, which needs a page service. Screens unlock as the workflow progresses.
-- **Review screen.** Each QA plan has its own tab. Values from before calculation and from fine-tune predictions are labelled as approximations. Calculated values are labelled "CALCULATED".
-- **Array plane view.** u runs to the right, v (superior) up. At 0° patient left is on the right (seen from anterior). At 270° patient posterior is on the right.
-
-## Phase 3 notes
-
-- **Reading needs no approval.** The app opens the patient and tries `BeginModifications`. If Eclipse refuses (not approved, or the patient is locked), it carries on read-only with a yellow note, and creating QA plans comes later.
-- **PTV masks.** Contours are read per CT plane (`GetContoursOnImagePlane`) and rasterised at 0.5 mm in-plane and the CT slice spacing in z, with the even-odd rule. Meshes come from `Structure.MeshGeometry` (3D only).
-- **Dose.** The app switches the plan to absolute dose if it can. Otherwise it converts % with the plan total dose (100% = total dose) and says so. Voxel→Gy is calibrated from `VoxelToDoseValue` at three points. Only the z-planes within the PTVs + 45 mm are read: `GetVoxels` always reads a whole plane, about 0.2 s each.
-- **Validation blocks the plan** (instead of just warning) for: no valid dose, more than one isocentre, non-HFS, non-photon beams, or no non-empty PTV.
-- **Template check.** **Settings → Validate** closes your patient, opens the template read-only and re-opens your patient. ESAPI allows only one open patient.
-- **Members not in the probe.** The ESAPI code also relies on `VVector.x/y/z`, `DoseValue.Dose`/`UnitAsString` and the standard enums. These weren't in the probe dump but are used the same way in the spike, which compiled on Citrix.
-
-## Phase 4 notes (from the spike runs)
-
-- **QA plan prescription.** 1 fraction at the clinical dose per fraction (confirmed). The clinical MUs are per fraction.
-- **Phantom material.** Calculation needs the phantom BODY's material to be in the structure set's physical material table. This is a data setup item for the template phantom, fixed in Eclipse, not by the app.
-- **MUs.** See V9: beam weights reproduce the clinical MUs; the app verifies every beam's MU after each calculation and stops with an error if any differs by more than 0.05 MU.
-- **Beam order.** The QA plan keeps the clinical treatment order (`BeamsInTreatmentOrder` → `SetTreatmentOrder`, checked). Setup fields aren't copied.
-- **Phantom reuse.** An image in the patient with the template image ID and a structure set with BODY is reused (the most recent if several). Each plan records the exact structure set by UID.
-- **Template study lookup.** If a study ID is empty, the app saves, closes the patient, opens the template read-only to find the image's study, then re-opens the patient (cached per session).
-- **Failures.** If anything fails after a plan was created, the incomplete plan is removed (or the message says to delete it).
-- **Route.** Use the verification plan (`AddExternalPlanSetupAsVerificationPlan` + `AddVMATBeam` etc.). `Course.CopyPlanSetup` onto the phantom is refused: "Cannot copy to an image that is not registered nor has same frame of reference".
-- **Calculation time.** About 10 min per 4-arc plan on Citrix, so the progress panel must say so, and fine-tune iterations are expensive.
-- **Progress panel.** ESAPI has no progress API for `CalculateDoseWithPresetValues` (it blocks until done). Eclipse does write progress text to .NET trace output during DVH estimation and optimisation (gatewayscripts.com, "Automated planning from templates IV: unlocking real-time feedback from Eclipse"), so the app attaches a `TraceListener` during each calculation, logs every line and shows "Eclipse: N%" when it sees `Progress … N%` lines (`EclipseTrace`). Confirmed on Citrix (v18.1, standalone exe): `CalculateDoseWithPresetValues` writes `Progress N%` lines. Otherwise the panel shows per-plan steps with their durations reported by the service (`QaProgressEvent`), and an *estimated* calculation bar from earlier calculations: seconds per control point per computer and model, a running average kept in `%LOCALAPPDATA%\SrsMcPsqa\calc-timing.json`. The first calculation with a model on a computer has no estimate. After each calculation it shows the per-beam MU check.
