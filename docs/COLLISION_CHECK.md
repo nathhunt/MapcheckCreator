@@ -51,7 +51,7 @@ available.
 | Phantom lateral offset on the couch | 0 | + = towards the phantom's left. |
 | Largest lateral offset to suggest | 50 | |
 | Warning / risk clearance | 30 / 15 | Department values. |
-| Head face distance from iso (*D*) | 395 | The machine's clearance circle: 39.5 cm radius (department value). The scripts below use 41.5 cm. |
+| Head face distance from iso (*D*) | 375 | 37.5 cm: the radius at which the TrueBeam laser guard trips (department value). The scripts below use 41.5 cm. |
 | Head radius (*R*) | 385 | Head 76.5 cm across (CollisionCheck) / 75 cm hub (PlanCheck), rounded up. |
 | Couch top width / thickness (*W*, *T*) | 530 / 50 | Exact IGRT, from the Eclipse couch structure (53.02 × 5.03 cm); the profile shape scales with these. |
 

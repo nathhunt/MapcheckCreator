@@ -7,10 +7,10 @@ namespace SrsMcPsqa.Core.Tests
 {
     public class CouchCollisionTests
     {
-        // Defaults: head face 395 mm from iso (clearance circle), radius 385; couch: Exact IGRT profile, 530 wide at its
+        // Test geometry: head face 395 mm from iso, radius 385; couch: Exact IGRT profile, 530 wide at its
         // widest (11 mm below the top), 50 thick, 428 wide at the bottom. Test setup: couch top 110 mm below the MapCHECK
         // user origin, head end 200 mm superior of it.
-        private static CollisionSettings S() => new CollisionSettings { OriginAboveCouchMm = 110, CouchHeadEndSupMm = 200, WarningMm = 50, RiskMm = 20 };
+        private static CollisionSettings S() => new CollisionSettings { HeadClearanceMm = 395, OriginAboveCouchMm = 110, CouchHeadEndSupMm = 200, WarningMm = 50, RiskMm = 20 };
 
         private static BeamGeometry Static(double gantry, double couch = 0) => new BeamGeometry("B", couch, new[] { gantry });
         private static BeamGeometry FullArc() => new BeamGeometry("ARC", 0, Enumerable.Range(0, 181).Select(i => (181 + 2.0 * i) % 360).ToList());
@@ -94,7 +94,7 @@ namespace SrsMcPsqa.Core.Tests
             // gantry θ: head face centre = iso + d·(cos φ sin θ, −cos θ, −sin φ sin θ). zackmorelli/CollisionCheck uses the
             // same source position (1000·sin θ, −1000·cos θ) and couch rotation. Put a 2 mm "couch" on that point: it must
             // touch the head face here, and be far away with the couch angle mirrored.
-            double d = 395, t = gantry * System.Math.PI / 180, p = couch * System.Math.PI / 180;
+            double d = 375, t = gantry * System.Math.PI / 180, p = couch * System.Math.PI / 180;
             var c = new Vec3(d * System.Math.Cos(p) * System.Math.Sin(t), -d * System.Math.Cos(t), -d * System.Math.Sin(p) * System.Math.Sin(t));
             CollisionSettings Box(Vec3 centre) => new CollisionSettings
             {
@@ -134,6 +134,7 @@ namespace SrsMcPsqa.Core.Tests
             Assert.True(d.IsConfigured);
             Assert.Equal(200, d.OriginAboveCouchMm);
             Assert.Equal(-60, d.CouchHeadEndSupMm);
+            Assert.Equal(375, d.HeadClearanceMm); // laser guard trip radius
             Assert.Equal(30, d.WarningMm);
             Assert.Equal(15, d.RiskMm);
         }

@@ -42,7 +42,7 @@ namespace SrsMcPsqa.App.Infrastructure
 
         // Gantry–couch collision check (mm). Head: 41.5 cm iso to face, 76.5 cm across (open-source ESAPI collision scripts);
         // couch: Exact IGRT 53 cm wide, thickness estimated. See docs/COLLISION_CHECK.md.
-        [DataMember] public double CollisionHeadClearanceMm { get; set; } = 395;
+        [DataMember] public double CollisionHeadClearanceMm { get; set; } = 375;
         [DataMember] public double CollisionHeadRadiusMm { get; set; } = 385;
         [DataMember] public double CollisionCouchWidthMm { get; set; } = 530;
         [DataMember] public double CollisionCouchThicknessMm { get; set; } = 50;

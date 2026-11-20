@@ -68,7 +68,7 @@
                 <StackPanel>
                     <TextBlock Style="{StaticResource Section}" Text="Gantry–couch collision check" />
                     <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
-                               Text="Warns (never blocks) when the treatment head comes close to the couch top for a QA isocentre, and suggests a lateral phantom offset on the couch. Simple geometric model: the head is a cylinder, the couch top a prism with the Exact IGRT cross-section; the phantom isn't modelled. Head: the machine's clearance circle (39.5 cm radius) and 76.5 cm across. Couch: the Exact IGRT cross-section (53.0 × 5.0 cm, sides curving in towards the bottom), as in the Eclipse couch structure. All values in mm." />
+                               Text="Warns (never blocks) when the treatment head comes close to the couch top for a QA isocentre, and suggests a lateral phantom offset on the couch. Simple geometric model: the head is a cylinder, the couch top a prism with the Exact IGRT cross-section; the phantom isn't modelled. Head: 37.5 cm from the isocentre (laser guard trip radius) and 76.5 cm across. Couch: the Exact IGRT cross-section (53.0 × 5.0 cm, sides curving in towards the bottom), as in the Eclipse couch structure. All values in mm." />
                     <Grid Margin="0,4,0,0">
                         <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition /></Grid.ColumnDefinitions>
                         <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
@@ -97,7 +97,7 @@
                             <ui:TextBox Text="{Binding Edit.CollisionRiskMm}" />
                         </StackPanel>
                         <StackPanel Grid.Row="3" Grid.Column="0">
-                            <TextBlock Style="{StaticResource Label}" Text="Head: clearance circle radius (isocentre to head face)" />
+                            <TextBlock Style="{StaticResource Label}" Text="Head: isocentre to head face (laser guard trip radius)" />
                             <ui:TextBox Text="{Binding Edit.CollisionHeadClearanceMm}" />
                         </StackPanel>
                         <StackPanel Grid.Row="3" Grid.Column="2">

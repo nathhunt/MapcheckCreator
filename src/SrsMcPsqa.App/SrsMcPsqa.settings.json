@@ -16,7 +16,7 @@
   "AutoSave": true,
   "LogLevel": "Info",
   "Theme": "System",
-  "CollisionHeadClearanceMm": 395,
+  "CollisionHeadClearanceMm": 375,
   "CollisionHeadRadiusMm": 385,
   "CollisionCouchWidthMm": 530,
   "CollisionCouchThicknessMm": 50,

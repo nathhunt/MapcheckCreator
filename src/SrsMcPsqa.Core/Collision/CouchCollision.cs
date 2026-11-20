@@ -7,15 +7,15 @@ using SrsMcPsqa.Core.Geometry;
 namespace SrsMcPsqa.Core.Collision
 {
     /// <summary>
-    /// Geometry for the gantry–couch clearance check (mm). Head: the machine's clearance circle, 39.5 cm radius around the
-    /// isocentre (department value), as the head face distance; head 76.5 cm across (open-source ESAPI collision scripts
+    /// Geometry for the gantry–couch clearance check (mm). Head: 37.5 cm from the isocentre to the head face, the radius at
+    /// which the TrueBeam laser guard trips (department value); head 76.5 cm across (open-source ESAPI collision scripts
     /// zackmorelli/CollisionCheck and LDClark/PlanCheck). Couch: Exact IGRT top profile measured on the Eclipse couch
     /// structure (53.0 cm wide, 5.0 cm thick).
     /// </summary>
     public sealed class CollisionSettings
     {
         /// <summary>Distance from the isocentre to the face of the treatment head (collimator cover).</summary>
-        public double HeadClearanceMm { get; set; } = 395;
+        public double HeadClearanceMm { get; set; } = 375;
         /// <summary>Radius of the head, modelled as a cylinder around the beam axis.</summary>
         public double HeadRadiusMm { get; set; } = 385;
         /// <summary>Length of the head cylinder from its face towards the source (only the part near the couch matters).</summary>
