@@ -145,14 +145,25 @@ namespace SrsMcPsqa.Esapi
             return c;
         }
 
-        /// <summary>A QA plan created by this app (tagged); refuses untagged plans.</summary>
-        private static ExternalPlanSetup RequireTaggedPlan(Course course, string planId)
+        /// <summary>A QA plan this app created for the loaded clinical plan; refuses untagged plans and other plans' QA plans.</summary>
+        private static ExternalPlanSetup RequireTaggedPlan(Course course, string planId, string clinicalUid)
         {
             var plan = course.ExternalPlanSetups.FirstOrDefault(p => string.Equals(p.Id, planId, StringComparison.OrdinalIgnoreCase))
                        ?? throw new InvalidOperationException($"Plan '{planId}' not found in course '{course.Id}'.");
-            if (!QaPlanTag.TryParse(plan.Comment, out _))
-                throw new InvalidOperationException($"Plan '{planId}' was not created by this app (no tag in its Comment); it is left untouched.");
+            CheckTag(plan, planId, clinicalUid, "it is left untouched");
             return plan;
+        }
+
+        /// <summary>
+        /// The plan carries this app's tag for <paramref name="clinicalUid"/>. A QA plan of another clinical plan must not be
+        /// recalculated with this plan's MUs or deleted from this plan's session.
+        /// </summary>
+        private static void CheckTag(PlanSetup plan, string planId, string clinicalUid, string consequence)
+        {
+            if (!QaPlanTag.TryParse(plan.Comment, out var tag))
+                throw new InvalidOperationException($"Plan '{planId}' was not created by this app (no tag in its Comment); {consequence}.");
+            if (tag!.SourcePlanUid != clinicalUid)
+                throw new InvalidOperationException($"Plan '{planId}' is a QA plan for a different clinical plan; {consequence}.");
         }
 
         private void SaveIfAuto(EsapiApplication app, string what)
@@ -550,7 +561,7 @@ namespace SrsMcPsqa.Esapi
                 RequireModifiable();
                 var clinical = RequireClinicalPlan();
                 var course = RequireCourse(courseId);
-                var qa = RequireTaggedPlan(course, planId);
+                var qa = RequireTaggedPlan(course, planId, clinical.UID);
                 QaPlanTag.TryParse(qa.Comment, out var tag);
                 ct.ThrowIfCancellationRequested();
                 ct = CancellationToken.None; // from here on, finish this plan (see BuildQaPlan)
@@ -586,6 +597,7 @@ namespace SrsMcPsqa.Esapi
             _worker.RunAsync($"delete QA plans in '{courseId}'", app =>
             {
                 RequireModifiable();
+                var clinical = RequireClinicalPlan();
                 var course = RequireCourse(courseId);
                 // Check every plan before removing any. A refusal halfway used to leave the earlier plans removed but
                 // unsaved: still listed in the app, then deleted for good by the next save of any other operation.
@@ -595,8 +607,7 @@ namespace SrsMcPsqa.Esapi
                     ct.ThrowIfCancellationRequested();
                     var plan = course.ExternalPlanSetups.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
                     if (plan == null) { progress?.Report($"{id}: not found (already deleted?)."); continue; }
-                    if (!QaPlanTag.TryParse(plan.Comment, out _))
-                        throw new InvalidOperationException($"Plan '{id}' was not created by this app; no plans were deleted.");
+                    CheckTag(plan, id, clinical.UID, "no plans were deleted");
                     if (!course.CanRemovePlanSetup(plan))
                         throw new InvalidOperationException($"Eclipse doesn't allow deleting '{id}' (e.g. approved or has treatment records); no plans were deleted.");
                     toDelete.Add((id, plan));

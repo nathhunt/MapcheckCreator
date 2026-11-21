@@ -249,6 +249,7 @@ namespace SrsMcPsqa.Fake
             lock (_lock)
             {
                 plan = Find(courseId, planId) ?? throw new InvalidOperationException($"QA plan '{courseId}/{planId}' not found.");
+                CheckTag(plan, "it is left untouched");
                 plan.Isocentre = newIsocentre;
             }
             ct.ThrowIfCancellationRequested();
@@ -357,7 +358,7 @@ namespace SrsMcPsqa.Fake
                 {
                     var p = Find(courseId, id);
                     if (p == null) continue;
-                    if (p.Tag == null) throw new InvalidOperationException($"Plan '{id}' has no app tag; no plans were deleted.");
+                    CheckTag(p, "no plans were deleted");
                     toDelete.Add(p);
                 }
             }
@@ -369,13 +370,20 @@ namespace SrsMcPsqa.Fake
             }
         }
 
-        /// <summary>Test hook: a plan in <paramref name="courseId"/> without the app tag (made outside the app).</summary>
-        internal void AddUntaggedPlanForTests(string courseId, string planId)
+        /// <summary>Like Eclipse: only this app's QA plans of the loaded clinical plan may be changed or deleted.</summary>
+        private void CheckTag(FakeQaPlan p, string consequence)
+        {
+            if (p.Tag == null) throw new InvalidOperationException($"Plan '{p.Id}' has no app tag; {consequence}.");
+            if (p.Tag.SourcePlanUid != _patient.PlanUid) throw new InvalidOperationException($"Plan '{p.Id}' is a QA plan for a different clinical plan; {consequence}.");
+        }
+
+        /// <summary>Test hook: a plan in <paramref name="courseId"/> made outside the app (no tag) or tagged for another plan.</summary>
+        internal void AddPlanForTests(string courseId, string planId, QaPlanTag? tag = null)
         {
             lock (_lock)
             {
                 if (!_plansByCourse.ContainsKey(courseId)) _plansByCourse[courseId] = new List<FakeQaPlan>();
-                _plansByCourse[courseId].Add(new FakeQaPlan { Id = planId });
+                _plansByCourse[courseId].Add(new FakeQaPlan { Id = planId, Tag = tag });
             }
         }
 
