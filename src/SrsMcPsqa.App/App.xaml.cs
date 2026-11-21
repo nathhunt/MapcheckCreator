@@ -61,7 +61,11 @@ namespace SrsMcPsqa.App
             // With auto-save off, save once now; then close the patient and dispose ESAPI on its own thread.
             if (_service is EsapiPlanningService esapi && !esapi.AutoSave)
             {
-                try { esapi.SaveAsync().Wait(TimeSpan.FromMinutes(2)); Log.Info("Saved changes on exit."); }
+                try
+                {
+                    if (esapi.SaveAsync().Wait(TimeSpan.FromMinutes(2))) Log.Info("Saved changes on exit.");
+                    else Log.Error("Saving on exit did not finish within 2 minutes; changes may not have been saved.");
+                }
                 catch (Exception ex) { Log.Error("Saving on exit failed", ex); }
             }
             try { (_service as IDisposable)?.Dispose(); }
