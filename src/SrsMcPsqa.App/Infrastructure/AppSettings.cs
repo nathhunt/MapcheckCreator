@@ -10,11 +10,10 @@ using SrsMcPsqa.Core.Services;
 namespace SrsMcPsqa.App.Infrastructure
 {
     /// <summary>
-    /// App settings (JSON). Department defaults come from <c>SrsMcPsqa.settings.json</c> next to the exe (read-only, optional);
-    /// a per-user override of personal preferences is stored in <c>%APPDATA%\SrsMcPsqa\settings.json</c>.
-    /// Template phantom IDs differ between environments (test, production), so a user's template values are stored
-    /// per installation folder (<c>%APPDATA%\SrsMcPsqa\template-&lt;folder hash&gt;.json</c>), falling back to the
-    /// department file of that installation. The app never writes to its own folder.
+    /// App settings (JSON). Everything except theme and log level is a department (site) setting, read from
+    /// <c>SrsMcPsqa.settings.json</c> next to the exe (optional; built-in defaults otherwise) and the same for every user of
+    /// that installation; Settings can write it back after confirmation (<see cref="SettingsStore.SaveDepartment"/>).
+    /// Theme and log level are personal, stored in <c>%APPDATA%\SrsMcPsqa\settings.json</c>.
     /// </summary>
     [DataContract]
     public sealed class AppSettings
@@ -122,7 +121,7 @@ namespace SrsMcPsqa.App.Infrastructure
 
         /// <summary>
         /// Site settings (everything except theme and log level) come only from the department file in this installation's
-        /// folder (or built-in defaults), the same for every user; the app never writes it. Personal preferences (theme,
+        /// folder (or built-in defaults), the same for every user; only Settings → Save writes it. Personal preferences (theme,
         /// log level) come from the user's file in %APPDATA%.
         /// </summary>
         public static AppSettings Load(out string source)
