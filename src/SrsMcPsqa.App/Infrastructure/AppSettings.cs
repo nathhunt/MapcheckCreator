@@ -219,14 +219,29 @@ namespace SrsMcPsqa.App.Infrastructure
             var current = LoadDepartmentDefaults();
             var s = settings.Clone();
             s.Theme = current.Theme; s.LogLevel = current.LogLevel;
-            string tmp = DepartmentPath + ".tmp";
+            string tmp = DepartmentPath + ".tmp", bak = DepartmentPath + ".bak"; // .bak: previous version, for undo
             Write(tmp, s);
-            if (File.Exists(DepartmentPath))
+            try
             {
-                File.Copy(DepartmentPath, DepartmentPath + ".bak", overwrite: true); // previous version, for undo
-                File.Delete(DepartmentPath);
+                if (!File.Exists(DepartmentPath)) File.Move(tmp, DepartmentPath);
+                else
+                {
+                    // One step, so a failure can't leave the folder without a settings file (the app would then start
+                    // on built-in defaults). Some file shares refuse it; then fall back to the step-by-step replace.
+                    try { File.Replace(tmp, DepartmentPath, bak, ignoreMetadataErrors: true); }
+                    catch (IOException ex)
+                    {
+                        Log.Warn($"Replacing {DepartmentPath} in one step failed ({ex.Message}); replacing it step by step.");
+                        File.Copy(DepartmentPath, bak, overwrite: true);
+                        File.Delete(DepartmentPath);
+                        File.Move(tmp, DepartmentPath);
+                    }
+                }
             }
-            File.Move(tmp, DepartmentPath);
+            finally
+            {
+                try { if (File.Exists(tmp)) File.Delete(tmp); } catch (IOException) { /* a leftover .tmp is harmless */ }
+            }
             Log.Info($"Site settings saved to {DepartmentPath} by {Environment.UserName}.");
         }
 
