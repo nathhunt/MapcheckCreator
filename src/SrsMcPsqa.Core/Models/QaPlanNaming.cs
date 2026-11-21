@@ -37,15 +37,18 @@ namespace SrsMcPsqa.Core.Models
         private static string Fit(string pattern, int? number, ArrayOrientation o)
         {
             string num = number?.ToString(CultureInfo.InvariantCulture) ?? "";
-            string id = pattern.Replace("{orient}", o.ShortLabel());
-            id = pattern.Contains("{n}") ? id.Replace("{n}", num) : id + num;
+            string orient = o.ShortLabel();
+            // Split at the last {n} (or the end, where a number is appended), so the number's position is known exactly.
+            // Searching the finished ID for the digits instead finds them inside the orientation ("7" in "270").
+            int nAt = pattern.LastIndexOf("{n}", StringComparison.Ordinal);
+            string before = (nAt < 0 ? pattern : pattern.Substring(0, nAt)).Replace("{orient}", orient).Replace("{n}", num);
+            string after = nAt < 0 ? "" : pattern.Substring(nAt + 3).Replace("{orient}", orient);
+            string id = before + num + after;
             if (id.Length <= MaxIdLength) return id;
+            if (num.Length == 0) return id.Substring(0, MaxIdLength);
             // Too long: trim the text before the number so the number (which makes it unique) survives.
-            int at = id.LastIndexOf(num, StringComparison.Ordinal);
-            if (num.Length == 0 || at < 0) return id.Substring(0, MaxIdLength);
-            int excess = id.Length - MaxIdLength;
-            int cut = Math.Min(excess, at);
-            id = id.Remove(at - cut, cut);
+            int cut = Math.Min(id.Length - MaxIdLength, before.Length);
+            id = before.Substring(0, before.Length - cut) + num + after;
             return id.Length <= MaxIdLength ? id : id.Substring(0, MaxIdLength);
         }
     }
