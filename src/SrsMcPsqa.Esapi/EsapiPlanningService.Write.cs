@@ -271,11 +271,23 @@ namespace SrsMcPsqa.Esapi
                     _studyCache[settings.PatientId + "|" + settings.ImageId(o)] = study.Id;
                 }
             }
-            finally
+            catch (Exception lookupEx)
             {
-                app.ClosePatient();
-                Open(app, current);
+                // Re-open the patient, but report why the lookup failed: a re-open failure in a finally block used to
+                // replace that reason.
+                try
+                {
+                    app.ClosePatient();
+                    Open(app, current);
+                }
+                catch (Exception reopenEx)
+                {
+                    throw new InvalidOperationException($"{lookupEx.Message} Re-opening patient '{current}' afterwards also failed: {reopenEx.Message}", lookupEx);
+                }
+                throw;
             }
+            app.ClosePatient();
+            Open(app, current);
             if (!_canModify) throw new InvalidOperationException("Re-opening the patient after reading the template failed to allow changes: " + _modifyError);
             return result;
         }
