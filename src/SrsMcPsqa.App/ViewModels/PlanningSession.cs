@@ -144,6 +144,7 @@ namespace SrsMcPsqa.App.ViewModels
             get
             {
                 if (!Service.SupportsWriting) return "This version reads plans only. Creating QA plans in Eclipse comes in the next version.";
+                if (SettingsError != null) return "Creating is off: the department settings file could not be read, so built-in defaults are in use. Fix the file, then Settings → Reload.";
                 if (Patient == null) return "Open a patient first (step 1).";
                 if (!Patient.CanModify) return "Eclipse doesn't allow changes to this patient yet (the app isn't approved, or the patient is locked). You can still plan.";
                 if (QaCourse == null) return "Choose a QA course in step 1.";
@@ -157,15 +158,25 @@ namespace SrsMcPsqa.App.ViewModels
         /// <summary>The department settings file has no template phantom yet (creating QA plans needs it).</summary>
         public bool NeedsTemplateSettings => !IsDemo && !Settings.HasTemplate;
 
+        /// <summary>The department settings file exists but couldn't be read (path and reason); built-in defaults are in use.</summary>
+        [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasSettingsError))] private string? _settingsError;
+
+        public bool HasSettingsError => SettingsError != null;
+
+        /// <summary>Settings need fixing before QA plans can be created (shows the "Open Settings" button).</summary>
+        public bool NeedsSettingsAttention => HasSettingsError || NeedsTemplateSettings;
+
         partial void OnPatientChanged(PatientSummary? value) => NotifyCreateState();
         partial void OnQaCourseChanged(CourseSummary? value) => NotifyCreateState();
         partial void OnSettingsChanged(AppSettings value) => NotifyCreateState();
+        partial void OnSettingsErrorChanged(string? value) => NotifyCreateState();
 
         private void NotifyCreateState()
         {
             OnPropertyChanged(nameof(CreateBlockedReason));
             OnPropertyChanged(nameof(CanCreatePlans));
             OnPropertyChanged(nameof(NeedsTemplateSettings));
+            OnPropertyChanged(nameof(NeedsSettingsAttention));
         }
 
         public void SetClinicalPlan(ClinicalPlanData plan)
