@@ -349,17 +349,33 @@ namespace SrsMcPsqa.Fake
 
         public async Task DeleteQaPlansAsync(string courseId, IReadOnlyCollection<string> planIds, IProgress<string>? progress = null, CancellationToken ct = default)
         {
-            foreach (var id in planIds)
+            // Like Eclipse: check every plan before removing any, so a refusal deletes nothing.
+            var toDelete = new List<FakeQaPlan>();
+            lock (_lock)
             {
-                lock (_lock)
+                foreach (var id in planIds)
                 {
                     var p = Find(courseId, id);
                     if (p == null) continue;
-                    if (p.Tag == null) throw new InvalidOperationException($"Plan '{id}' has no app tag; refusing to delete it.");
-                    _plansByCourse[courseId].Remove(p);
+                    if (p.Tag == null) throw new InvalidOperationException($"Plan '{id}' has no app tag; no plans were deleted.");
+                    toDelete.Add(p);
                 }
-                progress?.Report($"Deleted {id}.");
-                await Delay(0.2, ct).ConfigureAwait(false);
+            }
+            foreach (var p in toDelete)
+            {
+                lock (_lock) _plansByCourse[courseId].Remove(p);
+                progress?.Report($"Deleted {p.Id}.");
+                await Delay(0.2, CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>Test hook: a plan in <paramref name="courseId"/> without the app tag (made outside the app).</summary>
+        internal void AddUntaggedPlanForTests(string courseId, string planId)
+        {
+            lock (_lock)
+            {
+                if (!_plansByCourse.ContainsKey(courseId)) _plansByCourse[courseId] = new List<FakeQaPlan>();
+                _plansByCourse[courseId].Add(new FakeQaPlan { Id = planId });
             }
         }
 

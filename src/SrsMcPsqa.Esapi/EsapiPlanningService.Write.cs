@@ -587,14 +587,22 @@ namespace SrsMcPsqa.Esapi
             {
                 RequireModifiable();
                 var course = RequireCourse(courseId);
+                // Check every plan before removing any. A refusal halfway used to leave the earlier plans removed but
+                // unsaved: still listed in the app, then deleted for good by the next save of any other operation.
+                var toDelete = new List<(string Id, ExternalPlanSetup Plan)>();
                 foreach (var id in planIds)
                 {
                     ct.ThrowIfCancellationRequested();
                     var plan = course.ExternalPlanSetups.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
                     if (plan == null) { progress?.Report($"{id}: not found (already deleted?)."); continue; }
                     if (!QaPlanTag.TryParse(plan.Comment, out _))
-                        throw new InvalidOperationException($"Plan '{id}' was not created by this app; it is not deleted.");
-                    if (!course.CanRemovePlanSetup(plan)) throw new InvalidOperationException($"Eclipse doesn't allow deleting '{id}' (e.g. approved or has treatment records).");
+                        throw new InvalidOperationException($"Plan '{id}' was not created by this app; no plans were deleted.");
+                    if (!course.CanRemovePlanSetup(plan))
+                        throw new InvalidOperationException($"Eclipse doesn't allow deleting '{id}' (e.g. approved or has treatment records); no plans were deleted.");
+                    toDelete.Add((id, plan));
+                }
+                foreach (var (id, plan) in toDelete)
+                {
                     course.RemovePlanSetup(plan); // don't touch the plan object afterwards (it is disposed)
                     progress?.Report($"Deleted {id}.");
                     _log($"Deleted QA plan {courseId}/{id}.");
