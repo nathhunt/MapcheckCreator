@@ -109,3 +109,63 @@ namespace SrsMcPsqa.Core.Tests
         }
     }
 }
+
+namespace SrsMcPsqa.Core.Tests
+{
+    public sealed class SettingsProblemsTests
+    {
+        [Fact]
+        public void DefaultsAndShippedValuesAreUsable() => Assert.Empty(new AppSettings().Problems());
+
+        [Fact]
+        public void DefaultsMatchTheOptimiserChecks()
+        {
+            new AppSettings().ToOptimisation().Validate(); // doesn't throw
+        }
+
+        public static TheoryData<Action<AppSettings>, string> Bad => new TheoryData<Action<AppSettings>, string>
+        {
+            { s => s.Tau = 0, "Tau" },
+            { s => s.Tau = 1.2, "Tau" },
+            { s => s.Alpha = -0.1, "Alpha" },
+            { s => s.EdgeMarginMm = 38.5, "Edge margin" },
+            { s => s.MinDiodes = -1, "Minimum diodes" },
+            { s => s.FineTuneNormalRangeMm = -5, "Fine-tune" },
+            { s => s.ShiftThresholdMm = -1, "Shift rounding" },
+            { s => s.QaCourseId = " ", "QA course" },
+            { s => s.QaCourseId = "MORE_THAN_16_CHARS", "QA course" },
+            { s => s.CollisionRiskMm = 40, "warning level" },
+            { s => s.CollisionHeadRadiusMm = 0, "Head and couch" },
+            { s => s.CollisionOriginAboveCouchMm = -1, "origin above the couch" },
+            { s => s.CollisionMaxLateralOffsetMm = -1, "lateral phantom offset" },
+            { s => s.Tau = double.NaN, "Tau must be a number" },
+        };
+
+        [Theory]
+        [MemberData(nameof(Bad))]
+        public void OutOfRangeValuesAreNamed(Action<AppSettings> change, string expected)
+        {
+            var s = new AppSettings();
+            change(s);
+            Assert.Contains(s.Problems(), p => p.Contains(expected));
+        }
+
+        [Fact]
+        public void EveryValueTheOptimiserRejectsIsAProblem()
+        {
+            foreach (var (tau, alpha, margin, diodes) in new[] { (0.0, 0.5, 3.0, 5), (0.85, 1.5, 3.0, 5), (0.85, 0.5, 40.0, 5), (0.85, 0.5, 3.0, -1) })
+            {
+                var s = new AppSettings { Tau = tau, Alpha = alpha, EdgeMarginMm = margin, MinDiodes = diodes };
+                Assert.Throws<ArgumentOutOfRangeException>(() => s.ToOptimisation().Validate());
+                Assert.NotEmpty(s.Problems());
+            }
+        }
+
+        [Fact]
+        public void OffValuesAreAllowed()
+        {
+            var s = new AppSettings { ShiftThresholdMm = 0, CollisionOriginAboveCouchMm = 0, CollisionRiskMm = 0, CollisionWarningMm = 0, MinDiodes = 0 };
+            Assert.Empty(s.Problems());
+        }
+    }
+}

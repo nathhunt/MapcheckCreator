@@ -56,6 +56,15 @@ namespace SrsMcPsqa.App.ViewModels
                 bool siteSaved = false;
                 if (changes.Count > 0)
                 {
+                    // Checked before anything is written: these settings apply to everyone using this installation.
+                    var problems = Edit.Problems();
+                    if (problems.Count > 0)
+                    {
+                        Session.Dialogs.ShowInfo("Check the settings",
+                            "These department settings can't be used, so nothing was saved:" + System.Environment.NewLine + System.Environment.NewLine +
+                            string.Join(System.Environment.NewLine, problems.Select(x => "  • " + x)));
+                        return;
+                    }
                     if (_departmentTimeAtOpen != SettingsStore.DepartmentFileTimeUtc &&
                         !Session.Dialogs.Confirm("Department settings changed meanwhile",
                             "Someone changed the department settings file since you opened Settings. Saving now replaces their changes " +

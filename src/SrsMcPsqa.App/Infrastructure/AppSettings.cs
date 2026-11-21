@@ -89,6 +89,38 @@ namespace SrsMcPsqa.App.Infrastructure
 
         public AppSettings Clone() => (AppSettings)MemberwiseClone();
 
+        /// <summary>
+        /// Site settings outside the range the app can work with, in plain words; empty when all are usable. The optimiser
+        /// ranges match <see cref="OptimisationSettings.Validate"/>, which otherwise fails later, for every user.
+        /// </summary>
+        public List<string> Problems()
+        {
+            var p = new List<string>();
+            void Need(bool ok, string message) { if (!ok) p.Add(message); }
+            string Mm(double v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + " mm";
+            foreach (var prop in typeof(AppSettings).GetProperties())
+                if (prop.PropertyType == typeof(double) && prop.GetValue(this) is double d && (double.IsNaN(d) || double.IsInfinity(d)))
+                    p.Add($"{prop.Name} must be a number.");
+
+            Need(!string.IsNullOrWhiteSpace(QaCourseId) && QaCourseId.Trim().Length <= 16, "QA course ID: 1 to 16 characters.");
+            Need(ShiftThresholdMm >= 0, "Shift rounding threshold: 0 (off) or more.");
+            Need(EdgeMarginMm >= 0 && EdgeMarginMm < Core.Detector.DiodeArray.HalfExtent,
+                $"Edge margin: from 0 up to (not including) {Mm(Core.Detector.DiodeArray.HalfExtent)}.");
+            Need(Tau > 0 && Tau <= 1, "Tau: more than 0, at most 1.");
+            Need(Alpha >= 0 && Alpha <= 1, "Alpha: from 0 to 1.");
+            Need(MinDiodes >= 0, "Minimum diodes in PTV: 0 or more.");
+            Need(FineTuneInPlaneRangeMm >= 0 && FineTuneNormalRangeMm >= 0, "Fine-tune search ranges: 0 or more.");
+
+            Need(CollisionOriginAboveCouchMm >= 0, "MapCHECK origin above the couch: 0 (check off) or more.");
+            Need(CollisionHeadClearanceMm > 0 && CollisionHeadRadiusMm > 0 && CollisionCouchWidthMm > 0 && CollisionCouchThicknessMm > 0,
+                "Head and couch dimensions: more than 0 (otherwise the collision check is silently off).");
+            Need(CollisionMaxLateralOffsetMm >= 0, "Largest lateral phantom offset: 0 or more.");
+            Need(CollisionRiskMm >= 0, "Collision risk level: 0 or more.");
+            Need(CollisionWarningMm >= CollisionRiskMm,
+                $"Collision warning level ({Mm(CollisionWarningMm)}) must not be below the risk level ({Mm(CollisionRiskMm)}).");
+            return p;
+        }
+
         // DataContract deserialisation skips constructors and initialisers; restore defaults for missing members.
         [OnDeserializing]
         private void OnDeserializing(StreamingContext _)
@@ -141,6 +173,7 @@ namespace SrsMcPsqa.App.Infrastructure
                 warnings.Add($"Could not read the site settings file: {departmentError}. Using built-in defaults; creating QA plans is off until it is fixed.");
             }
             else source = File.Exists(DepartmentPath) ? $"site settings from {DepartmentPath}" : "built-in defaults (no site settings file)";
+            foreach (var problem in result.Problems()) warnings.Add("Site setting out of range: " + problem);
             try
             {
                 if (File.Exists(UserPath))
