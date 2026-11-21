@@ -98,7 +98,13 @@ namespace SrsMcPsqa.Esapi
                         var beams = qa.Beams.Where(b => !b.IsSetupField).ToList();
                         var iso = beams.FirstOrDefault()?.IsocenterPosition.ToVec3() ?? default;
                         var ss = qa.StructureSet;
-                        if (ss?.Image == null) { notes.Add("The plan has no phantom image; it can't be shown."); continue; }
+                        if (ss?.Image == null)
+                        {
+                            // Can't be listed without a phantom image; say so (the note used to be discarded).
+                            progress?.Report($"{course.Id}/{qa.Id} has no phantom image; it can't be shown and is skipped.");
+                            _log($"Skipped QA plan {course.Id}/{qa.Id}: no phantom image.");
+                            continue;
+                        }
                         var phantom = Info(tag.Orientation, ss, copied: false);
 
                         // Beams and MUs against the clinical plan (re-optimised clinical plan → out of date).
