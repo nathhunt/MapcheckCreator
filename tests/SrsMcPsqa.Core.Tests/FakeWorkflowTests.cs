@@ -165,10 +165,11 @@ namespace SrsMcPsqa.Core.Tests
             // The tagged plan comes first: it must not be deleted when the untagged one is refused.
             var ex = await Assert.ThrowsAsync<System.InvalidOperationException>(() => svc.DeleteQaPlansAsync("QA", new[] { "MC1_0", "USER_PLAN" }));
             Assert.Contains("no plans were deleted", ex.Message);
-            Assert.Equal(new[] { "MC1_0", "USER_PLAN" }, (await svc.ListQaPlansAsync("QA")).Select(p => p.PlanId).OrderBy(x => x).ToArray());
+            Assert.Equal(new[] { "MC1_0", "USER_PLAN" }, (await svc.ListPlanIdsAsync("QA")).OrderBy(x => x).ToArray());
+            Assert.Equal(new[] { "MC1_0" }, (await svc.ListQaPlansAsync("QA")).Select(p => p.PlanId).ToArray()); // tagged only
 
             await svc.DeleteQaPlansAsync("QA", new[] { "MC1_0" });
-            Assert.Equal(new[] { "USER_PLAN" }, (await svc.ListQaPlansAsync("QA")).Select(p => p.PlanId).ToArray());
+            Assert.Equal(new[] { "USER_PLAN" }, (await svc.ListPlanIdsAsync("QA")).ToArray());
         }
 
         [Fact]
@@ -184,7 +185,7 @@ namespace SrsMcPsqa.Core.Tests
             Assert.Contains("different clinical plan", move.Message);
             var delete = await Assert.ThrowsAsync<System.InvalidOperationException>(() => svc.DeleteQaPlansAsync("QA", new[] { "OTHER_QA" }));
             Assert.Contains("different clinical plan", delete.Message);
-            Assert.Contains((await svc.ListQaPlansAsync("QA")).Select(p => p.PlanId), id => id == "OTHER_QA");
+            Assert.Contains(await svc.ListPlanIdsAsync("QA"), id => id == "OTHER_QA");
         }
     }
 }

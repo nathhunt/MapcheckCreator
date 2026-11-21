@@ -202,6 +202,13 @@ namespace SrsMcPsqa.Esapi
                 return course.PlanSetups.Select(p => Summary(course, p)).Where(s => s.IsQaPlan).ToList();
             });
 
+        public Task<IReadOnlyList<string>> ListPlanIdsAsync(string courseId, CancellationToken ct = default) =>
+            _worker.RunAsync<IReadOnlyList<string>>($"list plan IDs in '{courseId}'", app =>
+            {
+                var course = RequirePatient().Courses.FirstOrDefault(c => string.Equals(c.Id, courseId, StringComparison.OrdinalIgnoreCase));
+                return course == null ? new List<string>() : course.PlanSetups.Select(p => p.Id).ToList();
+            });
+
         // ------------------------------------------------------------------ template phantom (read-only)
         /// <summary>
         /// Opens the template patient read-only (ESAPI allows one open patient, so the current patient is closed and

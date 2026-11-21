@@ -110,7 +110,7 @@ namespace SrsMcPsqa.Fake
         }
 
         private List<PlanSummary> Summaries(string course) =>
-            _plansByCourse[course].Select(p => new PlanSummary { CourseId = course, PlanId = p.Id, IsQaPlan = true, Tag = p.Tag }).ToList();
+            _plansByCourse[course].Select(p => new PlanSummary { CourseId = course, PlanId = p.Id, IsQaPlan = p.Tag != null, Tag = p.Tag }).ToList();
 
         public Task<ClinicalPlanData> LoadClinicalPlanAsync(string courseId, string planId, IProgress<string>? progress = null, CancellationToken ct = default)
         {
@@ -343,8 +343,18 @@ namespace SrsMcPsqa.Fake
         {
             lock (_lock)
             {
-                IReadOnlyList<PlanSummary> list = _plansByCourse.ContainsKey(courseId) ? Summaries(courseId) : new List<PlanSummary>();
+                IReadOnlyList<PlanSummary> list = _plansByCourse.ContainsKey(courseId) ? Summaries(courseId).Where(s => s.IsQaPlan).ToList() : new List<PlanSummary>();
                 return Task.FromResult(list);
+            }
+        }
+
+        public Task<IReadOnlyList<string>> ListPlanIdsAsync(string courseId, CancellationToken ct = default)
+        {
+            lock (_lock)
+            {
+                var c = _plansByCourse.Keys.FirstOrDefault(k => string.Equals(k, courseId, StringComparison.OrdinalIgnoreCase));
+                IReadOnlyList<string> ids = c == null ? new List<string>() : _plansByCourse[c].Select(p => p.Id).ToList();
+                return Task.FromResult(ids);
             }
         }
 

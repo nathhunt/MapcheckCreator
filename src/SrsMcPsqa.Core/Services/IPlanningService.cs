@@ -175,6 +175,12 @@ namespace SrsMcPsqa.Core.Services
         /// <summary>Lists plans in the course that carry the app's tag.</summary>
         Task<IReadOnlyList<PlanSummary>> ListQaPlansAsync(string courseId, CancellationToken ct = default);
 
+        /// <summary>
+        /// IDs of every plan in the course, tagged or not (plan IDs must be unique in a course, whoever made the plan).
+        /// Empty when the course doesn't exist.
+        /// </summary>
+        Task<IReadOnlyList<string>> ListPlanIdsAsync(string courseId, CancellationToken ct = default);
+
         /// <summary>Deletes tagged QA plans only.</summary>
         Task DeleteQaPlansAsync(string courseId, IReadOnlyCollection<string> planIds, IProgress<string>? progress = null, CancellationToken ct = default);
     }
