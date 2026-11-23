@@ -55,6 +55,17 @@ namespace SrsMcPsqa.Core.Tests
             Assert.EndsWith("_270", id);
         }
 
+        // The plan number must be trimmed around where it was placed, not where its digits first occur from the end:
+        // "7" and "2" also occur in "270", which used to cut the orientation ("PSQA_PLAN7_70") or its separator.
+        [Theory]
+        [InlineData("PSQA_PLAN{n}_{orient}", 7, ArrayOrientation.Deg270, "PSQA_PLA7_270")]
+        [InlineData("PSQA_PLAN{n}_{orient}", 2, ArrayOrientation.Deg270, "PSQA_PLA2_270")]
+        [InlineData("PSQA_PLAN{n}_{orient}", 12, ArrayOrientation.Deg270, "PSQA_PL12_270")]
+        [InlineData("PSQA_PLAN{n}_{orient}", 1, ArrayOrientation.Deg0, "PSQA_PLAN1_0")]
+        [InlineData("PSQA_{orient}_PLAN{n}", 7, ArrayOrientation.Deg270, "PSQA_270_PLA7")]
+        public void TruncationTrimsTextBeforeTheNumberOnly(string pattern, int n, ArrayOrientation o, string expected) =>
+            Assert.Equal(expected, QaPlanNaming.Generate(pattern, n, o, new string[0]));
+
         [Fact]
         public void PatternWithoutNumberAppendsOnCollision()
         {

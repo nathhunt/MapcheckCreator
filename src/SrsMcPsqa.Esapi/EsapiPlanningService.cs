@@ -202,6 +202,13 @@ namespace SrsMcPsqa.Esapi
                 return course.PlanSetups.Select(p => Summary(course, p)).Where(s => s.IsQaPlan).ToList();
             });
 
+        public Task<IReadOnlyList<string>> ListPlanIdsAsync(string courseId, CancellationToken ct = default) =>
+            _worker.RunAsync<IReadOnlyList<string>>($"list plan IDs in '{courseId}'", app =>
+            {
+                var course = RequirePatient().Courses.FirstOrDefault(c => string.Equals(c.Id, courseId, StringComparison.OrdinalIgnoreCase));
+                return course == null ? new List<string>() : course.PlanSetups.Select(p => p.Id).ToList();
+            });
+
         // ------------------------------------------------------------------ template phantom (read-only)
         /// <summary>
         /// Opens the template patient read-only (ESAPI allows one open patient, so the current patient is closed and
@@ -212,12 +219,19 @@ namespace SrsMcPsqa.Esapi
             {
                 var msgs = new List<ValidationMessage>();
                 void Add(ValidationSeverity s, string t) => msgs.Add(new ValidationMessage(s, t));
+                if (string.IsNullOrWhiteSpace(settings.PatientId)) { Add(ValidationSeverity.Error, "Template patient ID is not set."); return msgs; }
                 string? current = _patientId;
+                // Closing the patient discards unsaved changes (QA plans made with auto-save off), so save them first,
+                // as the template lookup during plan creation does.
+                if (_patient != null && _canModify)
+                {
+                    app.SaveModifications();
+                    _log("Saved changes before opening the template patient.");
+                }
                 app.ClosePatient();
                 _patient = null;
                 try
                 {
-                    if (string.IsNullOrWhiteSpace(settings.PatientId)) { Add(ValidationSeverity.Error, "Template patient ID is not set."); return msgs; }
                     var tp = app.OpenPatientById(settings.PatientId);
                     if (tp == null) { Add(ValidationSeverity.Error, $"Template patient '{settings.PatientId}' not found."); return msgs; }
                     Add(ValidationSeverity.Info, $"Template patient '{tp.Id}' found (opened read-only).");

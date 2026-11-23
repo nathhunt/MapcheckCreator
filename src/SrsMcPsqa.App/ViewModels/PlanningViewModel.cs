@@ -476,7 +476,8 @@ namespace SrsMcPsqa.App.ViewModels
                 }
 
                 // Name the plans first so the panel can list them ("Plan k of N") before anything is written.
-                var existing = (await Session.Service.ListQaPlansAsync(course.Id, ct)).Select(x => x.PlanId)
+                // Every plan in the course, not only this app's: a plan made in Eclipse meanwhile can hold an ID too.
+                var existing = (await Session.Service.ListPlanIdsAsync(course.Id, ct))
                     .Concat(course.Plans.Select(x => x.PlanId)).Concat(Session.QaPlans.Select(q => q.PlanId)).ToList();
                 var named = new List<(PlanePlanViewModel Plane, string Id)>();
                 int n = 1;

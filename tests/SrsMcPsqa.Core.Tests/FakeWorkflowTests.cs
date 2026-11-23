@@ -146,5 +146,46 @@ namespace SrsMcPsqa.Core.Tests
             await svc.DeleteQaPlansAsync("QA", tagged.Select(t => t.PlanId).ToList());
             Assert.Empty(await svc.ListQaPlansAsync("QA"));
         }
+
+        [Fact]
+        public async Task DeleteRefusesAllWhenOnePlanIsUntagged()
+        {
+            var svc = new FakePlanningService { DelayScale = 0 };
+            await svc.OpenPatientAsync("FAKE001");
+            await svc.LoadClinicalPlanAsync("C1", "SRS_5Mets");
+            var ph = (await svc.EnsurePhantomImagesAsync(new TemplatePhantomSettings { PatientId = "TPL", Image0Id = "SMC_0", Image270Id = "SMC_270" },
+                new[] { ArrayOrientation.Deg0 })).Single();
+            await svc.CreateQaPlanAsync(new QaPlanRequest
+            {
+                QaCourseId = "QA", PlanId = "MC1_0", Orientation = ArrayOrientation.Deg0, StructureSetUid = ph.StructureSetUid,
+                Isocentre = ph.UserOrigin, DoseRegion = QaPlanRequests.DoseRegion(ArrayOrientation.Deg0, ph.UserOrigin),
+            });
+            svc.AddPlanForTests("QA", "USER_PLAN");
+
+            // The tagged plan comes first: it must not be deleted when the untagged one is refused.
+            var ex = await Assert.ThrowsAsync<System.InvalidOperationException>(() => svc.DeleteQaPlansAsync("QA", new[] { "MC1_0", "USER_PLAN" }));
+            Assert.Contains("no plans were deleted", ex.Message);
+            Assert.Equal(new[] { "MC1_0", "USER_PLAN" }, (await svc.ListPlanIdsAsync("QA")).OrderBy(x => x).ToArray());
+            Assert.Equal(new[] { "MC1_0" }, (await svc.ListQaPlansAsync("QA")).Select(p => p.PlanId).ToArray()); // tagged only
+
+            await svc.DeleteQaPlansAsync("QA", new[] { "MC1_0" });
+            Assert.Equal(new[] { "USER_PLAN" }, (await svc.ListPlanIdsAsync("QA")).ToArray());
+        }
+
+        [Fact]
+        public async Task QaPlansOfAnotherClinicalPlanAreLeftUntouched()
+        {
+            var svc = new FakePlanningService { DelayScale = 0 };
+            await svc.OpenPatientAsync("FAKE001");
+            await svc.LoadClinicalPlanAsync("C1", "SRS_5Mets");
+            svc.AddPlanForTests("QA", "OTHER_QA", new QaPlanTag("9.9.9.other", ArrayOrientation.Deg0, new[] { "PTV1" }));
+
+            var move = await Assert.ThrowsAsync<System.InvalidOperationException>(() =>
+                svc.MoveIsocentreAsync("QA", "OTHER_QA", new Vec3(1, 2, 3), QaPlanRequests.DoseRegion(ArrayOrientation.Deg0, default)));
+            Assert.Contains("different clinical plan", move.Message);
+            var delete = await Assert.ThrowsAsync<System.InvalidOperationException>(() => svc.DeleteQaPlansAsync("QA", new[] { "OTHER_QA" }));
+            Assert.Contains("different clinical plan", delete.Message);
+            Assert.Contains(await svc.ListPlanIdsAsync("QA"), id => id == "OTHER_QA");
+        }
     }
 }

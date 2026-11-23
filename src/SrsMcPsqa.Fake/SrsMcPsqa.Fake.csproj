@@ -11,6 +11,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="SrsMcPsqa.Core.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SrsMcPsqa.Core\SrsMcPsqa.Core.csproj" />
   </ItemGroup>
 

@@ -56,17 +56,31 @@ namespace SrsMcPsqa.App.ViewModels
                 bool siteSaved = false;
                 if (changes.Count > 0)
                 {
+                    // Checked before anything is written: these settings apply to everyone using this installation.
+                    var problems = Edit.Problems();
+                    if (problems.Count > 0)
+                    {
+                        Session.Dialogs.ShowInfo("Check the settings",
+                            "These department settings can't be used, so nothing was saved:" + System.Environment.NewLine + System.Environment.NewLine +
+                            string.Join(System.Environment.NewLine, problems.Select(x => "  • " + x)));
+                        return;
+                    }
                     if (_departmentTimeAtOpen != SettingsStore.DepartmentFileTimeUtc &&
                         !Session.Dialogs.Confirm("Department settings changed meanwhile",
                             "Someone changed the department settings file since you opened Settings. Saving now replaces their changes " +
                             "with yours. Click Cancel, then Reload, to see their version first.", "Save anyway", danger: true))
                         return;
                     string list = string.Join(System.Environment.NewLine, changes.Select(c => $"  {c.Field}: '{c.Old}' → '{c.New}'"));
+                    // The file couldn't be read: the "old" values are built-in defaults, and saving replaces the file.
+                    string unreadable = Session.SettingsError == null ? "" :
+                        $"{System.Environment.NewLine}{System.Environment.NewLine}The current file could not be read ({Session.SettingsError}). " +
+                        "Saving REPLACES it with the built-in defaults plus the changes above; the unreadable file is kept as .bak. " +
+                        "If someone is fixing it by hand, click Cancel.";
                     if (!Session.Dialogs.Confirm("Change DEPARTMENT settings?",
                             "You are about to change the department settings. They apply to EVERYONE who uses this installation of the app" +
                             $" ({SettingsStore.InstallationFolder}), not just you.{System.Environment.NewLine}{System.Environment.NewLine}" +
                             $"Changes:{System.Environment.NewLine}{list}{System.Environment.NewLine}{System.Environment.NewLine}" +
-                            $"File: {SettingsStore.DepartmentPath} (the previous version is kept as .bak).",
+                            $"File: {SettingsStore.DepartmentPath} (the previous version is kept as .bak).{unreadable}",
                             "Change department settings", danger: true))
                         return;
                     try { SettingsStore.SaveDepartment(Edit); }
@@ -78,6 +92,7 @@ namespace SrsMcPsqa.App.ViewModels
                         return;
                     }
                     _departmentTimeAtOpen = SettingsStore.DepartmentFileTimeUtc;
+                    Session.SettingsError = null; // the file now holds what was just written
                     siteSaved = true;
                     Log.Info("Department settings changed: " + string.Join("; ", changes.Select(c => $"{c.Field} '{c.Old}' -> '{c.New}'")));
                 }
@@ -102,13 +117,16 @@ namespace SrsMcPsqa.App.ViewModels
         {
             try
             {
-                var loaded = SettingsStore.Load(out var source);
+                var result = SettingsStore.Load();
+                var loaded = result.Settings;
+                foreach (var w in result.Warnings) Log.Warn(w);
                 Session.Settings = loaded;
+                Session.SettingsError = result.DepartmentError;
                 if (Session.Service is Esapi.EsapiPlanningService esapi) esapi.AutoSave = loaded.AutoSave;
                 Edit = loaded.Clone();
                 _departmentTimeAtOpen = SettingsStore.DepartmentFileTimeUtc;
-                Status = "Reloaded: " + source + ".";
-                Log.Info("Settings reloaded: " + source + ". " + Diagnostics.Settings(loaded));
+                Status = "Reloaded: " + result.Source + ".";
+                Log.Info("Settings reloaded: " + result.Source + ". " + Diagnostics.Settings(loaded));
             }
             catch (System.Exception ex)
             {

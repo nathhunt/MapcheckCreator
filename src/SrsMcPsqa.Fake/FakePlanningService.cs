@@ -110,7 +110,7 @@ namespace SrsMcPsqa.Fake
         }
 
         private List<PlanSummary> Summaries(string course) =>
-            _plansByCourse[course].Select(p => new PlanSummary { CourseId = course, PlanId = p.Id, IsQaPlan = true, Tag = p.Tag }).ToList();
+            _plansByCourse[course].Select(p => new PlanSummary { CourseId = course, PlanId = p.Id, IsQaPlan = p.Tag != null, Tag = p.Tag }).ToList();
 
         public Task<ClinicalPlanData> LoadClinicalPlanAsync(string courseId, string planId, IProgress<string>? progress = null, CancellationToken ct = default)
         {
@@ -249,6 +249,7 @@ namespace SrsMcPsqa.Fake
             lock (_lock)
             {
                 plan = Find(courseId, planId) ?? throw new InvalidOperationException($"QA plan '{courseId}/{planId}' not found.");
+                CheckTag(plan, "it is left untouched");
                 plan.Isocentre = newIsocentre;
             }
             ct.ThrowIfCancellationRequested();
@@ -342,24 +343,57 @@ namespace SrsMcPsqa.Fake
         {
             lock (_lock)
             {
-                IReadOnlyList<PlanSummary> list = _plansByCourse.ContainsKey(courseId) ? Summaries(courseId) : new List<PlanSummary>();
+                IReadOnlyList<PlanSummary> list = _plansByCourse.ContainsKey(courseId) ? Summaries(courseId).Where(s => s.IsQaPlan).ToList() : new List<PlanSummary>();
                 return Task.FromResult(list);
+            }
+        }
+
+        public Task<IReadOnlyList<string>> ListPlanIdsAsync(string courseId, CancellationToken ct = default)
+        {
+            lock (_lock)
+            {
+                var c = _plansByCourse.Keys.FirstOrDefault(k => string.Equals(k, courseId, StringComparison.OrdinalIgnoreCase));
+                IReadOnlyList<string> ids = c == null ? new List<string>() : _plansByCourse[c].Select(p => p.Id).ToList();
+                return Task.FromResult(ids);
             }
         }
 
         public async Task DeleteQaPlansAsync(string courseId, IReadOnlyCollection<string> planIds, IProgress<string>? progress = null, CancellationToken ct = default)
         {
-            foreach (var id in planIds)
+            // Like Eclipse: check every plan before removing any, so a refusal deletes nothing.
+            var toDelete = new List<FakeQaPlan>();
+            lock (_lock)
             {
-                lock (_lock)
+                foreach (var id in planIds)
                 {
                     var p = Find(courseId, id);
                     if (p == null) continue;
-                    if (p.Tag == null) throw new InvalidOperationException($"Plan '{id}' has no app tag; refusing to delete it.");
-                    _plansByCourse[courseId].Remove(p);
+                    CheckTag(p, "no plans were deleted");
+                    toDelete.Add(p);
                 }
-                progress?.Report($"Deleted {id}.");
-                await Delay(0.2, ct).ConfigureAwait(false);
+            }
+            foreach (var p in toDelete)
+            {
+                lock (_lock) _plansByCourse[courseId].Remove(p);
+                progress?.Report($"Deleted {p.Id}.");
+                await Delay(0.2, CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>Like Eclipse: only this app's QA plans of the loaded clinical plan may be changed or deleted.</summary>
+        private void CheckTag(FakeQaPlan p, string consequence)
+        {
+            if (p.Tag == null) throw new InvalidOperationException($"Plan '{p.Id}' has no app tag; {consequence}.");
+            if (p.Tag.SourcePlanUid != _patient.PlanUid) throw new InvalidOperationException($"Plan '{p.Id}' is a QA plan for a different clinical plan; {consequence}.");
+        }
+
+        /// <summary>Test hook: a plan in <paramref name="courseId"/> made outside the app (no tag) or tagged for another plan.</summary>
+        internal void AddPlanForTests(string courseId, string planId, QaPlanTag? tag = null)
+        {
+            lock (_lock)
+            {
+                if (!_plansByCourse.ContainsKey(courseId)) _plansByCourse[courseId] = new List<FakeQaPlan>();
+                _plansByCourse[courseId].Add(new FakeQaPlan { Id = planId, Tag = tag });
             }
         }
 

@@ -98,7 +98,13 @@ namespace SrsMcPsqa.Esapi
                         var beams = qa.Beams.Where(b => !b.IsSetupField).ToList();
                         var iso = beams.FirstOrDefault()?.IsocenterPosition.ToVec3() ?? default;
                         var ss = qa.StructureSet;
-                        if (ss?.Image == null) { notes.Add("The plan has no phantom image; it can't be shown."); continue; }
+                        if (ss?.Image == null)
+                        {
+                            // Can't be listed without a phantom image; say so (the note used to be discarded).
+                            progress?.Report($"{course.Id}/{qa.Id} has no phantom image; it can't be shown and is skipped.");
+                            _log($"Skipped QA plan {course.Id}/{qa.Id}: no phantom image.");
+                            continue;
+                        }
                         var phantom = Info(tag.Orientation, ss, copied: false);
 
                         // Beams and MUs against the clinical plan (re-optimised clinical plan → out of date).
@@ -139,14 +145,25 @@ namespace SrsMcPsqa.Esapi
             return c;
         }
 
-        /// <summary>A QA plan created by this app (tagged); refuses untagged plans.</summary>
-        private static ExternalPlanSetup RequireTaggedPlan(Course course, string planId)
+        /// <summary>A QA plan this app created for the loaded clinical plan; refuses untagged plans and other plans' QA plans.</summary>
+        private static ExternalPlanSetup RequireTaggedPlan(Course course, string planId, string clinicalUid)
         {
             var plan = course.ExternalPlanSetups.FirstOrDefault(p => string.Equals(p.Id, planId, StringComparison.OrdinalIgnoreCase))
                        ?? throw new InvalidOperationException($"Plan '{planId}' not found in course '{course.Id}'.");
-            if (!QaPlanTag.TryParse(plan.Comment, out _))
-                throw new InvalidOperationException($"Plan '{planId}' was not created by this app (no tag in its Comment); it is left untouched.");
+            CheckTag(plan, planId, clinicalUid, "it is left untouched");
             return plan;
+        }
+
+        /// <summary>
+        /// The plan carries this app's tag for <paramref name="clinicalUid"/>. A QA plan of another clinical plan must not be
+        /// recalculated with this plan's MUs or deleted from this plan's session.
+        /// </summary>
+        private static void CheckTag(PlanSetup plan, string planId, string clinicalUid, string consequence)
+        {
+            if (!QaPlanTag.TryParse(plan.Comment, out var tag))
+                throw new InvalidOperationException($"Plan '{planId}' was not created by this app (no tag in its Comment); {consequence}.");
+            if (tag!.SourcePlanUid != clinicalUid)
+                throw new InvalidOperationException($"Plan '{planId}' is a QA plan for a different clinical plan; {consequence}.");
         }
 
         private void SaveIfAuto(EsapiApplication app, string what)
@@ -254,11 +271,23 @@ namespace SrsMcPsqa.Esapi
                     _studyCache[settings.PatientId + "|" + settings.ImageId(o)] = study.Id;
                 }
             }
-            finally
+            catch (Exception lookupEx)
             {
-                app.ClosePatient();
-                Open(app, current);
+                // Re-open the patient, but report why the lookup failed: a re-open failure in a finally block used to
+                // replace that reason.
+                try
+                {
+                    app.ClosePatient();
+                    Open(app, current);
+                }
+                catch (Exception reopenEx)
+                {
+                    throw new InvalidOperationException($"{lookupEx.Message} Re-opening patient '{current}' afterwards also failed: {reopenEx.Message}", lookupEx);
+                }
+                throw;
             }
+            app.ClosePatient();
+            Open(app, current);
             if (!_canModify) throw new InvalidOperationException("Re-opening the patient after reading the template failed to allow changes: " + _modifyError);
             return result;
         }
@@ -544,7 +573,7 @@ namespace SrsMcPsqa.Esapi
                 RequireModifiable();
                 var clinical = RequireClinicalPlan();
                 var course = RequireCourse(courseId);
-                var qa = RequireTaggedPlan(course, planId);
+                var qa = RequireTaggedPlan(course, planId, clinical.UID);
                 QaPlanTag.TryParse(qa.Comment, out var tag);
                 ct.ThrowIfCancellationRequested();
                 ct = CancellationToken.None; // from here on, finish this plan (see BuildQaPlan)
@@ -580,15 +609,23 @@ namespace SrsMcPsqa.Esapi
             _worker.RunAsync($"delete QA plans in '{courseId}'", app =>
             {
                 RequireModifiable();
+                var clinical = RequireClinicalPlan();
                 var course = RequireCourse(courseId);
+                // Check every plan before removing any. A refusal halfway used to leave the earlier plans removed but
+                // unsaved: still listed in the app, then deleted for good by the next save of any other operation.
+                var toDelete = new List<(string Id, ExternalPlanSetup Plan)>();
                 foreach (var id in planIds)
                 {
                     ct.ThrowIfCancellationRequested();
                     var plan = course.ExternalPlanSetups.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
                     if (plan == null) { progress?.Report($"{id}: not found (already deleted?)."); continue; }
-                    if (!QaPlanTag.TryParse(plan.Comment, out _))
-                        throw new InvalidOperationException($"Plan '{id}' was not created by this app; it is not deleted.");
-                    if (!course.CanRemovePlanSetup(plan)) throw new InvalidOperationException($"Eclipse doesn't allow deleting '{id}' (e.g. approved or has treatment records).");
+                    CheckTag(plan, id, clinical.UID, "no plans were deleted");
+                    if (!course.CanRemovePlanSetup(plan))
+                        throw new InvalidOperationException($"Eclipse doesn't allow deleting '{id}' (e.g. approved or has treatment records); no plans were deleted.");
+                    toDelete.Add((id, plan));
+                }
+                foreach (var (id, plan) in toDelete)
+                {
                     course.RemovePlanSetup(plan); // don't touch the plan object afterwards (it is disposed)
                     progress?.Report($"Deleted {id}.");
                     _log($"Deleted QA plan {courseId}/{id}.");

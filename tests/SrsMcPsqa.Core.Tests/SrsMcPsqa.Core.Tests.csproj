@@ -12,6 +12,15 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" PrivateAssets="all" />
   </ItemGroup>
 
+  <!--
+    The app's settings store and log are plain System.IO code, but the app itself is a net48 WPF exe that can't be
+    referenced from here. Compile those two files into the tests so the settings load/save rules are tested on any OS.
+  -->
+  <ItemGroup>
+    <Compile Include="..\..\src\SrsMcPsqa.App\Infrastructure\AppSettings.cs" Link="Linked\AppSettings.cs" />
+    <Compile Include="..\..\src\SrsMcPsqa.App\Infrastructure\Log.cs" Link="Linked\Log.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\SrsMcPsqa.Core\SrsMcPsqa.Core.csproj" />
     <ProjectReference Include="..\..\src\SrsMcPsqa.Fake\SrsMcPsqa.Fake.csproj" />

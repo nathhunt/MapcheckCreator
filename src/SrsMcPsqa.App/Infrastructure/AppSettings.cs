@@ -10,11 +10,10 @@ using SrsMcPsqa.Core.Services;
 namespace SrsMcPsqa.App.Infrastructure
 {
     /// <summary>
-    /// App settings (JSON). Department defaults come from <c>SrsMcPsqa.settings.json</c> next to the exe (read-only, optional);
-    /// a per-user override of personal preferences is stored in <c>%APPDATA%\SrsMcPsqa\settings.json</c>.
-    /// Template phantom IDs differ between environments (test, production), so a user's template values are stored
-    /// per installation folder (<c>%APPDATA%\SrsMcPsqa\template-&lt;folder hash&gt;.json</c>), falling back to the
-    /// department file of that installation. The app never writes to its own folder.
+    /// App settings (JSON). Everything except theme and log level is a department (site) setting, read from
+    /// <c>SrsMcPsqa.settings.json</c> next to the exe (optional; built-in defaults otherwise) and the same for every user of
+    /// that installation; Settings can write it back after confirmation (<see cref="SettingsStore.SaveDepartment"/>).
+    /// Theme and log level are personal, stored in <c>%APPDATA%\SrsMcPsqa\settings.json</c>.
     /// </summary>
     [DataContract]
     public sealed class AppSettings
@@ -90,6 +89,38 @@ namespace SrsMcPsqa.App.Infrastructure
 
         public AppSettings Clone() => (AppSettings)MemberwiseClone();
 
+        /// <summary>
+        /// Site settings outside the range the app can work with, in plain words; empty when all are usable. The optimiser
+        /// ranges match <see cref="OptimisationSettings.Validate"/>, which otherwise fails later, for every user.
+        /// </summary>
+        public List<string> Problems()
+        {
+            var p = new List<string>();
+            void Need(bool ok, string message) { if (!ok) p.Add(message); }
+            string Mm(double v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + " mm";
+            foreach (var prop in typeof(AppSettings).GetProperties())
+                if (prop.PropertyType == typeof(double) && prop.GetValue(this) is double d && (double.IsNaN(d) || double.IsInfinity(d)))
+                    p.Add($"{prop.Name} must be a number.");
+
+            Need(!string.IsNullOrWhiteSpace(QaCourseId) && QaCourseId.Trim().Length <= 16, "QA course ID: 1 to 16 characters.");
+            Need(ShiftThresholdMm >= 0, "Shift rounding threshold: 0 (off) or more.");
+            Need(EdgeMarginMm >= 0 && EdgeMarginMm < Core.Detector.DiodeArray.HalfExtent,
+                $"Edge margin: from 0 up to (not including) {Mm(Core.Detector.DiodeArray.HalfExtent)}.");
+            Need(Tau > 0 && Tau <= 1, "Tau: more than 0, at most 1.");
+            Need(Alpha >= 0 && Alpha <= 1, "Alpha: from 0 to 1.");
+            Need(MinDiodes >= 0, "Minimum diodes in PTV: 0 or more.");
+            Need(FineTuneInPlaneRangeMm >= 0 && FineTuneNormalRangeMm >= 0, "Fine-tune search ranges: 0 or more.");
+
+            Need(CollisionOriginAboveCouchMm >= 0, "MapCHECK origin above the couch: 0 (check off) or more.");
+            Need(CollisionHeadClearanceMm > 0 && CollisionHeadRadiusMm > 0 && CollisionCouchWidthMm > 0 && CollisionCouchThicknessMm > 0,
+                "Head and couch dimensions: more than 0 (otherwise the collision check is silently off).");
+            Need(CollisionMaxLateralOffsetMm >= 0, "Largest lateral phantom offset: 0 or more.");
+            Need(CollisionRiskMm >= 0, "Collision risk level: 0 or more.");
+            Need(CollisionWarningMm >= CollisionRiskMm,
+                $"Collision warning level ({Mm(CollisionWarningMm)}) must not be below the risk level ({Mm(CollisionRiskMm)}).");
+            return p;
+        }
+
         // DataContract deserialisation skips constructors and initialisers; restore defaults for missing members.
         [OnDeserializing]
         private void OnDeserializing(StreamingContext _)
@@ -122,31 +153,48 @@ namespace SrsMcPsqa.App.Infrastructure
 
         /// <summary>
         /// Site settings (everything except theme and log level) come only from the department file in this installation's
-        /// folder (or built-in defaults), the same for every user; the app never writes it. Personal preferences (theme,
+        /// folder (or built-in defaults), the same for every user; only Settings → Save writes it. Personal preferences (theme,
         /// log level) come from the user's file in %APPDATA%.
         /// </summary>
-        public static AppSettings Load(out string source)
+        /// <remarks>
+        /// Doesn't log: it runs before the log is set up. The caller logs <see cref="SettingsLoadResult.Warnings"/>.
+        /// A site settings file that exists but can't be read gives built-in defaults and
+        /// <see cref="SettingsLoadResult.DepartmentError"/>, which the app shows and which turns QA plan creation off.
+        /// </remarks>
+        public static SettingsLoadResult Load()
         {
-            var result = LoadDepartmentDefaults();
+            var warnings = new List<string>();
+            var result = TryReadDepartment(out var departmentError) ?? new AppSettings();
             if (result.PlanNamingPattern == Core.Models.QaPlanNaming.PreviousDefaultPattern) result.PlanNamingPattern = Core.Models.QaPlanNaming.DefaultPattern;
-            source = File.Exists(DepartmentPath) ? $"site settings from {DepartmentPath}" : "built-in defaults (no site settings file)";
+            string source;
+            if (departmentError != null)
+            {
+                source = $"built-in defaults: the site settings file could not be read ({departmentError})";
+                warnings.Add($"Could not read the site settings file: {departmentError}. Using built-in defaults; creating QA plans is off until it is fixed.");
+            }
+            else source = File.Exists(DepartmentPath) ? $"site settings from {DepartmentPath}" : "built-in defaults (no site settings file)";
+            foreach (var problem in result.Problems()) warnings.Add("Site setting out of range: " + problem);
             try
             {
                 if (File.Exists(UserPath))
                 {
                     var p = Read<PersonalSettings>(UserPath);
-                    if (!string.IsNullOrWhiteSpace(p.Theme)) result.Theme = p.Theme!;
-                    if (!string.IsNullOrWhiteSpace(p.LogLevel)) result.LogLevel = p.LogLevel!;
+                    if (!string.IsNullOrWhiteSpace(p?.Theme)) result.Theme = p!.Theme!;
+                    if (!string.IsNullOrWhiteSpace(p?.LogLevel)) result.LogLevel = p!.LogLevel!;
                     source += $"; personal preferences from {UserPath}";
                 }
             }
             catch (Exception ex)
             {
-                Log.Warn($"Could not read personal preferences from {UserPath}: {ex.Message}");
+                warnings.Add($"Could not read personal preferences from {UserPath}: {ex.Message}");
             }
-            if (Directory.Exists(Path.GetDirectoryName(UserPath)!) && Directory.GetFiles(Path.GetDirectoryName(UserPath)!, "template-*.json").Length > 0)
-                source += "; earlier per-user template phantom files are no longer used (site settings file instead)";
-            return result;
+            try
+            {
+                if (Directory.Exists(Path.GetDirectoryName(UserPath)!) && Directory.GetFiles(Path.GetDirectoryName(UserPath)!, "template-*.json").Length > 0)
+                    source += "; earlier per-user template phantom files are no longer used (site settings file instead)";
+            }
+            catch (Exception ex) { warnings.Add($"Could not list {Path.GetDirectoryName(UserPath)}: {ex.Message}"); }
+            return new SettingsLoadResult(result, source, departmentError, warnings);
         }
 
         /// <summary>Folder of this installation (test and production installations differ).</summary>
@@ -154,9 +202,25 @@ namespace SrsMcPsqa.App.Infrastructure
 
         public static AppSettings LoadDepartmentDefaults()
         {
-            try { if (File.Exists(DepartmentPath)) return Read<AppSettings>(DepartmentPath); }
-            catch (Exception ex) { Log.Warn($"Could not read the site settings file {DepartmentPath}: {ex.Message}"); }
-            return new AppSettings();
+            var s = TryReadDepartment(out var error);
+            if (error != null) Log.Warn($"Could not read the site settings file: {error}");
+            return s ?? new AppSettings();
+        }
+
+        /// <summary>The site settings file; null when there is none or it can't be read (then <paramref name="error"/> says why).</summary>
+        private static AppSettings? TryReadDepartment(out string? error)
+        {
+            error = null;
+            if (!File.Exists(DepartmentPath)) return null;
+            try
+            {
+                return Read<AppSettings>(DepartmentPath) ?? throw new InvalidDataException("the file holds no settings (null)");
+            }
+            catch (Exception ex)
+            {
+                error = $"{DepartmentPath}: {ex.Message}";
+                return null;
+            }
         }
 
         /// <summary>Personal preferences (per user); every other setting is a site (department) setting.</summary>
@@ -188,14 +252,29 @@ namespace SrsMcPsqa.App.Infrastructure
             var current = LoadDepartmentDefaults();
             var s = settings.Clone();
             s.Theme = current.Theme; s.LogLevel = current.LogLevel;
-            string tmp = DepartmentPath + ".tmp";
+            string tmp = DepartmentPath + ".tmp", bak = DepartmentPath + ".bak"; // .bak: previous version, for undo
             Write(tmp, s);
-            if (File.Exists(DepartmentPath))
+            try
             {
-                File.Copy(DepartmentPath, DepartmentPath + ".bak", overwrite: true); // previous version, for undo
-                File.Delete(DepartmentPath);
+                if (!File.Exists(DepartmentPath)) File.Move(tmp, DepartmentPath);
+                else
+                {
+                    // One step, so a failure can't leave the folder without a settings file (the app would then start
+                    // on built-in defaults). Some file shares refuse it; then fall back to the step-by-step replace.
+                    try { File.Replace(tmp, DepartmentPath, bak, ignoreMetadataErrors: true); }
+                    catch (IOException ex)
+                    {
+                        Log.Warn($"Replacing {DepartmentPath} in one step failed ({ex.Message}); replacing it step by step.");
+                        File.Copy(DepartmentPath, bak, overwrite: true);
+                        File.Delete(DepartmentPath);
+                        File.Move(tmp, DepartmentPath);
+                    }
+                }
             }
-            File.Move(tmp, DepartmentPath);
+            finally
+            {
+                try { if (File.Exists(tmp)) File.Delete(tmp); } catch (IOException) { /* a leftover .tmp is harmless */ }
+            }
             Log.Info($"Site settings saved to {DepartmentPath} by {Environment.UserName}.");
         }
 
@@ -221,17 +300,49 @@ namespace SrsMcPsqa.App.Infrastructure
             if (File.Exists(UserPath)) File.Delete(UserPath);
         }
 
-        private static T Read<T>(string path)
+        private static T? Read<T>(string path) where T : class
         {
+            string text = File.ReadAllText(path);
+            CheckJsonShape(text);
             var ser = new DataContractJsonSerializer(typeof(T));
-            using var fs = File.OpenRead(path);
-            return (T)ser.ReadObject(fs);
+            using var ms = new MemoryStream(Encoding.UTF8.GetBytes(text));
+            return (T?)ser.ReadObject(ms);
+        }
+
+        /// <summary>
+        /// The serialiser accepts a truncated file (e.g. an interrupted copy) or a trailing comma without complaint (seen
+        /// on .NET 8) and fills everything missing with defaults. Refuse those: the file must be one complete { … } object.
+        /// </summary>
+        internal static void CheckJsonShape(string text)
+        {
+            var t = text.Trim();
+            if (t.Length == 0) throw new InvalidDataException("the file is empty");
+            if (t == "null") return; // handled by the caller
+            if (t[0] != '{' || t[t.Length - 1] != '}') throw new InvalidDataException("the file is not one complete { … } JSON object (truncated?)");
+            if (System.Text.RegularExpressions.Regex.IsMatch(t, @",\s*\}$")) throw new InvalidDataException("there is a comma after the last setting");
         }
     }
 }
 
 namespace SrsMcPsqa.App.Infrastructure
 {
+    /// <summary>What <see cref="SettingsStore.Load"/> read, where from, and what went wrong.</summary>
+    public sealed class SettingsLoadResult
+    {
+        public SettingsLoadResult(AppSettings settings, string source, string? departmentError, IReadOnlyList<string> warnings)
+        {
+            Settings = settings; Source = source; DepartmentError = departmentError; Warnings = warnings;
+        }
+
+        public AppSettings Settings { get; }
+        /// <summary>Where the settings came from, for the log.</summary>
+        public string Source { get; }
+        /// <summary>The site settings file exists but couldn't be read (path and reason); null when it was read or is absent.</summary>
+        public string? DepartmentError { get; }
+        /// <summary>Problems to log once the log is set up.</summary>
+        public IReadOnlyList<string> Warnings { get; }
+    }
+
     /// <summary>A user's personal preferences (everything else is a site setting).</summary>
     [System.Runtime.Serialization.DataContract]
     public sealed class PersonalSettings
