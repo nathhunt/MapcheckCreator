@@ -1,8 +1,10 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using SrsMcPsqa.App.Infrastructure;
 using SrsMcPsqa.Core.Services;
 using Wpf.Ui.Controls;
 
@@ -118,8 +120,17 @@ namespace SrsMcPsqa.App.ViewModels
                     throw new System.InvalidOperationException("The plan can't be used for PSQA: " +
                         string.Join(" ", data.Validation.Where(v => v.Severity == ValidationSeverity.Error).Select(v => v.Text)));
                 Session.SetClinicalPlan(data);
+                if (Session.CalculationModelBlockedReason is string why)
+                    Validation.Add(new ValidationMessage(ValidationSeverity.Warning, "QA plans can't be created for this plan. " + why));
             });
-            if (ok) Shell.Navigate(Shell.Ptvs);
+            if (!ok) return;
+            if (Session.CalculationModelBlockedReason is string reason)
+            {
+                Log.Warn("Calculation model check: " + reason);
+                Session.Dialogs.ShowInfo("QA plans can't be created for this plan",
+                    reason + Environment.NewLine + Environment.NewLine + "You can still look at the array planning, but Create is off.");
+            }
+            Shell.Navigate(Shell.Ptvs);
         }
 
         /// <summary>Loads QA plans made earlier for the loaded plan (only on request), then shows them in Review.</summary>

@@ -149,11 +149,23 @@ namespace SrsMcPsqa.App.ViewModels
                 if (!Patient.CanModify) return "Eclipse doesn't allow changes to this patient yet (the app isn't approved, or the patient is locked). You can still plan.";
                 if (QaCourse == null) return "Choose a QA course in step 1.";
                 if (NeedsTemplateSettings) return "Creating is off: the template phantom (patient and image IDs) isn't set for this installation. Open Settings, enter it and Save.";
+                if (CalculationModelBlockedReason is string model) return "Creating is off. " + model;
                 return null;
             }
         }
 
         public bool CanCreatePlans => CreateBlockedReason == null;
+
+        /// <summary>
+        /// Why QA plans can't be created or recalculated for the loaded clinical plan's calculation model (it must be the
+        /// template phantom's model, Settings), or null. Demo mode skips the check until a model is set.
+        /// </summary>
+        public string? CalculationModelBlockedReason =>
+            ClinicalPlan == null || (IsDemo && string.IsNullOrWhiteSpace(Settings.TemplateCalculationModel)) ? null
+            : CalculationModelCheck.BlockedReason(Settings.TemplateCalculationModel, ClinicalPlan.CalculationModel);
+
+        /// <summary>The department settings have no template phantom calculation model yet.</summary>
+        public bool NeedsCalculationModelSetting => !IsDemo && string.IsNullOrWhiteSpace(Settings.TemplateCalculationModel);
 
         /// <summary>The department settings file has no template phantom yet (creating QA plans needs it).</summary>
         public bool NeedsTemplateSettings => !IsDemo && !Settings.HasTemplate;
@@ -164,9 +176,10 @@ namespace SrsMcPsqa.App.ViewModels
         public bool HasSettingsError => SettingsError != null;
 
         /// <summary>Settings need fixing before QA plans can be created (shows the "Open Settings" button).</summary>
-        public bool NeedsSettingsAttention => HasSettingsError || NeedsTemplateSettings;
+        public bool NeedsSettingsAttention => HasSettingsError || NeedsTemplateSettings || NeedsCalculationModelSetting;
 
         partial void OnPatientChanged(PatientSummary? value) => NotifyCreateState();
+        partial void OnClinicalPlanChanged(ClinicalPlanData? value) => NotifyCreateState();
         partial void OnQaCourseChanged(CourseSummary? value) => NotifyCreateState();
         partial void OnSettingsChanged(AppSettings value) => NotifyCreateState();
         partial void OnSettingsErrorChanged(string? value) => NotifyCreateState();
@@ -177,6 +190,8 @@ namespace SrsMcPsqa.App.ViewModels
             OnPropertyChanged(nameof(CanCreatePlans));
             OnPropertyChanged(nameof(NeedsTemplateSettings));
             OnPropertyChanged(nameof(NeedsSettingsAttention));
+            OnPropertyChanged(nameof(CalculationModelBlockedReason));
+            OnPropertyChanged(nameof(NeedsCalculationModelSetting));
         }
 
         public void SetClinicalPlan(ClinicalPlanData plan)

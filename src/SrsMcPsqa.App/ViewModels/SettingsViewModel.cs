@@ -40,6 +40,85 @@ namespace SrsMcPsqa.App.ViewModels
             Edit = Session.Settings.Clone();
             _departmentTimeAtOpen = SettingsStore.DepartmentFileTimeUtc;
             Status = "";
+            IsUnlocked = false;
+            RefreshModels();
+        }
+
+        // ------------------------------------------------------------------ department settings lock
+        /// <summary>
+        /// Department settings are read-only until unlocked (red button + confirmation); they lock again after Save, Reload,
+        /// Lock or leaving the page. A guard against accidental edits; the folder permissions are the real protection.
+        /// </summary>
+        [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsLocked))] private bool _isUnlocked;
+        public bool IsLocked => !IsUnlocked;
+
+        [RelayCommand]
+        private void Unlock()
+        {
+            if (!SettingsStore.CanWriteInstallationFolder(out var why))
+            {
+                Session.Dialogs.ShowInfo("No write access",
+                    $"You can't change the department settings: {why}{System.Environment.NewLine}{System.Environment.NewLine}" +
+                    $"Folder: {SettingsStore.InstallationFolder}{System.Environment.NewLine}Ask someone with write access to the app folder.");
+                Log.Info("Department settings unlock refused: no write access (" + why + ").");
+                return;
+            }
+            if (!Session.Dialogs.Confirm("Edit DEPARTMENT settings?",
+                    "⚠ You are about to unlock the department settings." + System.Environment.NewLine + System.Environment.NewLine +
+                    $"They apply to EVERYONE who uses this installation ({SettingsStore.InstallationFolder}), and they control how QA plans " +
+                    "are created and checked: the template phantom and its calculation model, the QA course and plan names, the collision " +
+                    "check, shift rounding and the optimisation." + System.Environment.NewLine + System.Environment.NewLine +
+                    "A wrong value can give wrong QA plans for every user. Only continue if you are authorised to change them and know " +
+                    "what each change does." + System.Environment.NewLine + System.Environment.NewLine +
+                    "Nothing changes until you Save, which lists every change and asks again.",
+                    "Unlock for editing", danger: true))
+            {
+                Log.Info("Department settings unlock cancelled.");
+                return;
+            }
+            IsUnlocked = true;
+            Status = "Department settings unlocked for editing.";
+            Log.Info("Department settings unlocked for editing.");
+        }
+
+        [RelayCommand]
+        private void Lock()
+        {
+            var changes = SettingsStore.SiteDifferences(Session.Settings, Edit);
+            if (changes.Count > 0 && !Session.Dialogs.Confirm("Discard changes?",
+                    $"Lock the department settings and discard {changes.Count} unsaved change(s)?", "Discard and lock"))
+                return;
+            string theme = Edit.Theme, logLevel = Edit.LogLevel;
+            Edit = Session.Settings.Clone();
+            Edit.Theme = theme; Edit.LogLevel = logLevel;
+            IsUnlocked = false;
+            RefreshModels();
+            Status = changes.Count > 0 ? "Locked; unsaved department changes discarded." : "Locked.";
+            Log.Info("Department settings locked" + (changes.Count > 0 ? $" ({changes.Count} unsaved change(s) discarded)." : "."));
+        }
+
+        // ------------------------------------------------------------------ template phantom calculation model
+        /// <summary>Photon dose models Eclipse offers for the loaded clinical plan, plus the saved one if it isn't among them.</summary>
+        public ObservableCollection<string> CalculationModels { get; } = new ObservableCollection<string>();
+        [ObservableProperty] private string _calculationModelHint = "";
+
+        partial void OnEditChanged(AppSettings value) { ValidationResults.Clear(); RefreshModels(); }
+
+        private void RefreshModels()
+        {
+            if (Edit == null) return;
+            var available = Session.ClinicalPlan?.AvailableCalculationModels ?? new List<string>();
+            CalculationModels.Clear();
+            foreach (var m in available) CalculationModels.Add(m);
+            string saved = Edit.TemplateCalculationModel?.Trim() ?? "";
+            bool listed = available.Any(m => string.Equals(m, saved, System.StringComparison.OrdinalIgnoreCase));
+            if (saved.Length > 0 && !listed) CalculationModels.Insert(0, saved);
+            CalculationModelHint =
+                saved.Length == 0 ? "Not set: creating QA plans is off until it is." :
+                Session.ClinicalPlan == null ? "Load a clinical plan (step 1) to list the models Eclipse offers." :
+                !listed ? $"'{saved}' isn't among the models Eclipse offers for the loaded plan." :
+                Session.ClinicalPlan.CalculationModel.Length > 0
+                    ? $"The loaded plan is calculated with {Session.ClinicalPlan.CalculationModel}." : "";
         }
 
         /// <summary>
@@ -99,10 +178,11 @@ namespace SrsMcPsqa.App.ViewModels
                 SettingsStore.SavePersonal(Edit);
                 var applied = Edit.Clone();
                 Session.Settings = applied;
-                if (Session.Service is Esapi.EsapiPlanningService esapi) esapi.AutoSave = applied.AutoSave;
+                if (Session.Service is Esapi.EsapiPlanningService esapi) { esapi.AutoSave = applied.AutoSave; esapi.RequiredCalculationModel = applied.TemplateCalculationModel; }
                 Edit = applied.Clone();
                 Log.Initialise(Edit.LogLevel);
                 ApplyTheme(Edit.Theme);
+                IsUnlocked = false;
                 Status = siteSaved ? $"Department settings saved ({changes.Count} change(s)); personal preferences saved." : "Personal preferences saved.";
             }
             catch (System.Exception ex)
@@ -122,9 +202,10 @@ namespace SrsMcPsqa.App.ViewModels
                 foreach (var w in result.Warnings) Log.Warn(w);
                 Session.Settings = loaded;
                 Session.SettingsError = result.DepartmentError;
-                if (Session.Service is Esapi.EsapiPlanningService esapi) esapi.AutoSave = loaded.AutoSave;
+                if (Session.Service is Esapi.EsapiPlanningService esapi) { esapi.AutoSave = loaded.AutoSave; esapi.RequiredCalculationModel = loaded.TemplateCalculationModel; }
                 Edit = loaded.Clone();
                 _departmentTimeAtOpen = SettingsStore.DepartmentFileTimeUtc;
+                IsUnlocked = false;
                 Status = "Reloaded: " + result.Source + ".";
                 Log.Info("Settings reloaded: " + result.Source + ". " + Diagnostics.Settings(loaded));
             }
@@ -146,7 +227,6 @@ namespace SrsMcPsqa.App.ViewModels
             });
         }
 
-        partial void OnEditChanged(AppSettings value) => ValidationResults.Clear();
 
         public static void ApplyTheme(string theme)
         {

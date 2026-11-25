@@ -65,10 +65,12 @@ Step-by-step details are in the [user guide](docs/USER_GUIDE.md).
 ## Settings
 
 Everything on the **Settings** page except theme and log level is a **department setting**, shared by everyone who
-uses the same installation. Saving a change lists what changes and asks you to confirm. It also needs write access to
-the app folder. Department settings are:
+uses the same installation. They're locked until you click the red **Edit department settings…** button and confirm.
+Saving a change lists what changes and asks you to confirm again. Both need write access to the app folder. Department
+settings are:
 
-- the template phantom
+- the template phantom and the calculation model it's set up for (QA plans are only made for clinical plans calculated
+  with that model)
 - the QA course ID and plan ID pattern (`MC1_0`, `MC2_270`, …)
 - the phantom position on the couch, collision tolerances and machine dimensions
 - shift rounding (nearest step and threshold) and the optimisation values

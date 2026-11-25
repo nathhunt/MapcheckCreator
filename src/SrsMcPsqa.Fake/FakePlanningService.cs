@@ -143,6 +143,8 @@ namespace SrsMcPsqa.Fake
                     PlanId = planId,
                     PlanUid = _patient.PlanUid,
                     Isocentre = _patient.Isocentre,
+                    CalculationModel = "AcurosXB_1612",
+                    AvailableCalculationModels = new[] { "AcurosXB_1612", "AcurosXB_1612_water", "AAA_1612" },
                     PlanTotalDoseGy = _patient.PlanTotalDoseGy,
                     Beams = new[]
                     {

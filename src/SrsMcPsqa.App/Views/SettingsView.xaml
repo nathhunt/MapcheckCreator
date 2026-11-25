@@ -20,16 +20,38 @@
                                Text="{Binding Session.SettingsError, StringFormat='Reason: {0}. Fix the file, then Reload. Saving here replaces it (the unreadable file is kept as .bak).'}" />
                 </StackPanel>
             </Border>
-            <Border Margin="0,0,0,12" Padding="12,8" CornerRadius="6" BorderThickness="1"
-                    BorderBrush="{x:Static inf:StatusBrushConverter.Caution}" Background="#22D08A00">
-                <StackPanel>
-                    <TextBlock FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                               Text="Department settings: everything on this page except 'Appearance and logging' applies to everyone using this installation." />
-                    <TextBlock Margin="0,4,0,0" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                               Text="{Binding DepartmentPath, StringFormat='Stored in {0}. Saving changes to them asks for confirmation and needs write access to the app folder; the previous version is kept as .bak. Theme and log level are personal.'}" />
-                </StackPanel>
+            <!-- Department settings are locked until unlocked with the red button (and a confirmation). -->
+            <Border Margin="0,0,0,12" Padding="12,10" CornerRadius="6" BorderThickness="1"
+                    BorderBrush="{x:Static inf:StatusBrushConverter.Caution}" Background="#22D08A00"
+                    Visibility="{Binding IsLocked, Converter={StaticResource BoolToVis}}">
+                <DockPanel>
+                    <ui:Button DockPanel.Dock="Right" Margin="12,0,0,0" VerticalAlignment="Center" Appearance="Danger"
+                               Icon="{ui:SymbolIcon Warning24}" Content="Edit department settings…" Command="{Binding UnlockCommand}"
+                               ToolTip="Unlocks settings that apply to everyone using this installation (asks for confirmation)." />
+                    <StackPanel>
+                        <TextBlock FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                   Text="🔒 Department settings are locked. They apply to everyone using this installation." />
+                        <TextBlock Margin="0,4,0,0" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                   Text="{Binding DepartmentPath, StringFormat='Stored in {0}. Only authorised staff should change them: unlocking asks for confirmation, and saving lists every change, asks again and keeps the previous version as .bak. Theme and log level (below) are personal and always editable.'}" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+            <Border Margin="0,0,0,12" Padding="12,10" CornerRadius="6" BorderThickness="2"
+                    BorderBrush="{x:Static inf:StatusBrushConverter.Bad}" Background="#22D13438"
+                    Visibility="{Binding IsUnlocked, Converter={StaticResource BoolToVis}}">
+                <DockPanel>
+                    <ui:Button DockPanel.Dock="Right" Margin="12,0,0,0" VerticalAlignment="Center" Icon="{ui:SymbolIcon LockClosed24}"
+                               Content="Lock (discard unsaved changes)" Command="{Binding LockCommand}" />
+                    <StackPanel>
+                        <TextBlock FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                   Text="⚠ Editing DEPARTMENT settings: changes apply to everyone using this installation." />
+                        <TextBlock Margin="0,4,0,0" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                   Text="Save lists the changes and asks for confirmation. The page locks again after Save, Reload, Lock or leaving Settings." />
+                    </StackPanel>
+                </DockPanel>
             </Border>
 
+            <StackPanel IsEnabled="{Binding IsUnlocked}">
             <ui:Card Margin="0,0,0,12">
                 <StackPanel>
                     <TextBlock Style="{StaticResource Section}" Text="Template phantom patient" />
@@ -56,6 +78,12 @@
                             <ui:TextBox Text="{Binding Edit.Template270StudyId}" />
                         </StackPanel>
                     </Grid>
+                    <TextBlock Style="{StaticResource Label}" Text="Calculation model the template phantom is set up for" />
+                    <ComboBox Width="320" HorizontalAlignment="Left" IsEditable="True" ItemsSource="{Binding CalculationModels}"
+                              Text="{Binding Edit.TemplateCalculationModel, UpdateSourceTrigger=LostFocus}" />
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap" Text="{Binding CalculationModelHint}" />
+                    <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
+                               Text="QA plans use the clinical plan's calculation model, so they are only created or recalculated for clinical plans calculated with this model. The list shows the photon dose models Eclipse offers for the loaded plan." />
                     <CheckBox Margin="0,10,0,0" Content="Recreate template structures in the copied image (if the copy doesn't bring them)"
                               IsChecked="{Binding Edit.CopyTemplateStructures}" />
                     <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0" Text="{Binding InstallationFolder, StringFormat='Installation: {0}'}" />
@@ -255,6 +283,8 @@
                     </Grid>
                 </StackPanel>
             </ui:Card>
+
+            </StackPanel>
 
             <ui:Card Margin="0,0,0,12">
                 <StackPanel>

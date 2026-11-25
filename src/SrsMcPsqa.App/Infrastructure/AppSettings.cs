@@ -25,6 +25,11 @@ namespace SrsMcPsqa.App.Infrastructure
         [DataMember] public string Template270StudyId { get; set; } = "";
         [DataMember] public string Template0ImageId { get; set; } = "";
         [DataMember] public string Template270ImageId { get; set; } = "";
+        /// <summary>
+        /// Photon dose calculation model the template phantom is set up for (e.g. "AcurosXB_1612"). QA plans are only
+        /// created or recalculated for clinical plans calculated with this model; empty = not set (creating is off).
+        /// </summary>
+        [DataMember] public string TemplateCalculationModel { get; set; } = "";
         [DataMember] public bool CopyTemplateStructures { get; set; }
         /// <summary>Comma-separated patterns of helper PTV structures, listed but unticked by default ("*" = any text).</summary>
         [DataMember] public string HelperPatterns { get; set; } = Core.Prescription.PtvFilter.DefaultHelperPatterns;
@@ -133,7 +138,7 @@ namespace SrsMcPsqa.App.Infrastructure
         {
             var d = new AppSettings(false);
             TemplatePatientId = d.TemplatePatientId; Template0StudyId = d.Template0StudyId; Template270StudyId = d.Template270StudyId; Template0ImageId = d.Template0ImageId;
-            Template270ImageId = d.Template270ImageId; HelperPatterns = d.HelperPatterns; PlanNamingPattern = d.PlanNamingPattern; QaCourseId = d.QaCourseId; EdgeMarginMm = d.EdgeMarginMm;
+            Template270ImageId = d.Template270ImageId; TemplateCalculationModel = d.TemplateCalculationModel; HelperPatterns = d.HelperPatterns; PlanNamingPattern = d.PlanNamingPattern; QaCourseId = d.QaCourseId; EdgeMarginMm = d.EdgeMarginMm;
             Tau = d.Tau; MinDiodes = d.MinDiodes; Alpha = d.Alpha; FineTuneInPlaneRangeMm = d.FineTuneInPlaneRangeMm;
             FineTuneNormalRangeMm = d.FineTuneNormalRangeMm; ShiftThresholdMm = d.ShiftThresholdMm; ShiftRoundToMm = d.ShiftRoundToMm; AutoSave = d.AutoSave; LogLevel = d.LogLevel; Theme = d.Theme;
             CollisionHeadClearanceMm = d.CollisionHeadClearanceMm; CollisionHeadRadiusMm = d.CollisionHeadRadiusMm;
@@ -205,6 +210,28 @@ namespace SrsMcPsqa.App.Infrastructure
 
         /// <summary>Folder of this installation (test and production installations differ).</summary>
         public static string InstallationFolder => Path.GetFullPath(AppDomain.CurrentDomain.BaseDirectory).TrimEnd('\\', '/');
+
+        /// <summary>
+        /// Whether this user can write the department settings (creates and deletes a small file in the app folder, which
+        /// saving needs anyway for the file and its .bak).
+        /// </summary>
+        public static bool CanWriteInstallationFolder(out string reason)
+        {
+            reason = "";
+            string probe = Path.Combine(InstallationFolder, $".srsmcpsqa-write-test-{Guid.NewGuid():N}.tmp");
+            try
+            {
+                File.WriteAllText(probe, "");
+                File.Delete(probe);
+                return true;
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException || ex is IOException || ex is System.Security.SecurityException)
+            {
+                reason = ex is UnauthorizedAccessException ? "no write permission for the app folder." : ex.Message;
+                try { if (File.Exists(probe)) File.Delete(probe); } catch { /* best effort */ }
+                return false;
+            }
+        }
 
         public static AppSettings LoadDepartmentDefaults()
         {

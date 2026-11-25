@@ -58,7 +58,14 @@ Start it from Eclipse with the clinical plan open: **Tools → Scripts → SrsMc
 
 ## Settings
 
-Template phantom (patient and image IDs, **Validate**), QA course ID, plan ID pattern, collision check geometry
-(MapCHECK origin height above the couch is required), optimisation values: these are **department settings**, the same
-for everyone using this installation. Saving a change warns you, lists the changes and asks for confirmation (and needs
-write access to the app folder). Theme and log level are personal. See [deploy/README.md](../deploy/README.md).
+Template phantom (patient and image IDs, **Validate**, calculation model), QA course ID, plan ID pattern, collision check
+geometry (MapCHECK origin height above the couch is required), shift rounding, optimisation values: these are
+**department settings**, the same for everyone using this installation. They're **locked** (greyed out) until you click
+the red **Edit department settings…** button and confirm; this needs write access to the app folder. Saving lists the
+changes and asks again. The page locks again after Save, Reload, **Lock** or leaving Settings. Theme and log level are
+personal and always editable. See [deploy/README.md](../deploy/README.md).
+
+**Calculation model.** Choose the photon dose calculation model the template phantom is set up for (the list shows the
+models Eclipse offers for the loaded plan). QA plans use the clinical plan's model, so they're only created or
+recalculated for clinical plans calculated with this model. For any other plan, loading it says why, and **Create** and
+recalculation are off. Until the model is set, creating QA plans is off.

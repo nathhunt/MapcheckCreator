@@ -46,7 +46,7 @@ namespace SrsMcPsqa.App
                 ? new FakePlanningService()
                 : new EsapiPlanningService(m => Log.Info("ESAPI: " + m));
             _service = service;
-            if (service is EsapiPlanningService esapi) esapi.AutoSave = settings.AutoSave;
+            if (service is EsapiPlanningService esapi) { esapi.AutoSave = settings.AutoSave; esapi.RequiredCalculationModel = settings.TemplateCalculationModel; }
             Log.Info(fake ? "Using demo data (--fake)." : "Using Eclipse (ESAPI).");
             // Eclipse opens a message box listing calculation warnings and waits for OK; close warnings-only ones.
             if (!fake) _warningCloser = new EclipseWarningDialogCloser(m => Log.Info(m));

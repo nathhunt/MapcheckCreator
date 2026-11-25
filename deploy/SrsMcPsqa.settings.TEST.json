@@ -4,6 +4,7 @@
   "Template270StudyId": "",
   "Template0ImageId": "SRSMC_0_AXB",
   "Template270ImageId": "SRSMC_270_AXB",
+  "TemplateCalculationModel": "",
   "CopyTemplateStructures": false,
   "HelperPatterns": "z*, *eval*",
   "PlanNamingPattern": "MC{n}_{orient}",

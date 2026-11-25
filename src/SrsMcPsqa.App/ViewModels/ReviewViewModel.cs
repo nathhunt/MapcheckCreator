@@ -452,6 +452,7 @@ namespace SrsMcPsqa.App.ViewModels
         [RelayCommand]
         private async Task ApplyAsync()
         {
+            if (Session.CalculationModelBlockedReason is string why) { Session.Dialogs.ShowInfo("Can't recalculate QA plans", why); return; }
             var moves = new List<(QaPlanViewModel Plan, Vec3 Iso)>();
             foreach (var p in QaPlans.Where(p => p.FineTune != null && !p.IsReadOnly))
             {
@@ -542,6 +543,7 @@ namespace SrsMcPsqa.App.ViewModels
         {
             var plan = SelectedQaPlan;
             if (plan == null || plan.IsReadOnly) return;
+            if (Session.CalculationModelBlockedReason is string why) { Session.Dialogs.ShowInfo("Can't recalculate QA plans", why); return; }
             if (!Session.Dialogs.Confirm("Recalculate", $"Recalculate {plan.PlanId} at its current isocentre with the clinical MUs?", "Recalculate")) return;
             await Shell.RunAsync($"Recalculating {plan.PlanId}", async (pr, ct) =>
             {

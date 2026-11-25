@@ -150,6 +150,10 @@ namespace SrsMcPsqa.Esapi
                 if (validation.Any(v => v.Severity == ValidationSeverity.Error)) return data;
 
                 string model = SafeModel(plan);
+                data.CalculationModel = model;
+                try { data.AvailableCalculationModels = plan.GetModelsForCalculationType(CalculationType.PhotonVolumeDose)?.Where(m => !string.IsNullOrEmpty(m)).Distinct().ToList() ?? new List<string>(); }
+                catch (Exception ex) { _log("Could not list the calculation models: " + ex.Message); }
+                _log($"Calculation model '{model}'; available photon dose models: {string.Join(", ", data.AvailableCalculationModels)}.");
                 validation.Add(new ValidationMessage(ValidationSeverity.Info,
                     $"Total dose {(totalGy.HasValue ? totalGy.Value.ToString("0.##") + " Gy" : "unknown")}" +
                     (plan.NumberOfFractions is int n ? $" in {n} fraction(s)" : "") +

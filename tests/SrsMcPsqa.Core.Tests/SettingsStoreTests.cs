@@ -77,6 +77,7 @@ namespace SrsMcPsqa.Core.Tests
             Assert.Equal(15, r.Settings.CollisionRiskMm);
             Assert.Equal(2.0, r.Settings.ShiftThresholdMm);
             Assert.Equal(1.0, r.Settings.ShiftRoundToMm);
+            Assert.Equal("", r.Settings.TemplateCalculationModel);
         }
 
         [Fact]

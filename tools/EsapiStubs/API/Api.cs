@@ -83,6 +83,7 @@ namespace VMS.TPS.Common.Model.API
         public DoseValuePresentation DoseValuePresentation { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
         public string PhotonCalculationModel => throw new NotImplementedException();
         public string GetCalculationModel(CalculationType calculationType) => throw new NotImplementedException();
+        public IEnumerable<string> GetModelsForCalculationType(CalculationType calculationType) => throw new NotImplementedException();
     }
 
     public class ExternalPlanSetup : PlanSetup

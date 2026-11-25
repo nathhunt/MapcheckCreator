@@ -4,6 +4,7 @@
   "Template270StudyId": "",
   "Template0ImageId": "",
   "Template270ImageId": "",
+  "TemplateCalculationModel": "",
   "CopyTemplateStructures": false,
   "HelperPatterns": "z*, *eval*",
   "PlanNamingPattern": "MC{n}_{orient}",

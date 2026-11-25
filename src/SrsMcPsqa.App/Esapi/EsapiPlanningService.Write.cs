@@ -43,6 +43,12 @@ namespace SrsMcPsqa.Esapi
         /// <summary>Save to Eclipse after every completed write (default). When false, <see cref="SaveAsync"/> must be called.</summary>
         public bool AutoSave { get; set; } = true;
 
+        /// <summary>
+        /// Calculation model the template phantom is set up for (department setting). QA plans are only created or
+        /// recalculated when the clinical plan (and the QA plan) use it; "" refuses every calculation.
+        /// </summary>
+        public string RequiredCalculationModel { get; set; } = "";
+
         private readonly Dictionary<string, string> _studyCache = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         // ------------------------------------------------------------------ helpers
@@ -51,6 +57,17 @@ namespace SrsMcPsqa.Esapi
             RequirePatient();
             if (!_canModify)
                 throw new InvalidOperationException("Eclipse doesn't allow changes to this patient: " + (_modifyError ?? "unknown reason") + ". Close it in Eclipse if needed and re-open it here.");
+        }
+
+        /// <summary>Refuses (with the reason) unless the plan is calculated with the template phantom's model.</summary>
+        private void RequirePhantomModel(PlanSetup plan, string what)
+        {
+            string model = SafeModel(plan);
+            if (CalculationModelCheck.BlockedReason(RequiredCalculationModel, model) is string why)
+            {
+                _log($"Refused for {what} (model '{model}', template phantom model '{RequiredCalculationModel}'): {why}");
+                throw new InvalidOperationException(why);
+            }
         }
 
         private ExternalPlanSetup RequireClinicalPlan()
@@ -299,6 +316,7 @@ namespace SrsMcPsqa.Esapi
             {
                 RequireModifiable();
                 var clinical = RequireClinicalPlan();
+                RequirePhantomModel(clinical, "the clinical plan");
                 var course = RequireCourse(request.QaCourseId);
                 if (request.PlanId.Length > QaPlanNaming.MaxIdLength)
                     throw new InvalidOperationException($"Plan ID '{request.PlanId}' is longer than {QaPlanNaming.MaxIdLength} characters.");
@@ -574,6 +592,8 @@ namespace SrsMcPsqa.Esapi
                 var clinical = RequireClinicalPlan();
                 var course = RequireCourse(courseId);
                 var qa = RequireTaggedPlan(course, planId, clinical.UID);
+                RequirePhantomModel(clinical, "the clinical plan");
+                RequirePhantomModel(qa, $"QA plan '{planId}'");
                 QaPlanTag.TryParse(qa.Comment, out var tag);
                 ct.ThrowIfCancellationRequested();
                 ct = CancellationToken.None; // from here on, finish this plan (see BuildQaPlan)

@@ -69,6 +69,12 @@ namespace SrsMcPsqa.Core.Services
         /// <summary>Clinical dose cropped to the PTVs + 45 mm (Gy).</summary>
         public DoseGrid? Dose { get; set; }
 
+        /// <summary>Photon volume dose calculation model of the clinical plan, e.g. "AcurosXB_1612" ("" if unknown).</summary>
+        public string CalculationModel { get; set; } = "";
+
+        /// <summary>Photon volume dose calculation models Eclipse offers for this plan (for the Settings list).</summary>
+        public IReadOnlyList<string> AvailableCalculationModels { get; set; } = Array.Empty<string>();
+
         public IReadOnlyList<ValidationMessage> Validation { get; set; } = Array.Empty<ValidationMessage>();
     }
 
