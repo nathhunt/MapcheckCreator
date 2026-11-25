@@ -8,7 +8,7 @@ namespace SrsMcPsqa.App.Infrastructure
     /// <summary>Text for the log that helps diagnose problems: environment, settings in use, geometry.</summary>
     public static class Diagnostics
     {
-        /// <summary>App version and build commit, e.g. 1.0.0-beta+a1b2c3d (from the informational version stamped at build).</summary>
+        /// <summary>App version and build commit, e.g. 1.0.1-beta+a1b2c3d (from the informational version stamped at build).</summary>
         public static string AppVersion { get; } =
             typeof(Diagnostics).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
             ?? typeof(Diagnostics).Assembly.GetName().Version?.ToString(3) ?? "?";
