@@ -14,6 +14,7 @@ namespace SrsMcPsqa.App
     public partial class App : Application
     {
         private IPlanningService? _service;
+        private EclipseWarningDialogCloser? _warningCloser;
 
         protected override void OnStartup(StartupEventArgs e)
         {
@@ -47,6 +48,8 @@ namespace SrsMcPsqa.App
             _service = service;
             if (service is EsapiPlanningService esapi) esapi.AutoSave = settings.AutoSave;
             Log.Info(fake ? "Using demo data (--fake)." : "Using Eclipse (ESAPI).");
+            // Eclipse opens a message box listing calculation warnings and waits for OK; close warnings-only ones.
+            if (!fake) _warningCloser = new EclipseWarningDialogCloser(m => Log.Info(m));
 
             var session = new PlanningSession(service, settings, launch, dialogs, fake) { SettingsError = loaded.DepartmentError };
             var shell = new ShellViewModel(session, fake);
@@ -76,6 +79,7 @@ namespace SrsMcPsqa.App
                 }
                 catch (Exception ex) { Log.Error("Saving on exit failed", ex); }
             }
+            _warningCloser?.Dispose();
             try { (_service as IDisposable)?.Dispose(); }
             catch (Exception ex) { Log.Error("Closing Eclipse connection", ex); }
             Log.Info("Exit.");
