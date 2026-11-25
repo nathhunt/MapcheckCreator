@@ -386,7 +386,7 @@ namespace SrsMcPsqa.App.ViewModels
             SelectedPage = value;
         }
 
-        /// <summary>Version with the git commit it was built from, e.g. 1.0.0-beta+a1b2c3d (-dirty: uncommitted changes).</summary>
+        /// <summary>Version with the git commit it was built from, e.g. 1.0.1-beta+a1b2c3d (-dirty: uncommitted changes).</summary>
         public static string Version { get; } = Infrastructure.Diagnostics.AppVersion;
         public string WindowTitle => $"SRS MapCHECK PSQA Plan Creator {Version}" + (IsFake ? " · DEMO DATA" : "");
 

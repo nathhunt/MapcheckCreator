@@ -19,9 +19,9 @@
 
     <!--
       Version of every assembly (the app exe AND SrsMcPsqa.Esapi.dll, which Eclipse registers as a script of its own).
-      Assembly/file version = the numeric part padded to four (1.0.0-beta -> 1.0.0.0). Change it here for each release.
+      Assembly/file version = the numeric part padded to four (1.0.1-beta -> 1.0.1.0). Change it here for each release.
     -->
-    <Version>1.0.0-beta</Version>
+    <Version>1.0.1-beta</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 </Project>

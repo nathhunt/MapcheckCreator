@@ -16,7 +16,7 @@ own script approval. Nothing is installed: the app runs from a folder the Citrix
    ```
 
    Output: `src/SrsMcPsqa.App/bin/Release/net48/` (x64). The window title and the log show the version with the git
-   commit it was built from, e.g. `1.0.0-beta+a1b2c3d`; `-dirty` means the build had uncommitted changes, `+unknown` that git
+   commit it was built from, e.g. `1.0.1-beta+a1b2c3d`; `-dirty` means the build had uncommitted changes, `+unknown` that git
    wasn't available. Deploy builds from a clean, pushed commit so the log identifies the exact code.
 
    In VS Code, **Terminal → Run Build Task** (Ctrl+Shift+B) runs **Release build + launcher**: the Release build plus a
