@@ -15,7 +15,6 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <RootNamespace>SrsMcPsqa.App</RootNamespace>
     <AssemblyName>SrsMcPsqa</AssemblyName>
-    <Version>1.0.0-beta</Version>
     <Product>SRS MapCHECK PSQA Plan Creator</Product>
     <!-- The informational version is set below to <Version>+<short commit>[-dirty]; stop the SDK appending its own revision. -->
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>

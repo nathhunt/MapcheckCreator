@@ -47,7 +47,9 @@ one of these two ways. Either set the environment variable (no rebuild when the 
 
 - **The app (`SrsMcPsqa.exe`)** writes to Eclipse (`[assembly: ESAPIScript(IsWriteable = true)]`), so it must be
   approved in Eclipse (Script Approvals, by an ARIA administrator with the right privileges) in each environment.
-  **A rebuilt exe needs approving again.** Until approved, the app opens patients read-only and shows a yellow note;
+  **Register and approve `SrsMcPsqa.Esapi.dll` as well**: it makes the Eclipse calls, and Eclipse refuses an approved
+  script that references an unapproved one ("cannot reference script 'SrsMcPsqa.Esapi (1.0.0.0)' that is 'Unapproved'").
+  Both carry the same version (set once in `Directory.Build.props`). **A rebuilt exe needs approving again.** Until approved, the app opens patients read-only and shows a yellow note;
   planning works, creating QA plans is disabled.
 - **The launcher** is read-only and only starts the exe; approve it if your Eclipse requires approval for plugins.
 
