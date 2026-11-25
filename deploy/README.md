@@ -16,7 +16,7 @@ own script approval. Nothing is installed: the app runs from a folder the Citrix
    ```
 
    Output: `src/SrsMcPsqa.App/bin/Release/net48/` (x64). The window title and the log show the version with the git
-   commit it was built from, e.g. `1.0.1-beta+a1b2c3d`; `-dirty` means the build had uncommitted changes, `+unknown` that git
+   commit it was built from, e.g. `1.0.2-beta+a1b2c3d`; `-dirty` means the build had uncommitted changes, `+unknown` that git
    wasn't available. Deploy builds from a clean, pushed commit so the log identifies the exact code.
 
    In VS Code, **Terminal → Run Build Task** (Ctrl+Shift+B) runs **Release build + launcher**: the Release build plus a
@@ -47,9 +47,10 @@ one of these two ways. Either set the environment variable (no rebuild when the 
 
 - **The app (`SrsMcPsqa.exe`)** writes to Eclipse (`[assembly: ESAPIScript(IsWriteable = true)]`), so it must be
   approved in Eclipse (Script Approvals, by an ARIA administrator with the right privileges) in each environment.
-  **Register and approve `SrsMcPsqa.Esapi.dll` as well**: it makes the Eclipse calls, and Eclipse refuses an approved
-  script that references an unapproved one ("cannot reference script 'SrsMcPsqa.Esapi (1.0.0.0)' that is 'Unapproved'").
-  Both carry the same version (set once in `Directory.Build.props`). **A rebuilt exe needs approving again.** Until approved, the app opens patients read-only and shows a yellow note;
+  It is the only assembly to approve: all the Eclipse code is inside the exe, because Eclipse allows a change to
+  patient data only when the call comes from the approved script itself (a separate DLL, as in the 1.0.0 and 1.0.1 builds
+  was refused with "did not find a calling assembly"). **If an older build left `SrsMcPsqa.Esapi.dll` in the
+  app folder, delete it** and retire its Script Approvals entry. **A rebuilt exe needs approving again.** Until approved, the app opens patients read-only and shows a yellow note;
   planning works, creating QA plans is disabled.
 - **The launcher** is read-only and only starts the exe; approve it if your Eclipse requires approval for plugins.
 

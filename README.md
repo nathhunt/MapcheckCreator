@@ -1,6 +1,6 @@
 # SRS MapCHECK PSQA Plan Creator
 
-**Version 1.0.1-beta** · Eclipse 18.1 (ESAPI) · Varian TrueBeam · Sun Nuclear SRS MapCHECK
+**Version 1.0.2-beta** · Eclipse 18.1 (ESAPI) · Varian TrueBeam · Sun Nuclear SRS MapCHECK
 
 Creates the patient-specific QA plans for a single-isocentre SRS plan in a few clicks. The app works out how few
 MapCHECK measurements cover every PTV, places the array for each one, then creates and calculates the QA plans in
@@ -79,7 +79,7 @@ the app folder. Department settings are:
 - **Logs** are in the `logs` folder next to the app, one file per user per computer:
   `srsmcpsqa_<user>_<computer>.log`. **Settings** shows the path of yours. The log records each step, Eclipse's
   messages, your choices and any error in full.
-- **The version** in the window title includes the exact build, e.g. `1.0.1-beta+f1bc032`. Quote it with the log when
+- **The version** in the window title includes the exact build, e.g. `1.0.2-beta+f1bc032`. Quote it with the log when
   reporting a problem.
 
 ## For administrators and developers
@@ -95,9 +95,8 @@ the app folder. Department settings are:
   The `docs/PHASE*_CHECKLIST.md` files record the development and test history.
 
 ```
-src/SrsMcPsqa.App/        the WPF app (screens, settings, logging)
+src/SrsMcPsqa.App/        the WPF app (screens, settings, logging); Esapi/ is everything that talks to Eclipse
 src/SrsMcPsqa.Core/       planning, scoring, fine-tune and collision geometry (no Eclipse dependency)
-src/SrsMcPsqa.Esapi/      everything that talks to Eclipse
 src/SrsMcPsqa.Fake/       demo data for --fake
 src/SrsMcPsqa.Launcher/   the Eclipse script that starts the app
 tests/                    unit and workflow tests

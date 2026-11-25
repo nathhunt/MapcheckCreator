@@ -66,6 +66,7 @@ Choices made where the brief left room. Each is easy to change.
 
 ## Writing to Eclipse
 
+- **Calling assembly (clinical system).** Before a modifying call (`AddCourse`, plan creation, calculation), Eclipse looks for the approved script assembly as the caller. It refused 1.0.0 and 1.0.1 with "The system did not find a calling assembly while script 'SrsMcPsqa' tried to modify data … NoInlining". In those builds every ESAPI call was made from `SrsMcPsqa.Esapi.dll`, on the dedicated ESAPI thread, so no frame of `SrsMcPsqa.exe` was on that thread's stack. Turning off optimisation for the DLL alone (1.0.1) didn't help. The ESAPI code is now compiled into the exe (`src/SrsMcPsqa.App/Esapi`), which is built without optimisation so inlining and tail calls can't remove the calling frame. The earlier test system accepted the DLL build, probably because it didn't enforce approvals; that's an inference, not something we confirmed.
 - **QA plan prescription.** 1 fraction at the clinical dose per fraction (confirmed). The clinical MUs are per fraction.
 - **Phantom material.** Calculation needs the phantom BODY's material to be in the structure set's physical material table. This is a data setup item for the template phantom, fixed in Eclipse, not by the app.
 - **MUs.** See V9: beam weights reproduce the clinical MUs; the app verifies every beam's MU after each calculation and stops with an error if any differs by more than 0.05 MU.
