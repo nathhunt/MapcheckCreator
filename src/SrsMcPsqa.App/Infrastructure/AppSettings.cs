@@ -42,6 +42,11 @@ namespace SrsMcPsqa.App.Infrastructure
         /// array planning, and the change in position when fine-tuning. 0 = off.
         /// </summary>
         [DataMember] public double ShiftThresholdMm { get; set; } = 2.0;
+        /// <summary>
+        /// Every QA isocentre shift from the MapCHECK origin (shown and applied) is rounded to the nearest multiple of this
+        /// (mm), e.g. 1 or 0.5. 0 = off.
+        /// </summary>
+        [DataMember] public double ShiftRoundToMm { get; set; } = 1.0;
         [DataMember] public bool AutoSave { get; set; } = true;
 
         // Gantry–couch collision check (mm). Head: 41.5 cm iso to face, 76.5 cm across (open-source ESAPI collision scripts);
@@ -104,6 +109,7 @@ namespace SrsMcPsqa.App.Infrastructure
 
             Need(!string.IsNullOrWhiteSpace(QaCourseId) && QaCourseId.Trim().Length <= 16, "QA course ID: 1 to 16 characters.");
             Need(ShiftThresholdMm >= 0, "Shift rounding threshold: 0 (off) or more.");
+            Need(ShiftRoundToMm >= 0 && ShiftRoundToMm <= 10, "Round shifts to the nearest: 0 (off) to 10 mm.");
             Need(EdgeMarginMm >= 0 && EdgeMarginMm < Core.Detector.DiodeArray.HalfExtent,
                 $"Edge margin: from 0 up to (not including) {Mm(Core.Detector.DiodeArray.HalfExtent)}.");
             Need(Tau > 0 && Tau <= 1, "Tau: more than 0, at most 1.");
@@ -129,7 +135,7 @@ namespace SrsMcPsqa.App.Infrastructure
             TemplatePatientId = d.TemplatePatientId; Template0StudyId = d.Template0StudyId; Template270StudyId = d.Template270StudyId; Template0ImageId = d.Template0ImageId;
             Template270ImageId = d.Template270ImageId; HelperPatterns = d.HelperPatterns; PlanNamingPattern = d.PlanNamingPattern; QaCourseId = d.QaCourseId; EdgeMarginMm = d.EdgeMarginMm;
             Tau = d.Tau; MinDiodes = d.MinDiodes; Alpha = d.Alpha; FineTuneInPlaneRangeMm = d.FineTuneInPlaneRangeMm;
-            FineTuneNormalRangeMm = d.FineTuneNormalRangeMm; ShiftThresholdMm = d.ShiftThresholdMm; AutoSave = d.AutoSave; LogLevel = d.LogLevel; Theme = d.Theme;
+            FineTuneNormalRangeMm = d.FineTuneNormalRangeMm; ShiftThresholdMm = d.ShiftThresholdMm; ShiftRoundToMm = d.ShiftRoundToMm; AutoSave = d.AutoSave; LogLevel = d.LogLevel; Theme = d.Theme;
             CollisionHeadClearanceMm = d.CollisionHeadClearanceMm; CollisionHeadRadiusMm = d.CollisionHeadRadiusMm;
             CollisionCouchWidthMm = d.CollisionCouchWidthMm; CollisionCouchThicknessMm = d.CollisionCouchThicknessMm;
             CollisionOriginAboveCouchMm = d.CollisionOriginAboveCouchMm; CollisionCouchHeadEndSupMm = d.CollisionCouchHeadEndSupMm;

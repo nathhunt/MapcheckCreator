@@ -45,8 +45,10 @@ Start it from Eclipse with the clinical plan open: **Tools → Scripts → SrsMc
   every plan.
 - Plans from an earlier session are marked; **OUT OF DATE** means their beams or MUs no longer match the clinical plan
   (delete and recreate them). **Recalculate this plan** appears for a plan without dose.
-- Small changes are rounded away: with the **Round shifts smaller than** setting (default 2 mm), any axis of a suggested
-  or entered move smaller than that becomes 0, and the same applies to the QA isocentre shift in array planning.
+- Shifts are rounded. **Round shifts to the nearest** (default 1 mm; e.g. 0.5 mm, 0 = off): every QA isocentre shift
+  from the MapCHECK origin, in array planning and after fine-tune, is a multiple of this, both as shown and as used for
+  the plan. **Round shifts smaller than** (default 2 mm): any axis of the shift in array planning, or of a suggested or
+  entered fine-tune move, smaller than that becomes 0. The arrow buttons always move at least one rounding step.
 - **Delete plan** / **Delete all** remove the app's own QA plans from Eclipse (only tagged plans; phantom images stay).
 
 ## At the linac

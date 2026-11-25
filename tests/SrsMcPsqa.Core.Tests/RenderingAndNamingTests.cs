@@ -109,5 +109,64 @@ namespace SrsMcPsqa.Core.Tests
             var c = Geometry.ShiftRounding.SnapArrayCentre(iso, new Geometry.Vec3(9.6, 8, 29.3), 1.0);
             Assert.True(c.ApproxEquals(new Geometry.Vec3(10, 8, 30), 1e-9));
         }
+
+        [Theory]
+        [InlineData(52.4, 1.0, 52.0)]
+        [InlineData(52.5, 1.0, 53.0)]
+        [InlineData(-17.3, 1.0, -17.0)]
+        [InlineData(-17.5, 1.0, -18.0)]
+        [InlineData(52.4, 0.5, 52.5)]
+        [InlineData(52.2, 0.5, 52.0)]
+        [InlineData(52.37, 0, 52.37)] // 0 = off
+        public void RoundsToTheNearestStep(double value, double step, double expected) =>
+            Assert.Equal(expected, Geometry.ShiftRounding.Round(value, step), 9);
+
+        [Fact]
+        public void ThresholdAppliesToTheRoundedShift()
+        {
+            // Threshold 2 mm, round to 1 mm: 1.4 → 1 → below 2 → 0; 1.6 → 2 → kept; 4.7 → 5.
+            var v = Geometry.ShiftRounding.Snap(new Geometry.Vec3(1.4, 1.6, 4.7), 2.0, 1.0);
+            Assert.Equal(0, v.X); Assert.Equal(2, v.Y); Assert.Equal(5, v.Z);
+        }
+
+        [Fact]
+        public void ArrayCentreGivesAWholeMillimetreShift()
+        {
+            var iso = new Geometry.Vec3(10, 20, 30);
+            // Shift = iso − centre = (52.4, 4.7, 18.5) → (52, 5, 19).
+            var c = Geometry.ShiftRounding.SnapArrayCentre(iso, iso - new Geometry.Vec3(52.4, 4.7, 18.5), 2.0, 1.0);
+            Assert.True((iso - c).ApproxEquals(new Geometry.Vec3(52, 5, 19), 1e-9));
+        }
+
+        [Fact]
+        public void ArrowStepsNeverGetStuck()
+        {
+            // 0.5 mm step with 1 mm rounding: 52 → 52.5 would round back to 52 (or 53 one way only); always moves one step.
+            var up = Geometry.ShiftRounding.Step(new Geometry.Vec3(52, 0, 0), new Geometry.Vec3(52.4, 0, 0), 2, 1);
+            var down = Geometry.ShiftRounding.Step(new Geometry.Vec3(52, 0, 0), new Geometry.Vec3(51.6, 0, 0), 2, 1);
+            Assert.Equal(53, up.X); Assert.Equal(51, down.X);
+            // From 0 inside the 2 mm threshold: out to ±2.
+            Assert.Equal(2, Geometry.ShiftRounding.Step(default, new Geometry.Vec3(0.5, 0, 0), 2, 1).X);
+            Assert.Equal(-2, Geometry.ShiftRounding.Step(default, new Geometry.Vec3(-0.5, 0, 0), 2, 1).X);
+            // Back from 2 towards 0: 1 is below the threshold → 0.
+            Assert.Equal(0, Geometry.ShiftRounding.Step(new Geometry.Vec3(2, 0, 0), new Geometry.Vec3(1.5, 0, 0), 2, 1).X);
+            // Threshold 2.5 with 1 mm rounding: out to 3 (the threshold rounded up to the step).
+            Assert.Equal(3, Geometry.ShiftRounding.Step(default, new Geometry.Vec3(0.5, 0, 0), 2.5, 1).X);
+            // A big step just snaps.
+            Assert.Equal(57, Geometry.ShiftRounding.Step(new Geometry.Vec3(52, 0, 0), new Geometry.Vec3(57.2, 0, 0), 2, 1).X);
+        }
+
+        [Fact]
+        public void FineTuneMoveLandsOnTheGridAndIgnoresSmallChanges()
+        {
+            // Current shift (52, −17, 19); wanted array move (3.4, 1.2, −2.6), threshold 2, round to 1.
+            // X: shift 52 − 3.4 = 48.6 → 49 → move 3; Y: 1.2 < 2 → no move; Z: 19 + 2.6 = 21.6 → 22 → move −3.
+            var m = Geometry.ShiftRounding.FineTuneMove(new Geometry.Vec3(52, -17, 19), new Geometry.Vec3(3.4, 1.2, -2.6), 2, 1);
+            Assert.True(m.ApproxEquals(new Geometry.Vec3(3, 0, -3), 1e-9));
+            // An off-grid shift (older plan) lands on the grid: 52.4 − 3 = 49.4 → 49 → move 3.4.
+            Assert.Equal(3.4, Geometry.ShiftRounding.FineTuneMove(new Geometry.Vec3(52.4, 0, 0), new Geometry.Vec3(3, 0, 0), 2, 1).X, 9);
+            // Rounding off: the move is unchanged.
+            Assert.Equal(3.4, Geometry.ShiftRounding.FineTuneMove(new Geometry.Vec3(52, 0, 0), new Geometry.Vec3(3.4, 0, 0), 2, 0).X, 9);
+        }
     }
 }

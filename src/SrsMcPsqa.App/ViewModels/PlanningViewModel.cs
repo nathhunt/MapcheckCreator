@@ -235,7 +235,7 @@ namespace SrsMcPsqa.App.ViewModels
                 vm.Updated += (_, __) => RefreshPlanColumn();
                 Planes.Add(vm);
             }
-            // Round small components of each plan's QA isocentre shift to zero (Settings: shift threshold).
+            // Round each plan's QA isocentre shift (Settings: round to, and the threshold for zero).
             bool snapped = false;
             if (_model != null && _analysis != null)
                 foreach (var p in Planes)
@@ -312,15 +312,9 @@ namespace SrsMcPsqa.App.ViewModels
                 _ => o.FromPlane(0, 0, amount),
             };
             var target = p.Centre + delta;
-            // A step smaller than the shift threshold would be rounded straight back near zero: go to the threshold instead.
-            double thr = Session.Settings.ShiftThresholdMm;
-            if (thr > 0 && (SnapCentre(target) - p.Centre).Length < 1e-9)
-            {
-                var iso = Session.ClinicalPlan!.Isocentre;
-                Vec3 off = iso - target, d = iso - p.Centre;
-                double Bump(double t, double cur) => Math.Abs(t) < thr && Math.Abs(t - cur) > 1e-9 ? Math.Sign(t - cur) * thr : t;
-                target = iso - new Vec3(Bump(off.X, d.X), Bump(off.Y, d.Y), Bump(off.Z, d.Z));
-            }
+            // A step that would be rounded straight back goes one rounding step further, or out to the threshold.
+            var iso = Session.ClinicalPlan!.Isocentre;
+            target = iso - ShiftRounding.Step(iso - p.Centre, iso - target, Session.Settings.ShiftThresholdMm, Session.Settings.ShiftRoundToMm);
             MovePlane(p, target, full: true);
         }
 
@@ -384,9 +378,9 @@ namespace SrsMcPsqa.App.ViewModels
             if (args.Completed) _dragStart = null;
         }
 
-        /// <summary>Array centre with the small components of its QA isocentre shift rounded to zero.</summary>
+        /// <summary>Array centre whose QA isocentre shift is rounded (Settings: round to, and the threshold for zero).</summary>
         private Vec3 SnapCentre(Vec3 centre) =>
-            ShiftRounding.SnapArrayCentre(Session.ClinicalPlan!.Isocentre, centre, Session.Settings.ShiftThresholdMm);
+            ShiftRounding.SnapArrayCentre(Session.ClinicalPlan!.Isocentre, centre, Session.Settings.ShiftThresholdMm, Session.Settings.ShiftRoundToMm);
 
         private void MovePlane(PlanePlanViewModel p, Vec3 centre, bool full)
         {

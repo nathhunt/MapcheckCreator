@@ -76,6 +76,7 @@ namespace SrsMcPsqa.Core.Tests
             Assert.Equal(40, r.Settings.CollisionWarningMm);
             Assert.Equal(15, r.Settings.CollisionRiskMm);
             Assert.Equal(2.0, r.Settings.ShiftThresholdMm);
+            Assert.Equal(1.0, r.Settings.ShiftRoundToMm);
         }
 
         [Fact]
@@ -132,6 +133,7 @@ namespace SrsMcPsqa.Core.Tests
             { s => s.MinDiodes = -1, "Minimum diodes" },
             { s => s.FineTuneNormalRangeMm = -5, "Fine-tune" },
             { s => s.ShiftThresholdMm = -1, "Shift rounding" },
+            { s => s.ShiftRoundToMm = -1, "Round shifts" },
             { s => s.QaCourseId = " ", "QA course" },
             { s => s.QaCourseId = "MORE_THAN_16_CHARS", "QA course" },
             { s => s.CollisionRiskMm = 40, "warning level" },

@@ -237,6 +237,7 @@ namespace SrsMcPsqa.App.ViewModels
         {
             Plan = plan; Proposal = proposal;
             Threshold = plan.Session.Settings.ShiftThresholdMm;
+            RoundTo = plan.Session.Settings.ShiftRoundToMm;
             var m = SuggestedMove;
             _customX = m.X.ToString("0.0#", CultureInfo.InvariantCulture);
             _customY = m.Y.ToString("0.0#", CultureInfo.InvariantCulture);
@@ -247,8 +248,17 @@ namespace SrsMcPsqa.App.ViewModels
         /// <summary>Changes in position smaller than this (mm, per axis) are rounded to zero (Settings: shift threshold).</summary>
         public double Threshold { get; }
 
-        /// <summary>The optimiser's array move with small components rounded to zero.</summary>
-        public Vec3 SuggestedMove => ShiftRounding.Snap(Proposal.ArrayMoveRelativeToPatient, Threshold);
+        /// <summary>The resulting shift from the MapCHECK origin is rounded to the nearest multiple of this (mm; 0 = off).</summary>
+        public double RoundTo { get; }
+
+        /// <summary>
+        /// The array move actually applied for a wanted move: components below the threshold become 0, and the new shift
+        /// from the MapCHECK origin is rounded.
+        /// </summary>
+        private Vec3 RoundedMove(Vec3 wanted) => ShiftRounding.FineTuneMove(Plan.IsoFromOrigin, wanted, Threshold, RoundTo);
+
+        /// <summary>The optimiser's array move, rounded (see <see cref="RoundedMove"/>).</summary>
+        public Vec3 SuggestedMove => RoundedMove(Proposal.ArrayMoveRelativeToPatient);
 
         public static IReadOnlyList<FineTuneDecision> Decisions { get; } = new[] { FineTuneDecision.Accept, FineTuneDecision.Edit, FineTuneDecision.Discard };
 
@@ -330,7 +340,7 @@ namespace SrsMcPsqa.App.ViewModels
             switch (Decision)
             {
                 case FineTuneDecision.Accept:
-                    // The suggested move with small components rounded to zero; array moves by m → isocentre moves by −m.
+                    // The suggested move, rounded; array moves by m → isocentre moves by −m.
                     return Plan.Isocentre + IsoGeometry.IsoShiftForArrayMove(Plan.ArrayCentre, Plan.ArrayCentre + SuggestedMove);
                 case FineTuneDecision.Edit:
                     if (!TryParse(CustomX, out var x) || !TryParse(CustomY, out var y) || !TryParse(CustomZ, out var z))
@@ -338,7 +348,7 @@ namespace SrsMcPsqa.App.ViewModels
                         error = $"{PlanId}: enter the array move as numbers in mm.";
                         return null;
                     }
-                    var move = ShiftRounding.Snap(new Vec3(x, y, z), Threshold);
+                    var move = RoundedMove(new Vec3(x, y, z));
                     if (Math.Abs(x) > 50 || Math.Abs(y) > 50 || Math.Abs(z) > 50)
                     {
                         error = $"{PlanId}: moves larger than 50 mm are not allowed here.";

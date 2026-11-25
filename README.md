@@ -15,7 +15,7 @@ It also warns you before a setup would bring the couch too close to the gantry.
   missing), copies the beams in clinical order, and calculates with one fraction at the clinical dose per fraction.
   Every beam's MU is checked against the clinical plan.
 - **Clear positions.** The QA isocentre is always shown as the shift from the MapCHECK user origin, ready to set up at
-  the linac. Shifts under 2 mm are rounded to zero.
+  the linac. Shifts are rounded to the nearest 1 mm, and shifts under 2 mm to zero (both adjustable).
 - **Collision warnings.** Checks the clearance between the TrueBeam head and the Exact IGRT couch for every beam, and
   suggests a lateral phantom offset when it's tight. It warns and never blocks.
 - **Review and fine-tune.** Shows the calculated dose on the array with the PTVs and diodes, suggests a better
@@ -71,7 +71,7 @@ the app folder. Department settings are:
 - the template phantom
 - the QA course ID and plan ID pattern (`MC1_0`, `MC2_270`, …)
 - the phantom position on the couch, collision tolerances and machine dimensions
-- the shift rounding threshold and the optimisation values
+- shift rounding (nearest step and threshold) and the optimisation values
 
 ## When something goes wrong
 
