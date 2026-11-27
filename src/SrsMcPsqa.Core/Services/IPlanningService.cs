@@ -75,6 +75,9 @@ namespace SrsMcPsqa.Core.Services
         /// <summary>Photon volume dose calculation models Eclipse offers for this plan (for the Settings list).</summary>
         public IReadOnlyList<string> AvailableCalculationModels { get; set; } = Array.Empty<string>();
 
+        /// <summary>Energies of the treatment beams, e.g. "6X-FFF" (one 5×5 constancy field each).</summary>
+        public IReadOnlyList<string> Energies { get; set; } = Array.Empty<string>();
+
         public IReadOnlyList<ValidationMessage> Validation { get; set; } = Array.Empty<ValidationMessage>();
     }
 
@@ -103,6 +106,11 @@ namespace SrsMcPsqa.Core.Services
         public Vec3 Isocentre { get; set; }
         /// <summary>Region (phantom coordinates) to return dose for, e.g. array plane ± 15 mm.</summary>
         public Box3 DoseRegion { get; set; }
+        /// <summary>
+        /// The 5×5 constancy field plan instead of a PTV QA plan: one 5×5 cm jaw field per clinical energy, 100 MU each, at
+        /// the MapCHECK user origin, gantry 0° (0° image) or 90° (270° image). See <see cref="Models.ReferenceField"/>.
+        /// </summary>
+        public bool IsReferenceField { get; set; }
     }
 
     public sealed class QaPlanResult
@@ -115,6 +123,8 @@ namespace SrsMcPsqa.Core.Services
         public IReadOnlyList<string> Messages { get; set; } = Array.Empty<string>();
         /// <summary>Calculated QA dose in phantom coordinates (Gy), cropped to the requested region.</summary>
         public DoseGrid? Dose { get; set; }
+        /// <summary>The 5×5 constancy field plan (no PTVs, no fine-tune).</summary>
+        public bool IsReferenceField { get; set; }
     }
 
     /// <summary>A QA plan created earlier by this app for the loaded clinical plan (found by its Comment tag).</summary>

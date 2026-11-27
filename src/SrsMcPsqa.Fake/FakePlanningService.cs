@@ -144,6 +144,7 @@ namespace SrsMcPsqa.Fake
                     PlanUid = _patient.PlanUid,
                     Isocentre = _patient.Isocentre,
                     CalculationModel = "AcurosXB_1612",
+                    Energies = new[] { "6X-FFF" },
                     AvailableCalculationModels = new[] { "AcurosXB_1612", "AcurosXB_1612_water", "AAA_1612" },
                     PlanTotalDoseGy = _patient.PlanTotalDoseGy,
                     Beams = new[]
@@ -229,6 +230,20 @@ namespace SrsMcPsqa.Fake
             progress?.Report($"{request.PlanId}: creating verification plan...");
             await Step(steps, request.PlanId, "Create verification plan", 0.4, "verifies the demo plan", ct).ConfigureAwait(false);
             await Step(steps, request.PlanId, "Set ID, prescription and calculation model", 0.2, $"1 × 20 Gy, {DemoModel}", ct).ConfigureAwait(false);
+            if (request.IsReferenceField)
+            {
+                double gantry = ReferenceField.GantryAngle(request.Orientation);
+                await Step(steps, request.PlanId, "Add 5×5 fields", 0.3, $"1 × 5×5 cm, gantry {gantry:0}°: 6X-FFF 1400 MU/min", ct).ConfigureAwait(false);
+                await Step(steps, request.PlanId, "Save", 0.2, null, ct).ConfigureAwait(false);
+                lock (_lock)
+                    _plansByCourse[request.QaCourseId].Add(new FakeQaPlan
+                    {
+                        Id = request.PlanId, Orientation = request.Orientation, Isocentre = request.Isocentre,
+                        Tag = new QaPlanTag(_patient.PlanUid, request.Orientation, Array.Empty<string>(), isReferenceField: true),
+                    });
+                return await CalculateReference(request.QaCourseId, request.PlanId, request.Orientation, request.Isocentre, request.DoseRegion, ct, steps)
+                    .ConfigureAwait(false);
+            }
             progress?.Report($"{request.PlanId}: copying {DemoMus.Length} beams at isocentre {request.Isocentre}...");
             await Step(steps, request.PlanId, "Copy beams", 0.6, $"{DemoMus.Length} beams, clinical order", ct).ConfigureAwait(false);
             await Step(steps, request.PlanId, "Save", 0.2, null, ct).ConfigureAwait(false);
@@ -259,7 +274,36 @@ namespace SrsMcPsqa.Fake
             progress?.Report($"{planId}: moving isocentre to {newIsocentre}...");
             await Step(steps, planId, "Move isocentre", 0.3, $"to {newIsocentre}", ct).ConfigureAwait(false);
             await Step(steps, planId, "Save", 0.2, null, ct).ConfigureAwait(false);
+            if (plan.Tag?.IsReferenceField == true)
+                return await CalculateReference(courseId, planId, plan.Orientation, newIsocentre, doseRegion, ct, steps).ConfigureAwait(false);
             return await Calculate(courseId, planId, plan.Orientation, newIsocentre, doseRegion, progress, ct, steps).ConfigureAwait(false);
+        }
+
+        /// <summary>Demo 5×5 field: 1 Gy at the centre (100 MU), soft edges, perpendicular to the array.</summary>
+        private static DoseGrid ReferenceDose(Box3 region, Vec3 iso, ArrayOrientation o)
+        {
+            double Edge(double t) => 1.0 / (1.0 + Math.Exp(-(ReferenceField.FieldSizeMm / 2 - Math.Abs(t)) / 1.5));
+            return DoseGrid.FromFunction(Grid(region, 1.0), q => Edge(o.U(q - iso)) * Edge(o.V(q - iso)));
+        }
+
+        private async Task<QaPlanResult> CalculateReference(string courseId, string planId, ArrayOrientation o, Vec3 iso, Box3 region,
+            CancellationToken ct, IProgress<QaProgressEvent>? steps)
+        {
+            steps?.Report(new QaProgressEvent { PlanId = planId, Step = "Calculate dose", State = QaStepState.Running, IsCalculation = true, Model = DemoModel, Beams = 1, ControlPoints = 2 });
+            await Delay(1.5, ct).ConfigureAwait(false);
+            steps?.Report(new QaProgressEvent { PlanId = planId, Step = "Calculate dose", State = QaStepState.Done, IsCalculation = true, Model = DemoModel, Beams = 1, ControlPoints = 2, Detail = $"{DemoModel}, 1 field" });
+            steps?.Report(new QaProgressEvent
+            {
+                PlanId = planId, Step = "Check MUs", State = QaStepState.Done, Detail = "equal to 100 MU per field (max difference 0.000 MU)",
+                MuResults = new[] { new BeamMuResult(ReferenceField.BeamId("6X-FFF"), 100, 100, 0.05) },
+            });
+            var dose = await StepAsync(steps, planId, "Read calculated dose", () => Task.Run(() => ReferenceDose(region, iso, o), ct)).ConfigureAwait(false);
+            await Step(steps, planId, "Save", 0.2, null, ct).ConfigureAwait(false);
+            return new QaPlanResult
+            {
+                CourseId = courseId, PlanId = planId, Orientation = o, Isocentre = iso, CalculationSucceeded = true,
+                Messages = new[] { "Simulated 5×5 field (demo data)." }, Dose = dose, IsReferenceField = true,
+            };
         }
 
         private async Task<QaPlanResult> Calculate(string courseId, string planId, ArrayOrientation o, Vec3 iso, Box3 region,
@@ -318,13 +362,16 @@ namespace SrsMcPsqa.Fake
                 var o = x.Plan.Orientation;
                 var region = QaPlanRequests.DoseRegion(o, UserOrigins[o]);
                 var shift = x.Plan.Isocentre - _patient.Isocentre + CalculationOffset;
-                var dose = DoseGrid.FromFunction(Grid(region, 1.0), q => _patient.Dose(q - shift, sigma: 2.9, scale: 0.985));
+                bool reference = x.Plan.Tag!.IsReferenceField;
+                var dose = reference ? ReferenceDose(region, x.Plan.Isocentre, o)
+                    : DoseGrid.FromFunction(Grid(region, 1.0), q => _patient.Dose(q - shift, sigma: 2.9, scale: 0.985));
                 string image = o == ArrayOrientation.Deg0 ? "SMC_0" : "SMC_270";
                 return new ExistingQaPlan
                 {
                     Result = new QaPlanResult
                     {
                         CourseId = x.Course, PlanId = x.Plan.Id, Orientation = o, Isocentre = x.Plan.Isocentre, CalculationSucceeded = true, Dose = dose,
+                        IsReferenceField = reference,
                         Messages = new[] { "Found by its tag (demo data)." },
                     },
                     Phantom = new PhantomImageInfo { Orientation = o, ImageId = image, StructureSetId = image, UserOrigin = UserOrigins[o] },

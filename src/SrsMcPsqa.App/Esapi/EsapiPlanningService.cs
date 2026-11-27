@@ -151,6 +151,7 @@ namespace SrsMcPsqa.Esapi
 
                 string model = SafeModel(plan);
                 data.CalculationModel = model;
+                data.Energies = plan.Beams.Where(b => !b.IsSetupField).Select(b => b.EnergyModeDisplayName).Distinct().ToList();
                 try { data.AvailableCalculationModels = plan.GetModelsForCalculationType(CalculationType.PhotonVolumeDose)?.Where(m => !string.IsNullOrEmpty(m)).Distinct().ToList() ?? new List<string>(); }
                 catch (Exception ex) { _log("Could not list the calculation models: " + ex.Message); }
                 _log($"Calculation model '{model}'; available photon dose models: {string.Join(", ", data.AvailableCalculationModels)}.");

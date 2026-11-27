@@ -77,7 +77,8 @@
                                 <TextBlock FontSize="12" TextWrapping="Wrap" Text="{Binding AssignedText}" />
                                 <TextBlock FontSize="12" Text="{Binding StatusLine}" Foreground="{Binding CalcOk, Converter={StaticResource StatusBrush}}" />
                                 <TextBlock FontSize="11" TextWrapping="Wrap" Opacity="0.8" Text="{Binding IsoFromOriginText, StringFormat='Iso from MapCHECK origin: {0}'}" />
-                                <Border Margin="0,3,0,0" Padding="4,2" CornerRadius="3" Style="{StaticResource ClearanceBadge}">
+                                <Border Margin="0,3,0,0" Padding="4,2" CornerRadius="3" Style="{StaticResource ClearanceBadge}"
+                                        Visibility="{Binding IsQaPlan, Converter={StaticResource BoolToVis}}">
                                     <TextBlock FontSize="11" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding Clearance.Summary}" Foreground="{Binding Clearance.Brush}" />
                                 </Border>
                                 <TextBlock FontSize="11" TextWrapping="Wrap" FontStyle="Italic" Text="{Binding FineTuneBadge}" Margin="0,2,0,0">
@@ -124,8 +125,9 @@
                     <TextBlock FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4" Text="{Binding WarningsText}"
                                Foreground="{x:Static inf:StatusBrushConverter.Caution}"
                                Visibility="{Binding HasWarnings, Converter={StaticResource BoolToVis}}" />
-                    <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4" TextWrapping="Wrap" Text="{Binding MetricsCaption}" />
-                    <DataGrid MaxHeight="150" ItemsSource="{Binding Metrics}" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" FontSize="12">
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4" TextWrapping="Wrap" Text="{Binding MetricsCaption}"
+                               Visibility="{Binding IsQaPlan, Converter={StaticResource BoolToVis}}" />
+                    <DataGrid MaxHeight="150" ItemsSource="{Binding Metrics}" Visibility="{Binding IsQaPlan, Converter={StaticResource BoolToVis}}" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" FontSize="12">
                         <DataGrid.Columns>
                             <DataGridTemplateColumn Header="" Width="22">
                                 <DataGridTemplateColumn.CellTemplate>
@@ -147,9 +149,11 @@
             <!-- right: fine-tune the selected plan -->
             <ScrollViewer Grid.Column="4" VerticalScrollBarVisibility="Auto">
                 <StackPanel DataContext="{Binding SelectedQaPlan}" Visibility="{Binding Converter={StaticResource BoolToVis}}">
-                    <TextBlock Style="{StaticResource Section}" Text="{Binding Header, StringFormat='Fine-tune {0}'}" />
-                    <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
-                               Text="Optional. Predictions shift the calculated dose, so they are approximate; the plan is recalculated when you apply." />
+                    <TextBlock Style="{StaticResource Section}" Text="{Binding PanelTitle}" />
+                    <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Text="{Binding PanelHint}"
+                               Visibility="{Binding IsQaPlan, Converter={StaticResource BoolToVis}}" />
+                    <TextBlock Margin="0,4,0,0" FontSize="12" TextWrapping="Wrap" Text="{Binding ReferenceText}" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                               Visibility="{Binding IsReferenceField, Converter={StaticResource BoolToVis}}" />
 
                     <!-- earlier-session plan: notes, out-of-date flag, recalculate when not calculated -->
                     <Border Margin="0,8,0,0" Padding="8,6" CornerRadius="4" BorderThickness="1" BorderBrush="{x:Static inf:StatusBrushConverter.Caution}"
@@ -159,6 +163,8 @@
                     <ui:Button Margin="0,6,0,0" HorizontalAlignment="Stretch" Icon="{ui:SymbolIcon ArrowSync24}" Content="Recalculate this plan"
                                Command="{Binding DataContext.RecalculateSelectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                Visibility="{Binding CalcOk, Converter={StaticResource InverseBoolToVis}}" IsEnabled="{Binding CanChange}" />
+                    <!-- PTV QA plans only: position, clearance and fine-tune (not the 5×5 constancy plan) -->
+                    <StackPanel Visibility="{Binding IsQaPlan, Converter={StaticResource BoolToVis}}">
                     <!-- current position, and the new one when a move is chosen -->
                     <views:IsoShiftCard Margin="0,8,0,0" Title="{Binding PlanId, StringFormat='QA isocentre · {0} (now)'}" Offset="{Binding IsoFromOrigin}"
                                         ClearanceState="{Binding Clearance.State}" />
@@ -220,6 +226,7 @@
                         <TextBlock Style="{StaticResource Label}" Margin="0,12,0,4" Text="3 · Recalculate" />
                         <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
                                    Text="Use the button at the bottom right. It moves every plan set to move and recalculates them together." />
+                    </StackPanel>
                     </StackPanel>
                 </StackPanel>
             </ScrollViewer>

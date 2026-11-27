@@ -34,6 +34,11 @@ Start it from Eclipse with the clinical plan open: **Tools → Scripts → SrsMc
   to maximum.
 - **Create N QA plans**: confirm (couch clearance warnings are listed but don't block). The progress panel shows each
   plan's steps, Eclipse's calculation progress, and the MU check. Cancel stops after the current plan.
+- **5×5 constancy field plan** (Settings, on by default): with the QA plans, the app also creates one plan per array
+  orientation used, `MC_5x5_0` and/or `MC_5x5_270` (a letter is added if the ID is taken). Each has a 5 × 5 cm jaw field
+  (MLC retracted, collimator 0°, couch 0°) per energy of the clinical plan, 100 MU each at the clinical dose rate, with
+  the isocentre at the MapCHECK origin (no shift). Gantry 0° on the 0° image, 90° on the 270° image. The line under the
+  plan list and the Create button show it. Its position is fixed, so there's no shift and no couch clearance check.
 
 ## 4 · Review & fine-tune
 
@@ -50,10 +55,13 @@ Start it from Eclipse with the clinical plan open: **Tools → Scripts → SrsMc
   the plan. **Round shifts smaller than** (default 2 mm): any axis of the shift in array planning, or of a suggested or
   entered fine-tune move, smaller than that becomes 0. The arrow buttons always move at least one rounding step.
 - **Delete plan** / **Delete all** remove the app's own QA plans from Eclipse (only tagged plans; phantom images stay).
+- The 5×5 constancy plans are listed too ("5×5 constancy"), with their dose on the array. They have no PTV table,
+  shift or fine-tune; recalculate and delete work as for the other plans.
 
 ## At the linac
 
 - Set up the MapCHECK at the QA isocentre shown on the card (shift from the MapCHECK user origin).
+- Measure the 5×5 constancy plan with the MapCHECK at the origin (no shift) as the constancy check for this PSQA.
 - If the app suggested a lateral phantom offset, place the phantom that far towards the stated side on the couch.
 
 ## Settings

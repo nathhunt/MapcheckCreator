@@ -14,6 +14,8 @@ It also warns you before a setup would bring the couch too close to the gantry.
 - **QA plans built for you.** Copies the phantom images, creates verification plans in the QA course (made for you if
   missing), copies the beams in clinical order, and calculates with one fraction at the clinical dose per fraction.
   Every beam's MU is checked against the clinical plan.
+- **5×5 constancy field.** Adds a plan with a 5 × 5 cm, 100 MU field per energy at the array centre, gantry 0° or
+  90° for each array orientation used (`MC_5x5_0`, `MC_5x5_270`), for the constancy check with each PSQA.
 - **Clear positions.** The QA isocentre is always shown as the shift from the MapCHECK user origin, ready to set up at
   the linac. Shifts are rounded to the nearest 1 mm, and shifts under 2 mm to zero (both adjustable).
 - **Collision warnings.** Checks the clearance between the TrueBeam head and the Exact IGRT couch for every beam, and

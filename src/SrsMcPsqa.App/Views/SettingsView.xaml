@@ -224,6 +224,11 @@
                     <ui:TextBox Text="{Binding Edit.QaCourseId}" />
                     <TextBlock Style="{StaticResource Label}" Text="Plan ID pattern ({n} = number, {orient} = 0 or 270; max 13 characters)" />
                     <ui:TextBox Text="{Binding Edit.PlanNamingPattern}" Width="240" HorizontalAlignment="Left" />
+                    <CheckBox Margin="0,10,0,0" Content="Also create the 5×5 constancy field plan" IsChecked="{Binding Edit.CreateReferenceFieldPlan}" />
+                    <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
+                               Text="One plan per array orientation used: 5 × 5 cm jaw field (MLC retracted, collimator 0°, couch 0°), 100 MU per energy of the clinical plan at its dose rate, isocentre at the MapCHECK origin; gantry 0° on the 0° image, 90° on the 270° image." />
+                    <TextBlock Style="{StaticResource Label}" Text="5×5 plan ID pattern ({orient} = 0 or 270; a letter is added if the ID is taken)" />
+                    <ui:TextBox Text="{Binding Edit.ReferencePlanIdPattern}" Width="240" HorizontalAlignment="Left" IsEnabled="{Binding Edit.CreateReferenceFieldPlan}" />
                     <TextBlock Style="{StaticResource Label}" Text="Helper PTV patterns (comma-separated, * = any text; listed but unticked by default)" />
                     <ui:TextBox Text="{Binding Edit.HelperPatterns}" Width="240" HorizontalAlignment="Left" />
                     <CheckBox Margin="0,10,0,0" Content="Save to Eclipse after every completed write (recommended)" IsChecked="{Binding Edit.AutoSave}" />

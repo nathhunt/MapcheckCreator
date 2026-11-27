@@ -73,6 +73,7 @@ Set once per installation:
 | Template phantom calculation model | **Required** before QA plans can be created. The model the phantom is set up for (e.g. `AcurosXB_1612`); QA plans are only created or recalculated for clinical plans calculated with it. |
 | QA course ID | Default `PHYS_QA`; created with the first QA plan if the patient doesn't have it. |
 | Plan ID pattern | Default `MC{n}_{orient}`. |
+| 5×5 constancy field plan | On by default; plan ID `MC_5x5_{orient}`. One 5 × 5 cm jaw field per clinical energy, 100 MU, gantry 0° (0° image) or 90° (270° image), at the MapCHECK origin. |
 | Collision check: MapCHECK origin height above the couch top, couch head end | **Required** for the collision check; see [docs/COLLISION_CHECK.md](../docs/COLLISION_CHECK.md). |
 | Optimisation (edge margin, coverage threshold, minimum diodes, α) | Defaults are fine to start with. |
 

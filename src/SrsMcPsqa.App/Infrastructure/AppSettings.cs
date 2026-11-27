@@ -34,6 +34,10 @@ namespace SrsMcPsqa.App.Infrastructure
         /// <summary>Comma-separated patterns of helper PTV structures, listed but unticked by default ("*" = any text).</summary>
         [DataMember] public string HelperPatterns { get; set; } = Core.Prescription.PtvFilter.DefaultHelperPatterns;
         [DataMember] public string PlanNamingPattern { get; set; } = Core.Models.QaPlanNaming.DefaultPattern;
+        /// <summary>Create the 5×5 constancy field plan(s) with the QA plans (one per array orientation used).</summary>
+        [DataMember] public bool CreateReferenceFieldPlan { get; set; } = true;
+        /// <summary>Plan ID of the 5×5 constancy field plan ({orient} = 0 or 270), e.g. MC_5x5_0.</summary>
+        [DataMember] public string ReferencePlanIdPattern { get; set; } = Core.Models.ReferenceField.DefaultIdPattern;
         /// <summary>QA course ID: preselected when it exists, otherwise created with the first QA plan.</summary>
         [DataMember] public string QaCourseId { get; set; } = "PHYS_QA";
         [DataMember] public double EdgeMarginMm { get; set; } = 3.0;
@@ -113,6 +117,8 @@ namespace SrsMcPsqa.App.Infrastructure
                     p.Add($"{prop.Name} must be a number.");
 
             Need(!string.IsNullOrWhiteSpace(QaCourseId) && QaCourseId.Trim().Length <= 16, "QA course ID: 1 to 16 characters.");
+            Need(!CreateReferenceFieldPlan || (ReferencePlanIdPattern.Contains("{orient}") && ReferencePlanIdPattern.Length <= 20),
+                "5×5 plan ID pattern: must contain {orient} (one plan per orientation).");
             Need(ShiftThresholdMm >= 0, "Shift rounding threshold: 0 (off) or more.");
             Need(ShiftRoundToMm >= 0 && ShiftRoundToMm <= 10, "Round shifts to the nearest: 0 (off) to 10 mm.");
             Need(EdgeMarginMm >= 0 && EdgeMarginMm < Core.Detector.DiodeArray.HalfExtent,
@@ -138,7 +144,7 @@ namespace SrsMcPsqa.App.Infrastructure
         {
             var d = new AppSettings(false);
             TemplatePatientId = d.TemplatePatientId; Template0StudyId = d.Template0StudyId; Template270StudyId = d.Template270StudyId; Template0ImageId = d.Template0ImageId;
-            Template270ImageId = d.Template270ImageId; TemplateCalculationModel = d.TemplateCalculationModel; HelperPatterns = d.HelperPatterns; PlanNamingPattern = d.PlanNamingPattern; QaCourseId = d.QaCourseId; EdgeMarginMm = d.EdgeMarginMm;
+            Template270ImageId = d.Template270ImageId; TemplateCalculationModel = d.TemplateCalculationModel; HelperPatterns = d.HelperPatterns; PlanNamingPattern = d.PlanNamingPattern; CreateReferenceFieldPlan = d.CreateReferenceFieldPlan; ReferencePlanIdPattern = d.ReferencePlanIdPattern; QaCourseId = d.QaCourseId; EdgeMarginMm = d.EdgeMarginMm;
             Tau = d.Tau; MinDiodes = d.MinDiodes; Alpha = d.Alpha; FineTuneInPlaneRangeMm = d.FineTuneInPlaneRangeMm;
             FineTuneNormalRangeMm = d.FineTuneNormalRangeMm; ShiftThresholdMm = d.ShiftThresholdMm; ShiftRoundToMm = d.ShiftRoundToMm; AutoSave = d.AutoSave; LogLevel = d.LogLevel; Theme = d.Theme;
             CollisionHeadClearanceMm = d.CollisionHeadClearanceMm; CollisionHeadRadiusMm = d.CollisionHeadRadiusMm;

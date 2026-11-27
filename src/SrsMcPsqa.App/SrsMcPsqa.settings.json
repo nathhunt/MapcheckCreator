@@ -8,6 +8,8 @@
   "CopyTemplateStructures": false,
   "HelperPatterns": "z*, *eval*",
   "PlanNamingPattern": "MC{n}_{orient}",
+  "CreateReferenceFieldPlan": true,
+  "ReferencePlanIdPattern": "MC_5x5_{orient}",
   "EdgeMarginMm": 3,
   "Tau": 0.85,
   "MinDiodes": 5,
