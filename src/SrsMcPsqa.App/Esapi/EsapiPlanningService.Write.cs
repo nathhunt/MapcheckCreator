@@ -387,6 +387,7 @@ namespace SrsMcPsqa.Esapi
                     qa.SetPrescription(1, clinical.DosePerFraction, clinical.TreatmentPercentage);
                     messages.Add($"Prescription 1 × {clinical.DosePerFraction}.");
                     messages.AddRange(MatchCalculationModel(clinical, qa));
+                    RequirePhantomModel(qa, $"QA plan '{request.PlanId}'"); // the model it inherited
                     return qa.GetCalculationModel(CalculationType.PhotonVolumeDose);
                 }, model => $"1 × {clinical.DosePerFraction}, {model}");
 
@@ -426,6 +427,7 @@ namespace SrsMcPsqa.Esapi
                 // Same prescription as the QA plans: the MU method sets weights from the dose per fraction.
                 qa.SetPrescription(1, clinical.DosePerFraction, clinical.TreatmentPercentage);
                 messages.AddRange(MatchCalculationModel(clinical, qa));
+                RequirePhantomModel(qa, $"5×5 plan '{request.PlanId}'"); // the model it inherited
                 return qa.GetCalculationModel(CalculationType.PhotonVolumeDose);
             }, model => model);
 

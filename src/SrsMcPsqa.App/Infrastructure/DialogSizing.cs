@@ -53,12 +53,13 @@ namespace SrsMcPsqa.App.Infrastructure
                 double emptyBelow = clientHeight - contentBottom;
                 double want = Math.Ceiling(window.ActualHeight - emptyBelow);
                 if (!double.IsInfinity(window.MaxHeight)) want = Math.Min(want, window.MaxHeight);
+                // WPF-UI's FluentWindow style has MinHeight 320; dialogs set MinHeight="0" so short ones aren't held at that.
                 want = Math.Max(want, window.MinHeight);
 
                 if (log)
                     Log.Info(string.Format(CultureInfo.InvariantCulture,
-                        "Dialog '{0}' fit: window {1:0.#}, client {2:0.#}, content top {3:0.#} + height {4:0.#} (laid out {5:0.#}) → height {6:0.#}.",
-                        window.Title, window.ActualHeight, clientHeight, top, contentHeight, root.ActualHeight, want));
+                        "Dialog '{0}' fit: window {1:0.#}, client {2:0.#}, content top {3:0.#} + height {4:0.#} (laid out {5:0.#}), min {7:0.#} → height {6:0.#}.",
+                        window.Title, window.ActualHeight, clientHeight, top, contentHeight, root.ActualHeight, want, window.MinHeight));
                 if (want <= 0 || Math.Abs(want - window.ActualHeight) < 1) return;
 
                 double centreY = window.Top + window.ActualHeight / 2;

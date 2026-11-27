@@ -149,12 +149,12 @@ namespace SrsMcPsqa.Esapi
                 if (iso != null) data.Isocentre = iso.Value.ToVec3();
                 if (validation.Any(v => v.Severity == ValidationSeverity.Error)) return data;
 
-                string model = SafeModel(plan);
+                string model = ReadModel(plan, out var modelSource);
                 data.CalculationModel = model;
                 data.Energies = plan.Beams.Where(b => !b.IsSetupField).Select(b => b.EnergyModeDisplayName).Distinct().ToList();
                 try { data.AvailableCalculationModels = plan.GetModelsForCalculationType(CalculationType.PhotonVolumeDose)?.Where(m => !string.IsNullOrEmpty(m)).Distinct().ToList() ?? new List<string>(); }
                 catch (Exception ex) { _log("Could not list the calculation models: " + ex.Message); }
-                _log($"Calculation model '{model}'; available photon dose models: {string.Join(", ", data.AvailableCalculationModels)}.");
+                _log($"Calculation model '{model}'{(modelSource.Length > 0 ? $" (from {modelSource})" : "")}; available photon dose models: {string.Join(", ", data.AvailableCalculationModels)}.");
                 validation.Add(new ValidationMessage(ValidationSeverity.Info,
                     $"Total dose {(totalGy.HasValue ? totalGy.Value.ToString("0.##") + " Gy" : "unknown")}" +
                     (plan.NumberOfFractions is int n ? $" in {n} fraction(s)" : "") +
@@ -185,17 +185,53 @@ namespace SrsMcPsqa.Esapi
                 return data;
             });
 
-        private static string SafeModel(PlanSetup plan)
+        /// <summary>
+        /// The plan's photon volume dose model. Eclipse returns an empty name for clinical plans from both
+        /// GetCalculationModel and PhotonCalculationModel (V8), so it is also looked for in the beams' dose calculation
+        /// logs: a line naming one of the models Eclipse offers for the plan (the longest name that matches, so
+        /// "CAP_HAL_AAA_15604" isn't read as "AAA_15604"). "" when none of these gives one model.
+        /// </summary>
+        private string SafeModel(PlanSetup plan) => ReadModel(plan, out _);
+
+        private string ReadModel(PlanSetup plan, out string source)
         {
+            source = "";
             try
             {
                 var m = plan.GetCalculationModel(CalculationType.PhotonVolumeDose);
-                return string.IsNullOrEmpty(m) ? plan.PhotonCalculationModel ?? "" : m;
+                if (!string.IsNullOrEmpty(m)) { source = "GetCalculationModel"; return m; }
             }
-            catch
+            catch (Exception ex) { _log($"{plan.Id}: GetCalculationModel failed: {ex.Message}"); }
+            try
             {
-                return "";
+                var m = plan.PhotonCalculationModel;
+                if (!string.IsNullOrEmpty(m)) { source = "PhotonCalculationModel"; return m; }
             }
+            catch (Exception ex) { _log($"{plan.Id}: PhotonCalculationModel failed: {ex.Message}"); }
+            try
+            {
+                var names = plan.GetModelsForCalculationType(CalculationType.PhotonVolumeDose)?.Where(n => !string.IsNullOrEmpty(n))
+                    .OrderByDescending(n => n.Length).ToList() ?? new List<string>();
+                var found = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var sample = new List<string>();
+                foreach (var b in plan.Beams.Where(b => !b.IsSetupField))
+                    foreach (var log in b.CalculationLogs ?? Enumerable.Empty<BeamCalculationLog>())
+                    {
+                        bool dose = (log.Category ?? "").IndexOf("Dose", StringComparison.OrdinalIgnoreCase) >= 0;
+                        foreach (var line in log.MessageLines ?? Enumerable.Empty<string>())
+                        {
+                            if (dose && sample.Count < 8) sample.Add(line);
+                            var hit = names.FirstOrDefault(n => line.IndexOf(n, StringComparison.OrdinalIgnoreCase) >= 0);
+                            if (hit != null && dose) { found.Add(hit); break; }
+                        }
+                    }
+                if (found.Count == 1) { source = "beam dose calculation logs"; return found.First(); }
+                _log($"{plan.Id}: calculation model not found in the beam dose calculation logs" +
+                     (found.Count > 1 ? $" (several: {string.Join(", ", found)})" : "") +
+                     (sample.Count > 0 ? "; first lines: " + string.Join(" | ", sample) : "; no dose calculation log lines") + ".");
+            }
+            catch (Exception ex) { _log($"{plan.Id}: reading the calculation logs failed: {ex.Message}"); }
+            return "";
         }
 
         // ------------------------------------------------------------------ QA plans (read)

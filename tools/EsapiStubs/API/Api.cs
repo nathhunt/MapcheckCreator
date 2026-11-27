@@ -135,6 +135,12 @@ namespace VMS.TPS.Common.Model.API
         public double MetersetWeight { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
     }
 
+    public class BeamCalculationLog
+    {
+        public string Category => throw new NotImplementedException();
+        public IEnumerable<string> MessageLines => throw new NotImplementedException();
+    }
+
     public class Beam
     {
         public string Id { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
@@ -150,6 +156,7 @@ namespace VMS.TPS.Common.Model.API
         public Technique Technique => throw new NotImplementedException();
         public MLC MLC => throw new NotImplementedException();
         public ControlPointCollection ControlPoints => throw new NotImplementedException();
+        public IEnumerable<BeamCalculationLog> CalculationLogs => throw new NotImplementedException();
         public BeamParameters GetEditableParameters() => throw new NotImplementedException();
         public void ApplyParameters(BeamParameters beamParams) => throw new NotImplementedException();
     }
