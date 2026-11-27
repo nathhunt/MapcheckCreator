@@ -437,27 +437,10 @@ namespace SrsMcPsqa.Esapi
             {
                 foreach (var f in fields)
                 {
-                    // Static technique of the clinical family: "SRS STATIC" for SRS plans (if the machine has it), else "STATIC".
-                    var techniques = f.Technique.StartsWith("SRS", StringComparison.OrdinalIgnoreCase) ? new[] { "SRS STATIC", "STATIC" } : new[] { "STATIC" };
-                    Beam? b = null;
-                    Exception? last = null;
-                    foreach (var technique in techniques)
-                    {
-                        try
-                        {
-                            var mp = new ExternalBeamMachineParameters(f.Machine, f.Energy, f.DoseRate, technique, f.Fluence);
-                            b = qa.AddStaticBeam(mp, new VRect<double>(-h, -h, h, h), 0, gantry, 0, iso);
-                            _log($"{request.PlanId}: field {f.BeamId}: {f.Machine} {f.EnergyDisplay}, {f.DoseRate} MU/min, technique {technique}, 5×5 cm jaws, gantry {gantry:0}°, couch 0°.");
-                            break;
-                        }
-                        catch (Exception ex)
-                        {
-                            last = ex;
-                            _log($"{request.PlanId}: technique '{technique}' refused for {f.EnergyDisplay}: {ex.Message}");
-                        }
-                    }
-                    if (b == null) throw new InvalidOperationException($"Could not add the 5×5 field for {f.EnergyDisplay}: {last?.Message}", last);
+                    var mp = new ExternalBeamMachineParameters(f.Machine, f.Energy, f.DoseRate, ReferenceField.Technique, f.Fluence);
+                    var b = qa.AddStaticBeam(mp, new VRect<double>(-h, -h, h, h), 0, gantry, 0, iso);
                     b.Id = f.BeamId;
+                    _log($"{request.PlanId}: field {f.BeamId}: {f.Machine} {f.EnergyDisplay}, {f.DoseRate} MU/min, technique {ReferenceField.Technique}, 5×5 cm jaws, gantry {gantry:0}°, couch 0°.");
                 }
                 return fields.Count;
             }, n => $"{n} × 5×5 cm, gantry {gantry:0}°: {string.Join(", ", fields.Select(f => $"{f.EnergyDisplay} {f.DoseRate} MU/min"))}");
@@ -474,12 +457,12 @@ namespace SrsMcPsqa.Esapi
         }
 
         /// <summary>One 5×5 field per energy of the clinical treatment beams (machine and dose rate of the first beam of that energy).</summary>
-        private static List<(string Machine, string Energy, string? Fluence, string EnergyDisplay, int DoseRate, string BeamId, string Technique)> ReferenceFieldSpecs(ExternalPlanSetup clinical) =>
+        private static List<(string Machine, string Energy, string? Fluence, string EnergyDisplay, int DoseRate, string BeamId)> ReferenceFieldSpecs(ExternalPlanSetup clinical) =>
             clinical.Beams.Where(b => !b.IsSetupField).GroupBy(b => b.EnergyModeDisplayName).Select(g =>
             {
                 var b = g.First();
                 var (energy, fluence) = EsapiBeamCopier.SplitEnergyMode(b.EnergyModeDisplayName);
-                return (b.TreatmentUnit.Id, energy, fluence, b.EnergyModeDisplayName, b.DoseRate, ReferenceField.BeamId(b.EnergyModeDisplayName), b.Technique.Id);
+                return (b.TreatmentUnit.Id, energy, fluence, b.EnergyModeDisplayName, b.DoseRate, ReferenceField.BeamId(b.EnergyModeDisplayName));
             }).ToList();
 
         /// <summary>

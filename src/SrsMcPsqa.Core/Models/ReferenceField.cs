@@ -17,6 +17,8 @@ namespace SrsMcPsqa.Core.Models
         public const double FieldSizeMm = 50;
         public const double MonitorUnits = 100;
         public const string DefaultIdPattern = "MC_5x5_{orient}";
+        /// <summary>Treatment technique of the 5×5 fields.</summary>
+        public const string Technique = "STATIC";
 
         /// <summary>Gantry angle (IEC 61217) of the field for an array orientation.</summary>
         public static double GantryAngle(ArrayOrientation o) => o == ArrayOrientation.Deg270 ? 90 : 0;
