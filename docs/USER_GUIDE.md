@@ -34,6 +34,11 @@ Start it from Eclipse with the clinical plan open: **Tools → Scripts → SrsMc
   to maximum.
 - **Create N QA plans**: confirm (couch clearance warnings are listed but don't block). The progress panel shows each
   plan's steps, Eclipse's calculation progress, and the MU check. Cancel stops after the current plan.
+- **5×5 constancy field plan** (Settings, on by default): with the QA plans, the app also creates one plan per array
+  orientation used, `MC_5x5_0` and/or `MC_5x5_270` (a letter is added if the ID is taken). Each has a 5 × 5 cm jaw field
+  (MLC retracted, collimator 0°, couch 0°) per energy of the clinical plan, 100 MU each at the clinical dose rate, with
+  the isocentre at the MapCHECK origin (no shift). Gantry 0° on the 0° image, 90° on the 270° image. The line under the
+  plan list and the Create button show it. Its position is fixed, so there's no shift and no couch clearance check.
 
 ## 4 · Review & fine-tune
 
@@ -45,18 +50,30 @@ Start it from Eclipse with the clinical plan open: **Tools → Scripts → SrsMc
   every plan.
 - Plans from an earlier session are marked; **OUT OF DATE** means their beams or MUs no longer match the clinical plan
   (delete and recreate them). **Recalculate this plan** appears for a plan without dose.
-- Small changes are rounded away: with the **Round shifts smaller than** setting (default 2 mm), any axis of a suggested
-  or entered move smaller than that becomes 0, and the same applies to the QA isocentre shift in array planning.
+- Shifts are rounded. **Round shifts to the nearest** (default 1 mm; e.g. 0.5 mm, 0 = off): every QA isocentre shift
+  from the MapCHECK origin, in array planning and after fine-tune, is a multiple of this, both as shown and as used for
+  the plan. **Round shifts smaller than** (default 2 mm): any axis of the shift in array planning, or of a suggested or
+  entered fine-tune move, smaller than that becomes 0. The arrow buttons always move at least one rounding step.
 - **Delete plan** / **Delete all** remove the app's own QA plans from Eclipse (only tagged plans; phantom images stay).
+- The 5×5 constancy plans are listed too ("5×5 constancy"), with their dose on the array. They have no PTV table,
+  shift or fine-tune; recalculate and delete work as for the other plans.
 
 ## At the linac
 
 - Set up the MapCHECK at the QA isocentre shown on the card (shift from the MapCHECK user origin).
+- Measure the 5×5 constancy plan with the MapCHECK at the origin (no shift) as the constancy check for this PSQA.
 - If the app suggested a lateral phantom offset, place the phantom that far towards the stated side on the couch.
 
 ## Settings
 
-Template phantom (patient and image IDs, **Validate**), QA course ID, plan ID pattern, collision check geometry
-(MapCHECK origin height above the couch is required), optimisation values: these are **department settings**, the same
-for everyone using this installation. Saving a change warns you, lists the changes and asks for confirmation (and needs
-write access to the app folder). Theme and log level are personal. See [deploy/README.md](../deploy/README.md).
+Template phantom (patient and image IDs, **Validate**, calculation model), QA course ID, plan ID pattern, collision check
+geometry (MapCHECK origin height above the couch is required), shift rounding, optimisation values: these are
+**department settings**, the same for everyone using this installation. They're **locked** (greyed out) until you click
+the red **Edit department settings…** button and confirm; this needs write access to the app folder. Saving lists the
+changes and asks again. The page locks again after Save, Reload, **Lock** or leaving Settings. Theme and log level are
+personal and always editable. See [deploy/README.md](../deploy/README.md).
+
+**Calculation model.** Choose the photon dose calculation model the template phantom is set up for (the list shows the
+models Eclipse offers for the loaded plan). QA plans use the clinical plan's model, so they're only created or
+recalculated for clinical plans calculated with this model. For any other plan, loading it says why, and **Create** and
+recalculation are off. Until the model is set, creating QA plans is off.

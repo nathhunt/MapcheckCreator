@@ -4,9 +4,12 @@
   "Template270StudyId": "",
   "Template0ImageId": "SRSMC_0_AXB",
   "Template270ImageId": "SRSMC_270_AXB",
+  "TemplateCalculationModel": "",
   "CopyTemplateStructures": false,
   "HelperPatterns": "z*, *eval*",
   "PlanNamingPattern": "MC{n}_{orient}",
+  "CreateReferenceFieldPlan": true,
+  "ReferencePlanIdPattern": "MC_5x5_{orient}",
   "EdgeMarginMm": 3,
   "Tau": 0.85,
   "MinDiodes": 5,
@@ -27,5 +30,6 @@
   "CollisionWarningMm": 30,
   "CollisionRiskMm": 15,
   "QaCourseId": "PHYS_QA",
-  "ShiftThresholdMm": 2.0
+  "ShiftThresholdMm": 2.0,
+  "ShiftRoundToMm": 1.0
 }

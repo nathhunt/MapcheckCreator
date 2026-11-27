@@ -19,6 +19,7 @@ using Box3 = SrsMcPsqa.Core.Geometry.Box3;
 using QaPlanTag = SrsMcPsqa.Core.Models.QaPlanTag;
 using QaPlanNaming = SrsMcPsqa.Core.Models.QaPlanNaming;
 using QaPlanRequests = SrsMcPsqa.Core.Models.QaPlanRequests;
+using ReferenceField = SrsMcPsqa.Core.Models.ReferenceField;
 
 namespace SrsMcPsqa.Esapi
 {
@@ -43,6 +44,12 @@ namespace SrsMcPsqa.Esapi
         /// <summary>Save to Eclipse after every completed write (default). When false, <see cref="SaveAsync"/> must be called.</summary>
         public bool AutoSave { get; set; } = true;
 
+        /// <summary>
+        /// Calculation model the template phantom is set up for (department setting). QA plans are only created or
+        /// recalculated when the clinical plan (and the QA plan) use it; "" refuses every calculation.
+        /// </summary>
+        public string RequiredCalculationModel { get; set; } = "";
+
         private readonly Dictionary<string, string> _studyCache = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         // ------------------------------------------------------------------ helpers
@@ -51,6 +58,24 @@ namespace SrsMcPsqa.Esapi
             RequirePatient();
             if (!_canModify)
                 throw new InvalidOperationException("Eclipse doesn't allow changes to this patient: " + (_modifyError ?? "unknown reason") + ". Close it in Eclipse if needed and re-open it here.");
+        }
+
+        /// <summary>
+        /// Refuses (with the reason) unless the plan is calculated with the template phantom's model. A clinical plan whose
+        /// model Eclipse doesn't report passes here; each QA plan's inherited model is checked (<paramref name="isQaPlan"/>).
+        /// </summary>
+        private void RequirePhantomModel(PlanSetup plan, string what, bool isQaPlan = false)
+        {
+            string model = SafeModel(plan);
+            string? why = isQaPlan ? CalculationModelCheck.QaPlanBlockedReason(RequiredCalculationModel, model, plan.Id)
+                                   : CalculationModelCheck.BlockedReason(RequiredCalculationModel, model);
+            if (!isQaPlan && why == null && CalculationModelCheck.IsUnknown(model))
+                _log($"{what}: Eclipse doesn't report its calculation model; the QA plans' inherited model is checked instead.");
+            if (why != null)
+            {
+                _log($"Refused for {what} (model '{model}', template phantom model '{RequiredCalculationModel}'): {why}");
+                throw new InvalidOperationException(why);
+            }
         }
 
         private ExternalPlanSetup RequireClinicalPlan()
@@ -107,15 +132,34 @@ namespace SrsMcPsqa.Esapi
                         }
                         var phantom = Info(tag.Orientation, ss, copied: false);
 
-                        // Beams and MUs against the clinical plan (re-optimised clinical plan → out of date).
-                        bool matches = beams.Count == clinicalMu.Count;
-                        foreach (var b in beams)
+                        bool matches;
+                        if (tag.IsReferenceField)
                         {
-                            if (!clinicalMu.TryGetValue(b.Id, out var mu)) { matches = false; notes.Add($"Beam {b.Id} isn't in the clinical plan."); continue; }
-                            double q = b.Meterset.Value;
-                            if (double.IsNaN(q) || Math.Abs(q - mu) > MuTolerance) { matches = false; notes.Add($"Beam {b.Id}: {q:0.00} MU, clinical {mu:0.00} MU."); }
+                            // 5×5 plan: one 100 MU field per clinical energy, at the clinical dose rate.
+                            var specs = ReferenceFieldSpecs(clinical);
+                            matches = beams.Count == specs.Count;
+                            if (beams.Count != specs.Count) notes.Add($"{beams.Count} fields; the clinical plan has {specs.Count} energ{(specs.Count == 1 ? "y" : "ies")}.");
+                            foreach (var f in specs)
+                            {
+                                var b = beams.FirstOrDefault(x => x.EnergyModeDisplayName == f.EnergyDisplay);
+                                if (b == null) { matches = false; notes.Add($"No 5×5 field for {f.EnergyDisplay}."); continue; }
+                                if (b.DoseRate != f.DoseRate) { matches = false; notes.Add($"{b.Id}: dose rate {b.DoseRate}, clinical {f.DoseRate}."); }
+                                double q = b.Meterset.Value;
+                                if (double.IsNaN(q) || Math.Abs(q - ReferenceField.MonitorUnits) > MuTolerance) { matches = false; notes.Add($"{b.Id}: {q:0.00} MU, should be {ReferenceField.MonitorUnits:0}."); }
+                            }
                         }
-                        if (beams.Count != clinicalMu.Count) notes.Add($"{beams.Count} beams; the clinical plan has {clinicalMu.Count}.");
+                        else
+                        {
+                            // Beams and MUs against the clinical plan (re-optimised clinical plan → out of date).
+                            matches = beams.Count == clinicalMu.Count;
+                            foreach (var b in beams)
+                            {
+                                if (!clinicalMu.TryGetValue(b.Id, out var mu)) { matches = false; notes.Add($"Beam {b.Id} isn't in the clinical plan."); continue; }
+                                double q = b.Meterset.Value;
+                                if (double.IsNaN(q) || Math.Abs(q - mu) > MuTolerance) { matches = false; notes.Add($"Beam {b.Id}: {q:0.00} MU, clinical {mu:0.00} MU."); }
+                            }
+                            if (beams.Count != clinicalMu.Count) notes.Add($"{beams.Count} beams; the clinical plan has {clinicalMu.Count}.");
+                        }
 
                         Core.Geometry.DoseGrid? dose = null;
                         if (qa.Dose != null && qa.IsDoseValid)
@@ -127,12 +171,12 @@ namespace SrsMcPsqa.Esapi
                             Result = new QaPlanResult
                             {
                                 CourseId = course.Id, PlanId = qa.Id, Orientation = tag.Orientation, Isocentre = iso,
-                                CalculationSucceeded = dose != null, Dose = dose, Messages = notes.ToList(),
+                                CalculationSucceeded = dose != null, Dose = dose, Messages = notes.ToList(), IsReferenceField = tag.IsReferenceField,
                             },
                             Phantom = phantom, AssignedPtvIds = tag.PtvIds, InCompletedCourse = course.IsCompleted(),
                             MatchesClinicalPlan = matches, Notes = notes,
                         });
-                        _log($"Found QA plan {course.Id}/{qa.Id} ({tag.Orientation}); matches clinical: {matches}; dose: {dose != null}.");
+                        _log($"Found {(tag.IsReferenceField ? "5×5 constancy plan" : "QA plan")} {course.Id}/{qa.Id} ({tag.Orientation}); matches clinical: {matches}; dose: {dose != null}.");
                     }
                 }
                 return found;
@@ -299,6 +343,7 @@ namespace SrsMcPsqa.Esapi
             {
                 RequireModifiable();
                 var clinical = RequireClinicalPlan();
+                RequirePhantomModel(clinical, "the clinical plan");
                 var course = RequireCourse(request.QaCourseId);
                 if (request.PlanId.Length > QaPlanNaming.MaxIdLength)
                     throw new InvalidOperationException($"Plan ID '{request.PlanId}' is longer than {QaPlanNaming.MaxIdLength} characters.");
@@ -312,7 +357,9 @@ namespace SrsMcPsqa.Esapi
                     _ => $"on {ss.Image.Id}, verifies {clinical.Id}");
                 try
                 {
-                    return BuildQaPlan(app, clinical, course, qa, request, progress, ct, steps);
+                    return request.IsReferenceField
+                        ? BuildReferencePlan(app, clinical, course, qa, request, progress, ct, steps)
+                        : BuildQaPlan(app, clinical, course, qa, request, progress, ct, steps);
                 }
                 catch (Exception ex) when (!(ex is OperationCanceledException))
                 {
@@ -347,6 +394,7 @@ namespace SrsMcPsqa.Esapi
                     qa.SetPrescription(1, clinical.DosePerFraction, clinical.TreatmentPercentage);
                     messages.Add($"Prescription 1 × {clinical.DosePerFraction}.");
                     messages.AddRange(MatchCalculationModel(clinical, qa));
+                    RequirePhantomModel(qa, $"QA plan '{request.PlanId}'", isQaPlan: true); // the model it inherited
                     return qa.GetCalculationModel(CalculationType.PhotonVolumeDose);
                 }, model => $"1 × {clinical.DosePerFraction}, {model}");
 
@@ -368,6 +416,63 @@ namespace SrsMcPsqa.Esapi
                     CalculationSucceeded = true, Messages = messages, Dose = dose,
                 };
         }
+
+        /// <summary>
+        /// The 5×5 constancy field plan on the phantom image: one 5 × 5 cm jaw field (MLC retracted, collimator 0°, couch 0°)
+        /// per clinical energy at the clinical dose rate, gantry 0° (0° image) or 90° (270° image), isocentre at the MapCHECK
+        /// user origin, 100 MU each. Same model and options as the clinical plan.
+        /// </summary>
+        private QaPlanResult BuildReferencePlan(EsapiApplication app, ExternalPlanSetup clinical, Course course, ExternalPlanSetup qa, QaPlanRequest request,
+            IProgress<string>? progress, CancellationToken ct, IProgress<QaProgressEvent>? steps)
+        {
+            ct = CancellationToken.None; // finish the plan once it exists (see BuildQaPlan)
+            var messages = new List<string>();
+            QaSteps.Run(steps, request.PlanId, "Set ID, prescription and calculation model", () =>
+            {
+                qa.Id = request.PlanId;
+                qa.Comment = new QaPlanTag(clinical.UID, request.Orientation, Array.Empty<string>(), isReferenceField: true).Format();
+                // Same prescription as the QA plans: the MU method sets weights from the dose per fraction.
+                qa.SetPrescription(1, clinical.DosePerFraction, clinical.TreatmentPercentage);
+                messages.AddRange(MatchCalculationModel(clinical, qa));
+                RequirePhantomModel(qa, $"5×5 plan '{request.PlanId}'", isQaPlan: true); // the model it inherited
+                return qa.GetCalculationModel(CalculationType.PhotonVolumeDose);
+            }, model => model);
+
+            var fields = ReferenceFieldSpecs(clinical);
+            double gantry = ReferenceField.GantryAngle(request.Orientation), h = ReferenceField.FieldSizeMm / 2;
+            var iso = new VVector(request.Isocentre.X, request.Isocentre.Y, request.Isocentre.Z);
+            progress?.Report($"{request.PlanId}: adding {fields.Count} 5×5 field(s) at gantry {gantry:0}°...");
+            QaSteps.Run(steps, request.PlanId, "Add 5×5 fields", () =>
+            {
+                foreach (var f in fields)
+                {
+                    var mp = new ExternalBeamMachineParameters(f.Machine, f.Energy, f.DoseRate, ReferenceField.Technique, f.Fluence);
+                    var b = qa.AddStaticBeam(mp, new VRect<double>(-h, -h, h, h), 0, gantry, 0, iso);
+                    b.Id = f.BeamId;
+                    _log($"{request.PlanId}: field {f.BeamId}: {f.Machine} {f.EnergyDisplay}, {f.DoseRate} MU/min, technique {ReferenceField.Technique}, 5×5 cm jaws, gantry {gantry:0}°, couch 0°.");
+                }
+                return fields.Count;
+            }, n => $"{n} × 5×5 cm, gantry {gantry:0}°: {string.Join(", ", fields.Select(f => $"{f.EnergyDisplay} {f.DoseRate} MU/min"))}");
+            QaSteps.Run(steps, request.PlanId, "Save", () => SaveIfAuto(app, $"creating '{request.PlanId}'"));
+
+            messages.AddRange(CalculateReferenceField(qa, request.PlanId, progress, ct, steps));
+            var dose = QaSteps.Run(steps, request.PlanId, "Read calculated dose", () => ExtractQaDose(qa, request.DoseRegion, progress, ct));
+            QaSteps.Run(steps, request.PlanId, "Save", () => SaveIfAuto(app, $"calculating '{request.PlanId}'"));
+            return new QaPlanResult
+            {
+                CourseId = course.Id, PlanId = qa.Id, Orientation = request.Orientation, Isocentre = request.Isocentre,
+                CalculationSucceeded = true, Messages = messages, Dose = dose, IsReferenceField = true,
+            };
+        }
+
+        /// <summary>One 5×5 field per energy of the clinical treatment beams (machine and dose rate of the first beam of that energy).</summary>
+        private static List<(string Machine, string Energy, string? Fluence, string EnergyDisplay, int DoseRate, string BeamId)> ReferenceFieldSpecs(ExternalPlanSetup clinical) =>
+            clinical.Beams.Where(b => !b.IsSetupField).GroupBy(b => b.EnergyModeDisplayName).Select(g =>
+            {
+                var b = g.First();
+                var (energy, fluence) = EsapiBeamCopier.SplitEnergyMode(b.EnergyModeDisplayName);
+                return (b.TreatmentUnit.Id, energy, fluence, b.EnergyModeDisplayName, b.DoseRate, ReferenceField.BeamId(b.EnergyModeDisplayName));
+            }).ToList();
 
         /// <summary>
         /// The verification plan inherits the clinical calculation model (seen on Citrix). If the clinical plan reports a
@@ -409,9 +514,26 @@ namespace SrsMcPsqa.Esapi
             CancellationToken ct, IProgress<QaProgressEvent>? steps)
         {
             var clinicalMu = clinical.Beams.Where(b => !b.IsSetupField).ToDictionary(b => b.Id, b => b.Meterset);
-            var beams = qa.Beams.Where(b => !b.IsSetupField).ToList();
-            var unknown = beams.Where(b => !clinicalMu.ContainsKey(b.Id)).Select(b => b.Id).ToList();
+            var unknown = qa.Beams.Where(b => !b.IsSetupField && !clinicalMu.ContainsKey(b.Id)).Select(b => b.Id).ToList();
             if (unknown.Count > 0) throw new InvalidOperationException($"QA beams without a clinical beam of the same ID: {string.Join(", ", unknown)}.");
+            return CalculateWithMus(qa, clinicalMu, "the clinical MUs", planId, progress, ct, steps);
+        }
+
+        /// <summary>The 5×5 constancy plan: every field 100 MU.</summary>
+        private IEnumerable<string> CalculateReferenceField(ExternalPlanSetup qa, string planId, IProgress<string>? progress,
+            CancellationToken ct, IProgress<QaProgressEvent>? steps)
+        {
+            var target = qa.Beams.Where(b => !b.IsSetupField)
+                .ToDictionary(b => b.Id, b => new MetersetValue(ReferenceField.MonitorUnits, DosimeterUnit.MU));
+            return CalculateWithMus(qa, target, $"{ReferenceField.MonitorUnits:0} MU per field", planId, progress, ct, steps);
+        }
+
+        /// <summary>Calculate so that every beam gets exactly its target MU (as above). <paramref name="what"/> names the target in messages.</summary>
+        private IEnumerable<string> CalculateWithMus(ExternalPlanSetup qa, IReadOnlyDictionary<string, MetersetValue> clinicalMu, string what,
+            string planId, IProgress<string>? progress, CancellationToken ct, IProgress<QaProgressEvent>? steps)
+        {
+            var beams = qa.Beams.Where(b => !b.IsSetupField).ToList();
+            if (beams.Count == 0) throw new InvalidOperationException($"'{planId}' has no fields to calculate.");
             var presets = beams.Select(b => new KeyValuePair<string, MetersetValue>(b.Id, clinicalMu[b.Id])).ToList();
 
             double dpf = ToGy(qa.DosePerFraction);
@@ -424,7 +546,7 @@ namespace SrsMcPsqa.Esapi
             for (int pass = 1; pass <= 2; pass++)
             {
                 ct.ThrowIfCancellationRequested();
-                progress?.Report($"{planId}: calculating dose with the clinical MUs{(pass == 2 ? " (correction pass)" : "")}; this can take several minutes and can't be interrupted...");
+                progress?.Report($"{planId}: calculating dose with {what}{(pass == 2 ? " (correction pass)" : "")}; this can take several minutes and can't be interrupted...");
                 string stepName = pass == 1 ? "Calculate dose" : "Recalculate (MU correction)";
                 string calcDetail = $"{model}, {beams.Count} beams, {controlPoints} control points";
                 steps?.Report(new QaProgressEvent
@@ -464,18 +586,18 @@ namespace SrsMcPsqa.Esapi
                 steps?.Report(new QaProgressEvent
                 {
                     PlanId = planId, Step = "Check MUs", State = ok || pass == 1 ? QaStepState.Done : QaStepState.Failed,
-                    Detail = ok ? $"equal to the clinical MUs (max difference {worst:0.000} MU)"
+                    Detail = ok ? $"equal to {what} (max difference {worst:0.000} MU)"
                                 : pass == 1 ? $"off by up to {worst:0.000} MU; correcting the weights" : $"still off by up to {worst:0.000} MU",
                     MuResults = diffs.Select(d => new BeamMuResult(d.Id, d.qa, d.clin, MuTolerance)).ToList(),
                 });
                 if (ok)
                 {
-                    notes.Add($"Calculated in {sw.Elapsed.TotalMinutes:0.0} min. MUs equal the clinical MUs (max difference {worst:0.000} MU): " +
+                    notes.Add($"Calculated in {sw.Elapsed.TotalMinutes:0.0} min. MUs equal {what} (max difference {worst:0.000} MU): " +
                               string.Join(", ", diffs.Select(d => $"{d.Id} {d.qa:0.00}")) + ".");
                     return notes;
                 }
                 if (pass == 2)
-                    throw new InvalidOperationException($"'{planId}': the calculated MUs don't match the clinical MUs after correction: " +
+                    throw new InvalidOperationException($"'{planId}': the calculated MUs don't match {what} after correction: " +
                         string.Join(", ", diffs.Select(d => $"{d.Id} {d.qa:0.00} vs {d.clin:0.00}")) + ".");
                 _log($"{planId}: MUs off by up to {worst:0.000}; correcting weights.");
                 foreach (var b in beams)
@@ -574,6 +696,8 @@ namespace SrsMcPsqa.Esapi
                 var clinical = RequireClinicalPlan();
                 var course = RequireCourse(courseId);
                 var qa = RequireTaggedPlan(course, planId, clinical.UID);
+                RequirePhantomModel(clinical, "the clinical plan");
+                RequirePhantomModel(qa, $"QA plan '{planId}'", isQaPlan: true);
                 QaPlanTag.TryParse(qa.Comment, out var tag);
                 ct.ThrowIfCancellationRequested();
                 ct = CancellationToken.None; // from here on, finish this plan (see BuildQaPlan)
@@ -594,13 +718,15 @@ namespace SrsMcPsqa.Esapi
                 }, $"to {newIsocentre}");
                 QaSteps.Run(steps, planId, "Save", () => SaveIfAuto(app, $"moving the isocentre of '{planId}'"));
 
-                var messages = CalculateWithClinicalMus(clinical, qa, planId, progress, ct, steps).ToList();
+                bool reference = tag?.IsReferenceField == true;
+                var messages = (reference ? CalculateReferenceField(qa, planId, progress, ct, steps)
+                                          : CalculateWithClinicalMus(clinical, qa, planId, progress, ct, steps)).ToList();
                 var dose = QaSteps.Run(steps, planId, "Read calculated dose", () => ExtractQaDose(qa, doseRegion, progress, ct));
                 QaSteps.Run(steps, planId, "Save", () => SaveIfAuto(app, $"recalculating '{planId}'"));
                 return new QaPlanResult
                 {
                     CourseId = course.Id, PlanId = qa.Id, Orientation = tag?.Orientation ?? ArrayOrientation.Deg0, Isocentre = newIsocentre,
-                    CalculationSucceeded = true, Messages = messages, Dose = dose,
+                    CalculationSucceeded = true, Messages = messages, Dose = dose, IsReferenceField = reference,
                 };
             });
 

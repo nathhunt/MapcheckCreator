@@ -96,7 +96,27 @@ namespace SrsMcPsqa.App.ViewModels
 
         // ------------------------------------------------------------------ create-button state
         public bool CanCreate => HasPlanes && Session.CanCreatePlans;
-        public string CreateButtonText => Planes.Count == 1 ? "Create 1 QA plan" : $"Create {Planes.Count} QA plans";
+        public string CreateButtonText => (Planes.Count == 1 ? "Create 1 QA plan" : $"Create {Planes.Count} QA plans") +
+            (ReferenceOrientations.Count == 0 ? "" : ReferenceOrientations.Count == 1 ? " + 5×5" : $" + {ReferenceOrientations.Count} × 5×5");
+
+        /// <summary>Orientations that get a 5×5 constancy field plan (Settings; one per orientation of the QA plans).</summary>
+        public IReadOnlyList<ArrayOrientation> ReferenceOrientations => Session.Settings.CreateReferenceFieldPlan && Planes.Count > 0
+            ? ReferenceField.Orientations(Planes.Select(p => p.Orientation)) : Array.Empty<ArrayOrientation>();
+        public bool HasReferenceField => ReferenceOrientations.Count > 0;
+
+        /// <summary>What the 5×5 constancy plan(s) will be (shown under the plan list and in the confirmation).</summary>
+        public string ReferenceFieldText
+        {
+            get
+            {
+                if (!HasReferenceField) return "";
+                string plans = string.Join(" and ", ReferenceOrientations.Select(o =>
+                    $"{ReferenceField.PlanId(Session.Settings.ReferencePlanIdPattern, o, Array.Empty<string>())} (gantry {ReferenceField.GantryAngle(o):0}° on the {o.ShortLabel()}° image)"));
+                var energies = Session.ClinicalPlan?.Energies ?? Array.Empty<string>();
+                string fields = energies.Count == 0 ? "one field per energy" : string.Join(", ", energies);
+                return $"+ 5×5 constancy field: {plans}; 5 × 5 cm jaws, {fields}, {ReferenceField.MonitorUnits:0} MU each, at the MapCHECK origin (no shift).";
+            }
+        }
         [RelayCommand]
         private void OpenSettings() => Shell.Navigate(Shell.Settings);
 
@@ -108,6 +128,9 @@ namespace SrsMcPsqa.App.ViewModels
         {
             OnPropertyChanged(nameof(CanCreate));
             OnPropertyChanged(nameof(CreateButtonText));
+            OnPropertyChanged(nameof(ReferenceOrientations));
+            OnPropertyChanged(nameof(HasReferenceField));
+            OnPropertyChanged(nameof(ReferenceFieldText));
             OnPropertyChanged(nameof(CreateHint));
         }
 
@@ -235,7 +258,7 @@ namespace SrsMcPsqa.App.ViewModels
                 vm.Updated += (_, __) => RefreshPlanColumn();
                 Planes.Add(vm);
             }
-            // Round small components of each plan's QA isocentre shift to zero (Settings: shift threshold).
+            // Round each plan's QA isocentre shift (Settings: round to, and the threshold for zero).
             bool snapped = false;
             if (_model != null && _analysis != null)
                 foreach (var p in Planes)
@@ -312,15 +335,9 @@ namespace SrsMcPsqa.App.ViewModels
                 _ => o.FromPlane(0, 0, amount),
             };
             var target = p.Centre + delta;
-            // A step smaller than the shift threshold would be rounded straight back near zero: go to the threshold instead.
-            double thr = Session.Settings.ShiftThresholdMm;
-            if (thr > 0 && (SnapCentre(target) - p.Centre).Length < 1e-9)
-            {
-                var iso = Session.ClinicalPlan!.Isocentre;
-                Vec3 off = iso - target, d = iso - p.Centre;
-                double Bump(double t, double cur) => Math.Abs(t) < thr && Math.Abs(t - cur) > 1e-9 ? Math.Sign(t - cur) * thr : t;
-                target = iso - new Vec3(Bump(off.X, d.X), Bump(off.Y, d.Y), Bump(off.Z, d.Z));
-            }
+            // A step that would be rounded straight back goes one rounding step further, or out to the threshold.
+            var iso = Session.ClinicalPlan!.Isocentre;
+            target = iso - ShiftRounding.Step(iso - p.Centre, iso - target, Session.Settings.ShiftThresholdMm, Session.Settings.ShiftRoundToMm);
             MovePlane(p, target, full: true);
         }
 
@@ -384,9 +401,9 @@ namespace SrsMcPsqa.App.ViewModels
             if (args.Completed) _dragStart = null;
         }
 
-        /// <summary>Array centre with the small components of its QA isocentre shift rounded to zero.</summary>
+        /// <summary>Array centre whose QA isocentre shift is rounded (Settings: round to, and the threshold for zero).</summary>
         private Vec3 SnapCentre(Vec3 centre) =>
-            ShiftRounding.SnapArrayCentre(Session.ClinicalPlan!.Isocentre, centre, Session.Settings.ShiftThresholdMm);
+            ShiftRounding.SnapArrayCentre(Session.ClinicalPlan!.Isocentre, centre, Session.Settings.ShiftThresholdMm, Session.Settings.ShiftRoundToMm);
 
         private void MovePlane(PlanePlanViewModel p, Vec3 centre, bool full)
         {
@@ -458,14 +475,16 @@ namespace SrsMcPsqa.App.ViewModels
             var clearanceWarnings = planes.Select(p => p.Clearance.WarningLine($"Plan {p.Number}")).Where(w => w != null).ToList();
             if (clearanceWarnings.Count > 0)
                 list += $"{Environment.NewLine}{Environment.NewLine}Couch clearance warnings (plans are still created; check before measuring):{Environment.NewLine}" + string.Join(Environment.NewLine, clearanceWarnings);
+            var refOrients = ReferenceOrientations;
+            if (refOrients.Count > 0) list += Environment.NewLine + Environment.NewLine + ReferenceFieldText.TrimStart('+', ' ');
             if (!Session.Dialogs.Confirm("Create QA plans",
-                    $"Create {planes.Count} QA plan(s) in course '{course.Id}'{(course.WillBeCreated ? " (new course, created now)" : "")} and calculate dose with the clinical MUs?{Environment.NewLine}{Environment.NewLine}{list}",
+                    $"Create {planes.Count} QA plan(s){(refOrients.Count > 0 ? $" and {refOrients.Count} 5×5 constancy plan(s)" : "")} in course '{course.Id}'{(course.WillBeCreated ? " (new course, created now)" : "")} and calculate dose?{Environment.NewLine}{Environment.NewLine}{list}",
                     "Create and calculate"))
                 return;
             LogPlanes("Creating");
 
             var rows = _rows;
-            bool ok = await Shell.RunAsync($"Creating {planes.Count} QA plan(s)", async (pr, ct) =>
+            bool ok = await Shell.RunAsync($"Creating {planes.Count} QA plan(s){(refOrients.Count > 0 ? $" + {refOrients.Count} × 5×5" : "")}", async (pr, ct) =>
             {
                 if (course.WillBeCreated)
                 {
@@ -487,7 +506,15 @@ namespace SrsMcPsqa.App.ViewModels
                     existing.Add(id);
                     named.Add((p, id));
                 }
-                pr.ExpectPlans(named.Select(x => (x.Id, $"{x.Plane.OrientationText}, {x.Plane.AssignedIndices.Count} PTV{(x.Plane.AssignedIndices.Count == 1 ? "" : "s")}")));
+                var refNamed = new List<(ArrayOrientation Orientation, string Id)>();
+                foreach (var o in refOrients)
+                {
+                    var id = ReferenceField.PlanId(settings.ReferencePlanIdPattern, o, existing);
+                    existing.Add(id);
+                    refNamed.Add((o, id));
+                }
+                pr.ExpectPlans(named.Select(x => (x.Id, $"{x.Plane.OrientationText}, {x.Plane.AssignedIndices.Count} PTV{(x.Plane.AssignedIndices.Count == 1 ? "" : "s")}"))
+                    .Concat(refNamed.Select(x => (x.Id, $"5×5 constancy, gantry {ReferenceField.GantryAngle(x.Orientation):0}°"))));
 
                 var orientations = planes.Select(p => p.Orientation).Distinct().ToList();
                 pr.AddLog("Checking phantom images...");
@@ -507,6 +534,23 @@ namespace SrsMcPsqa.App.ViewModels
                     if (!result.CalculationSucceeded) pr.HasErrors = true;
                     foreach (var m in result.Messages) pr.AddLog($"{id}: {m}");
                     var qa = new QaPlanViewModel(Session, result, Session.Phantoms[p.Orientation], assigned, rows, _analysis);
+                    Session.QaPlans.Add(qa);
+                    await qa.RefreshAsync();
+                }
+
+                // The 5×5 constancy field plan(s), after the QA plans.
+                foreach (var (o, id) in refNamed)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var req = ReferenceField.Request(Session.Phantoms[o], course.Id, id);
+                    pr.AddLog($"{id}: create 5×5 constancy field plan, calculate");
+                    QaPlanResult result;
+                    try { result = await Session.Service.CreateQaPlanAsync(req, pr.Reporter, ct, pr.Events); }
+                    catch { pr.CompletePlan(id, success: false); throw; }
+                    pr.CompletePlan(id, result.CalculationSucceeded);
+                    if (!result.CalculationSucceeded) pr.HasErrors = true;
+                    foreach (var m in result.Messages) pr.AddLog($"{id}: {m}");
+                    var qa = new QaPlanViewModel(Session, result, Session.Phantoms[o], Array.Empty<PtvRowViewModel>(), rows, _analysis);
                     Session.QaPlans.Add(qa);
                     await qa.RefreshAsync();
                 }

@@ -8,7 +8,7 @@ namespace SrsMcPsqa.App.Infrastructure
     /// <summary>Text for the log that helps diagnose problems: environment, settings in use, geometry.</summary>
     public static class Diagnostics
     {
-        /// <summary>App version and build commit, e.g. 1.0.2-beta+a1b2c3d (from the informational version stamped at build).</summary>
+        /// <summary>App version and build commit, e.g. 1.0.3-beta+a1b2c3d (from the informational version stamped at build).</summary>
         public static string AppVersion { get; } =
             typeof(Diagnostics).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
             ?? typeof(Diagnostics).Assembly.GetName().Version?.ToString(3) ?? "?";
@@ -28,13 +28,13 @@ namespace SrsMcPsqa.App.Infrastructure
         }
 
         public static string Settings(AppSettings s) => string.Format(CultureInfo.InvariantCulture,
-            "Settings in use: template '{0}' (0° '{1}' study '{2}', 270° '{3}' study '{4}'); QA course '{5}'; naming '{6}'; helpers '{7}'; " +
-            "edge {8} mm, tau {9}, min diodes {10}, alpha {11}, fine-tune ±{12}/{13} mm, shift threshold {14} mm; auto-save {15}; " +
+            "Settings in use: template '{0}' (0° '{1}' study '{2}', 270° '{3}' study '{4}', model '{27}'); QA course '{5}'; naming '{6}'; 5×5 plan {28} '{29}'; helpers '{7}'; " +
+            "edge {8} mm, tau {9}, min diodes {10}, alpha {11}, fine-tune ±{12}/{13} mm, shift threshold {14} mm, round to {26} mm; auto-save {15}; " +
             "collision: origin {16} mm above couch, head end {17} mm, lateral {18} mm (max {19}), warn {20}/risk {21} mm, head {22}/{23} mm, couch {24}×{25} mm.",
             s.TemplatePatientId, s.Template0ImageId, s.Template0StudyId, s.Template270ImageId, s.Template270StudyId, s.QaCourseId, s.PlanNamingPattern, s.HelperPatterns,
             s.EdgeMarginMm, s.Tau, s.MinDiodes, s.Alpha, s.FineTuneInPlaneRangeMm, s.FineTuneNormalRangeMm, s.ShiftThresholdMm, s.AutoSave,
             s.CollisionOriginAboveCouchMm, s.CollisionCouchHeadEndSupMm, s.CollisionPhantomLateralOffsetMm, s.CollisionMaxLateralOffsetMm,
-            s.CollisionWarningMm, s.CollisionRiskMm, s.CollisionHeadClearanceMm, s.CollisionHeadRadiusMm, s.CollisionCouchWidthMm, s.CollisionCouchThicknessMm);
+            s.CollisionWarningMm, s.CollisionRiskMm, s.CollisionHeadClearanceMm, s.CollisionHeadRadiusMm, s.CollisionCouchWidthMm, s.CollisionCouchThicknessMm, s.ShiftRoundToMm, s.TemplateCalculationModel, s.CreateReferenceFieldPlan ? "on" : "off", s.ReferencePlanIdPattern);
 
         public static string Vec(Core.Geometry.Vec3 v) => string.Format(CultureInfo.InvariantCulture, "({0:0.0}, {1:0.0}, {2:0.0})", v.X, v.Y, v.Z);
     }

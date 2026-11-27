@@ -78,7 +78,8 @@ namespace SrsMcPsqa.App.ViewModels
 
         /// <summary>QA isocentre relative to the MapCHECK user origin after the chosen fine-tune move (null when nothing moves).</summary>
         public Vec3? PreviewIsoFromOrigin => CanPreview && FineTune?.NewIsocentre(out _) is Vec3 iso ? iso - Phantom.UserOrigin : (Vec3?)null;
-        public string StatusLine => CalcOk ? "✓ Calculated with the clinical MUs" : "✗ Calculation failed";
+        public string StatusLine => !CalcOk ? "✗ Calculation failed"
+            : IsReferenceField ? $"✓ Calculated, {ReferenceField.MonitorUnits:0} MU per field" : "✓ Calculated with the clinical MUs";
         public IReadOnlyList<PtvRowViewModel> AssignedRows { get; }
         public IReadOnlyList<PtvRowViewModel> Rows { get; }
         public ObservableCollection<MetricRowViewModel> Metrics { get; } = new ObservableCollection<MetricRowViewModel>();
@@ -93,6 +94,17 @@ namespace SrsMcPsqa.App.ViewModels
 
         public string PlanId => Result.PlanId;
         public string CourseId => Result.CourseId;
+
+        /// <summary>The 5×5 constancy field plan: dose on the array only (no PTVs, shift, clearance or fine-tune).</summary>
+        public bool IsReferenceField => Result.IsReferenceField;
+        public bool IsQaPlan => !IsReferenceField;
+        public string ReferenceText => IsReferenceField
+            ? $"5×5 constancy field at the MapCHECK origin (no shift): gantry {ReferenceField.GantryAngle(Orientation):0}°, couch 0°, " +
+              $"5 × 5 cm jaws, {ReferenceField.MonitorUnits:0} MU per energy. Nothing to fine-tune; measure it with each PSQA."
+            : "";
+        public string PanelTitle => IsReferenceField ? Header : "Fine-tune " + Header;
+        public string PanelHint => IsReferenceField ? ""
+            : "Optional. Predictions shift the calculated dose, so they are approximate; the plan is recalculated when you apply.";
         public ArrayOrientation Orientation => Result.Orientation;
         public Vec3 Isocentre => Result.Isocentre;
         public Vec3 ClinicalIso => _session.ClinicalPlan!.Isocentre;
@@ -100,8 +112,10 @@ namespace SrsMcPsqa.App.ViewModels
         /// <summary>QA dose is one fraction: compare with Rx per fraction.</summary>
         public int Fractions => Math.Max(1, _session.ClinicalPlan?.Fractions ?? 1);
         private double RxScale => 1.0 / Fractions;
-        public string Header => $"{PlanId} · {Orientation.Label()}";
-        public string AssignedText => string.Join(", ", AssignedRows.Select(r => r.Id));
+        public string Header => IsReferenceField ? $"{PlanId} · 5×5 constancy" : $"{PlanId} · {Orientation.Label()}";
+        public string AssignedText => IsReferenceField
+            ? $"Gantry {ReferenceField.GantryAngle(Orientation):0}° on the {Orientation.ShortLabel()}° image, {ReferenceField.MonitorUnits:0} MU per energy"
+            : string.Join(", ", AssignedRows.Select(r => r.Id));
 
         /// <summary>Patient point on the array centre.</summary>
         public Vec3 ArrayCentre => IsoGeometry.ArrayCentreInPatient(Phantom.UserOrigin, ClinicalIso, Isocentre);
@@ -109,7 +123,8 @@ namespace SrsMcPsqa.App.ViewModels
         public string IsoText => "QA isocentre from MapCHECK user origin: " + IsoFromOriginText;
         public string ArrayText => "Array centre in patient: " + ArrayCentre;
         public bool CalcOk => Result.CalculationSucceeded && Result.Dose != null;
-        public string CalcText => CalcOk ? "Dose calculated with the clinical MUs." : "Calculation failed: " + string.Join(" ", Result.Messages);
+        public string CalcText => !CalcOk ? "Calculation failed: " + string.Join(" ", Result.Messages)
+            : IsReferenceField ? $"Dose calculated, {ReferenceField.MonitorUnits:0} MU per field." : "Dose calculated with the clinical MUs.";
 
         /// <summary>Warnings Eclipse reported when calculating this plan (empty if none).</summary>
         public string WarningsText => string.Join(Environment.NewLine, Result.Messages.Where(m => m.StartsWith("Eclipse warning") || m.StartsWith("Eclipse error")));
@@ -127,7 +142,7 @@ namespace SrsMcPsqa.App.ViewModels
         public bool ShowCurrent { get => !ShowPreview; set => ShowPreview = !value; }
         public bool CanPreview => FineTune?.WillMove == true;
         public bool ShowingPreview => ShowPreview && CanPreview && _preview != null;
-        public string MetricsCaption => ShowingPreview
+        public string MetricsCaption => IsReferenceField ? "" : ShowingPreview
             ? "Predicted after the move (approximate: the calculated dose kept in place on the patient, array moved). Rx per fraction."
             : "PTVs on this plan, calculated. Rx is per fraction, to match the one-fraction QA dose.";
 
@@ -138,6 +153,16 @@ namespace SrsMcPsqa.App.ViewModels
         {
             _preview = null;
             if (!CalcOk) { _current = null; _patientDose = null; Metrics.Clear(); Scene = null; Overlay = null; return; }
+            if (IsReferenceField)
+            {
+                // Dose on the array only; the field is at the origin, so the array centre maps to the clinical iso.
+                _patientDose = QaPlanRequests.DoseInPatientFrame(Result.Dose!, Isocentre, ClinicalIso);
+                _current = await BuildViewAsync(ArrayCentre, $"{PlanId} · 5×5 constancy field, gantry {ReferenceField.GantryAngle(Orientation):0}° · calculated dose on the array", null);
+                Infrastructure.Log.Info($"{PlanId} (5×5 constancy, {Orientation.Label()}): iso {Infrastructure.Diagnostics.Vec(Isocentre)}, " +
+                    $"max dose on the array {Scene?.DoseMaxGy:0.000} Gy" + (HasWarnings ? $"; Eclipse: {WarningsText.Replace(Environment.NewLine, " | ")}" : ""));
+                ApplyDisplay();
+                return;
+            }
             Clearance.Update(IsoFromOrigin);
             _patientDose = QaPlanRequests.DoseInPatientFrame(Result.Dose!, Isocentre, ClinicalIso);
             _current = await BuildViewAsync(ArrayCentre, $"{PlanId} · {Orientation.Label()} · calculated QA dose on the array plane", null);
@@ -152,11 +177,11 @@ namespace SrsMcPsqa.App.ViewModels
         {
             var dose = _patientDose!;
             var plane = new ArrayPlane(Orientation, centre);
-            var rows = Rows;
+            var rows = IsReferenceField ? (IReadOnlyList<PtvRowViewModel>)Array.Empty<PtvRowViewModel>() : Rows;
             var settings = _settings;
             var best = _bestScores;
             double rxScale = RxScale;
-            double? referenceGy = _session.ReferenceGy * rxScale; // QA dose is one fraction
+            double? referenceGy = IsReferenceField ? null : _session.ReferenceGy * rxScale; // QA dose is one fraction; 5×5: maximum
             var built = await Task.Run(() =>
             {
                 var targets = rows.Select(r => r.ToTarget(rxScale)).ToList();
@@ -237,6 +262,7 @@ namespace SrsMcPsqa.App.ViewModels
         {
             Plan = plan; Proposal = proposal;
             Threshold = plan.Session.Settings.ShiftThresholdMm;
+            RoundTo = plan.Session.Settings.ShiftRoundToMm;
             var m = SuggestedMove;
             _customX = m.X.ToString("0.0#", CultureInfo.InvariantCulture);
             _customY = m.Y.ToString("0.0#", CultureInfo.InvariantCulture);
@@ -247,8 +273,17 @@ namespace SrsMcPsqa.App.ViewModels
         /// <summary>Changes in position smaller than this (mm, per axis) are rounded to zero (Settings: shift threshold).</summary>
         public double Threshold { get; }
 
-        /// <summary>The optimiser's array move with small components rounded to zero.</summary>
-        public Vec3 SuggestedMove => ShiftRounding.Snap(Proposal.ArrayMoveRelativeToPatient, Threshold);
+        /// <summary>The resulting shift from the MapCHECK origin is rounded to the nearest multiple of this (mm; 0 = off).</summary>
+        public double RoundTo { get; }
+
+        /// <summary>
+        /// The array move actually applied for a wanted move: components below the threshold become 0, and the new shift
+        /// from the MapCHECK origin is rounded.
+        /// </summary>
+        private Vec3 RoundedMove(Vec3 wanted) => ShiftRounding.FineTuneMove(Plan.IsoFromOrigin, wanted, Threshold, RoundTo);
+
+        /// <summary>The optimiser's array move, rounded (see <see cref="RoundedMove"/>).</summary>
+        public Vec3 SuggestedMove => RoundedMove(Proposal.ArrayMoveRelativeToPatient);
 
         public static IReadOnlyList<FineTuneDecision> Decisions { get; } = new[] { FineTuneDecision.Accept, FineTuneDecision.Edit, FineTuneDecision.Discard };
 
@@ -330,7 +365,7 @@ namespace SrsMcPsqa.App.ViewModels
             switch (Decision)
             {
                 case FineTuneDecision.Accept:
-                    // The suggested move with small components rounded to zero; array moves by m → isocentre moves by −m.
+                    // The suggested move, rounded; array moves by m → isocentre moves by −m.
                     return Plan.Isocentre + IsoGeometry.IsoShiftForArrayMove(Plan.ArrayCentre, Plan.ArrayCentre + SuggestedMove);
                 case FineTuneDecision.Edit:
                     if (!TryParse(CustomX, out var x) || !TryParse(CustomY, out var y) || !TryParse(CustomZ, out var z))
@@ -338,7 +373,7 @@ namespace SrsMcPsqa.App.ViewModels
                         error = $"{PlanId}: enter the array move as numbers in mm.";
                         return null;
                     }
-                    var move = ShiftRounding.Snap(new Vec3(x, y, z), Threshold);
+                    var move = RoundedMove(new Vec3(x, y, z));
                     if (Math.Abs(x) > 50 || Math.Abs(y) > 50 || Math.Abs(z) > 50)
                     {
                         error = $"{PlanId}: moves larger than 50 mm are not allowed here.";
@@ -413,7 +448,7 @@ namespace SrsMcPsqa.App.ViewModels
 
         private async Task CheckAsync(IReadOnlyList<QaPlanViewModel> candidates)
         {
-            var plans = candidates.Where(p => p.CalcOk).ToList();
+            var plans = candidates.Where(p => p.CalcOk && !p.IsReferenceField).ToList();
             if (plans.Count == 0) return;
             IsChecking = true;
             try
@@ -442,6 +477,7 @@ namespace SrsMcPsqa.App.ViewModels
         [RelayCommand]
         private async Task ApplyAsync()
         {
+            if (Session.CalculationModelBlockedReason is string why) { Session.Dialogs.ShowInfo("Can't recalculate QA plans", why); return; }
             var moves = new List<(QaPlanViewModel Plan, Vec3 Iso)>();
             foreach (var p in QaPlans.Where(p => p.FineTune != null && !p.IsReadOnly))
             {
@@ -532,6 +568,7 @@ namespace SrsMcPsqa.App.ViewModels
         {
             var plan = SelectedQaPlan;
             if (plan == null || plan.IsReadOnly) return;
+            if (Session.CalculationModelBlockedReason is string why) { Session.Dialogs.ShowInfo("Can't recalculate QA plans", why); return; }
             if (!Session.Dialogs.Confirm("Recalculate", $"Recalculate {plan.PlanId} at its current isocentre with the clinical MUs?", "Recalculate")) return;
             await Shell.RunAsync($"Recalculating {plan.PlanId}", async (pr, ct) =>
             {

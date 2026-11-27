@@ -44,6 +44,11 @@
                 </StackPanel>
 
                 <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                    <Border Padding="10,8" CornerRadius="6" Margin="0,0,0,8" BorderThickness="1"
+                            BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                            Visibility="{Binding HasReferenceField, Converter={StaticResource BoolToVis}}">
+                        <TextBlock FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding ReferenceFieldText}" />
+                    </Border>
                     <Border Padding="10,8" CornerRadius="6" Margin="0,0,0,8" Background="#22D08A00"
                             Visibility="{Binding HasProblems, Converter={StaticResource BoolToVis}}">
                         <ItemsControl ItemsSource="{Binding Warnings}">

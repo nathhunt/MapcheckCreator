@@ -9,6 +9,7 @@ namespace SrsMcPsqa.App.Views
         public ChangePlansDialog()
         {
             InitializeComponent();
+            Infrastructure.DialogSizing.FitHeightToContent(this, RootGrid);
         }
 
         private void Ok_Click(object sender, RoutedEventArgs e) => DialogResult = true;

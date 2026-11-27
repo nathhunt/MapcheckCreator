@@ -31,7 +31,7 @@
   </PropertyGroup>
 
   <!--
-    Stamp the git commit into the build: InformationalVersion = 1.0.2-beta+a1b2c3d, with "-dirty" when tracked files have
+    Stamp the git commit into the build: InformationalVersion = 1.0.3-beta+a1b2c3d, with "-dirty" when tracked files have
     uncommitted changes, or "+unknown" when git or the repository isn't available. Shown in the window title and the log.
   -->
   <Target Name="StampGitCommit" BeforeTargets="GetAssemblyVersion;GenerateAssemblyInfo">

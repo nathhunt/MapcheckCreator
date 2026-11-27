@@ -55,6 +55,7 @@ namespace SrsMcPsqa.Core.Models
 
     /// <summary>
     /// Machine-readable tag written to the QA plan Comment: <c>SRSMC-PSQA|v1|src=&lt;UID&gt;|orient=0|ptv=PTV1;PTV2</c>.
+    /// The 5×5 constancy field plan adds <c>|kind=ref5x5</c> (and has no PTVs).
     /// The app only ever deletes plans that carry this tag.
     /// </summary>
     public sealed class QaPlanTag
@@ -62,17 +63,23 @@ namespace SrsMcPsqa.Core.Models
         public const string Prefix = "SRSMC-PSQA";
         public const int CurrentVersion = 1;
 
-        public QaPlanTag(string sourcePlanUid, ArrayOrientation orientation, IEnumerable<string> ptvIds)
+        public const string ReferenceKind = "ref5x5";
+
+        public QaPlanTag(string sourcePlanUid, ArrayOrientation orientation, IEnumerable<string> ptvIds, bool isReferenceField = false)
         {
-            SourcePlanUid = sourcePlanUid; Orientation = orientation; PtvIds = ptvIds.ToList();
+            SourcePlanUid = sourcePlanUid; Orientation = orientation; PtvIds = ptvIds.ToList(); IsReferenceField = isReferenceField;
         }
+
+        /// <summary>The 5×5 constancy field plan (not a PTV QA plan).</summary>
+        public bool IsReferenceField { get; }
 
         public string SourcePlanUid { get; }
         public ArrayOrientation Orientation { get; }
         public IReadOnlyList<string> PtvIds { get; }
 
         public string Format() =>
-            $"{Prefix}|v{CurrentVersion}|src={SourcePlanUid}|orient={(int)Orientation}|ptv={string.Join(";", PtvIds.Select(Escape))}";
+            $"{Prefix}|v{CurrentVersion}|src={SourcePlanUid}|orient={(int)Orientation}|ptv={string.Join(";", PtvIds.Select(Escape))}" +
+            (IsReferenceField ? "|kind=" + ReferenceKind : "");
 
         private static string Escape(string id) => id.Replace("|", "_").Replace(";", "_");
 
@@ -83,7 +90,7 @@ namespace SrsMcPsqa.Core.Models
             int start = comment!.IndexOf(Prefix + "|", StringComparison.Ordinal);
             if (start < 0) return false;
             var parts = comment.Substring(start).Split('|');
-            string? src = null, ptv = null;
+            string? src = null, ptv = null, kind = null;
             ArrayOrientation? orient = null;
             foreach (var part in parts.Skip(1))
             {
@@ -95,10 +102,12 @@ namespace SrsMcPsqa.Core.Models
                     case "src": src = val; break;
                     case "orient": orient = val == "0" ? ArrayOrientation.Deg0 : val == "270" ? ArrayOrientation.Deg270 : (ArrayOrientation?)null; break;
                     case "ptv": ptv = val; break;
+                    case "kind": kind = val; break;
                 }
             }
             if (src == null || orient == null) return false;
-            tag = new QaPlanTag(src, orient.Value, (ptv ?? "").Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries));
+            tag = new QaPlanTag(src, orient.Value, (ptv ?? "").Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries),
+                string.Equals(kind, ReferenceKind, StringComparison.OrdinalIgnoreCase));
             return true;
         }
     }

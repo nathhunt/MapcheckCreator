@@ -35,6 +35,7 @@ namespace SrsMcPsqa.App.Views
                 _ => SymbolRegular.Info24,
             };
             if (kind == MessageDialogKind.Warning) OkButton.Appearance = ControlAppearance.Danger;
+            Infrastructure.DialogSizing.FitHeightToContent(this, RootGrid, DetailsExpander);
         }
 
         private void Ok_Click(object sender, RoutedEventArgs e) { DialogResult = true; }

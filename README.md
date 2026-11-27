@@ -1,6 +1,6 @@
 # SRS MapCHECK PSQA Plan Creator
 
-**Version 1.0.2-beta** · Eclipse 18.1 (ESAPI) · Varian TrueBeam · Sun Nuclear SRS MapCHECK
+**Version 1.0.3-beta** · Eclipse 18.1 (ESAPI) · Varian TrueBeam · Sun Nuclear SRS MapCHECK
 
 Creates the patient-specific QA plans for a single-isocentre SRS plan in a few clicks. The app works out how few
 MapCHECK measurements cover every PTV, places the array for each one, then creates and calculates the QA plans in
@@ -14,8 +14,10 @@ It also warns you before a setup would bring the couch too close to the gantry.
 - **QA plans built for you.** Copies the phantom images, creates verification plans in the QA course (made for you if
   missing), copies the beams in clinical order, and calculates with one fraction at the clinical dose per fraction.
   Every beam's MU is checked against the clinical plan.
+- **5×5 constancy field.** Adds a plan with a 5 × 5 cm, 100 MU field per energy at the array centre, gantry 0° or
+  90° for each array orientation used (`MC_5x5_0`, `MC_5x5_270`), for the constancy check with each PSQA.
 - **Clear positions.** The QA isocentre is always shown as the shift from the MapCHECK user origin, ready to set up at
-  the linac. Shifts under 2 mm are rounded to zero.
+  the linac. Shifts are rounded to the nearest 1 mm, and shifts under 2 mm to zero (both adjustable).
 - **Collision warnings.** Checks the clearance between the TrueBeam head and the Exact IGRT couch for every beam, and
   suggests a lateral phantom offset when it's tight. It warns and never blocks.
 - **Review and fine-tune.** Shows the calculated dose on the array with the PTVs and diodes, suggests a better
@@ -65,13 +67,15 @@ Step-by-step details are in the [user guide](docs/USER_GUIDE.md).
 ## Settings
 
 Everything on the **Settings** page except theme and log level is a **department setting**, shared by everyone who
-uses the same installation. Saving a change lists what changes and asks you to confirm. It also needs write access to
-the app folder. Department settings are:
+uses the same installation. They're locked until you click the red **Edit department settings…** button and confirm.
+Saving a change lists what changes and asks you to confirm again. Both need write access to the app folder. Department
+settings are:
 
-- the template phantom
+- the template phantom and the calculation model it's set up for (QA plans are only made for clinical plans calculated
+  with that model)
 - the QA course ID and plan ID pattern (`MC1_0`, `MC2_270`, …)
 - the phantom position on the couch, collision tolerances and machine dimensions
-- the shift rounding threshold and the optimisation values
+- shift rounding (nearest step and threshold) and the optimisation values
 
 ## When something goes wrong
 
@@ -79,7 +83,7 @@ the app folder. Department settings are:
 - **Logs** are in the `logs` folder next to the app, one file per user per computer:
   `srsmcpsqa_<user>_<computer>.log`. **Settings** shows the path of yours. The log records each step, Eclipse's
   messages, your choices and any error in full.
-- **The version** in the window title includes the exact build, e.g. `1.0.2-beta+f1bc032`. Quote it with the log when
+- **The version** in the window title includes the exact build, e.g. `1.0.3-beta+f1bc032`. Quote it with the log when
   reporting a problem.
 
 ## For administrators and developers

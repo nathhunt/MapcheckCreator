@@ -87,6 +87,8 @@ namespace VMS.TPS.Common.Model.API
 
     public class ExternalPlanSetup : PlanSetup
     {
+        // On ExternalPlanSetup in ESAPI (not PlanSetup).
+        public IEnumerable<string> GetModelsForCalculationType(CalculationType calculationType) => throw new NotImplementedException();
         public Beam AddVMATBeam(ExternalBeamMachineParameters machineParameters, IEnumerable<double> metersetWeights, double collimatorAngle, double gantryAngle, double gantryStop, GantryDirection gantryDirection, double patientSupportAngle, VVector isocenter) => throw new NotImplementedException();
         public Beam AddConformalArcBeam(ExternalBeamMachineParameters machineParameters, double collimatorAngle, int controlPointCount, double gantryAngle, double gantryStop, GantryDirection gantryDirection, double patientSupportAngle, VVector isocenter) => throw new NotImplementedException();
         public Beam AddMLCArcBeam(ExternalBeamMachineParameters machineParameters, float[,] leafPositions, VRect<double> jawPositions, double collimatorAngle, double gantryAngle, double gantryStop, GantryDirection gantryDirection, double patientSupportAngle, VVector isocenter) => throw new NotImplementedException();
@@ -134,6 +136,12 @@ namespace VMS.TPS.Common.Model.API
         public double MetersetWeight { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
     }
 
+    public class BeamCalculationLog
+    {
+        public string Category => throw new NotImplementedException();
+        public IEnumerable<string> MessageLines => throw new NotImplementedException();
+    }
+
     public class Beam
     {
         public string Id { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
@@ -149,6 +157,7 @@ namespace VMS.TPS.Common.Model.API
         public Technique Technique => throw new NotImplementedException();
         public MLC MLC => throw new NotImplementedException();
         public ControlPointCollection ControlPoints => throw new NotImplementedException();
+        public IEnumerable<BeamCalculationLog> CalculationLogs => throw new NotImplementedException();
         public BeamParameters GetEditableParameters() => throw new NotImplementedException();
         public void ApplyParameters(BeamParameters beamParams) => throw new NotImplementedException();
     }

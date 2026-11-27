@@ -16,7 +16,7 @@ own script approval. Nothing is installed: the app runs from a folder the Citrix
    ```
 
    Output: `src/SrsMcPsqa.App/bin/Release/net48/` (x64). The window title and the log show the version with the git
-   commit it was built from, e.g. `1.0.2-beta+a1b2c3d`; `-dirty` means the build had uncommitted changes, `+unknown` that git
+   commit it was built from, e.g. `1.0.3-beta+a1b2c3d`; `-dirty` means the build had uncommitted changes, `+unknown` that git
    wasn't available. Deploy builds from a clean, pushed commit so the log identifies the exact code.
 
    In VS Code, **Terminal → Run Build Task** (Ctrl+Shift+B) runs **Release build + launcher**: the Release build plus a
@@ -58,7 +58,8 @@ one of these two ways. Either set the environment variable (no rebuild when the 
 
 All settings except theme and log level are **department settings**: they come from `SrsMcPsqa.settings.json` in the
 app folder and are the same for everyone using that installation (test and production have separate files). They can
-be changed on the Settings page: **Save** shows the changes and warns that they apply to everyone, and only writes the
+be changed on the Settings page after unlocking them (red **Edit department settings…** button, with a confirmation;
+refused without write access to the app folder): **Save** shows the changes and warns that they apply to everyone, and only writes the
 file after confirmation. This needs write access to the app folder (give it only to the people who should change
 settings); without it, nothing is changed. The previous file is kept as `SrsMcPsqa.settings.json.bak`, and every change is
 logged with the user name. If someone else changed the file since you opened Settings, you're warned before overwriting;
@@ -69,8 +70,10 @@ Set once per installation:
 | Setting | Notes |
 |---|---|
 | Template phantom: patient, 0° and 270° image IDs (study IDs optional) | Saved per installation folder, so test and production never mix. **Validate** checks them. |
+| Template phantom calculation model | **Required** before QA plans can be created. The model the phantom is set up for (e.g. `AcurosXB_1612`); QA plans are only created or recalculated for clinical plans calculated with it. |
 | QA course ID | Default `PHYS_QA`; created with the first QA plan if the patient doesn't have it. |
 | Plan ID pattern | Default `MC{n}_{orient}`. |
+| 5×5 constancy field plan | On by default; plan ID `MC_5x5_{orient}`. One 5 × 5 cm jaw field per clinical energy, 100 MU, gantry 0° (0° image) or 90° (270° image), at the MapCHECK origin. |
 | Collision check: MapCHECK origin height above the couch top, couch head end | **Required** for the collision check; see [docs/COLLISION_CHECK.md](../docs/COLLISION_CHECK.md). |
 | Optimisation (edge margin, coverage threshold, minimum diodes, α) | Defaults are fine to start with. |
 
