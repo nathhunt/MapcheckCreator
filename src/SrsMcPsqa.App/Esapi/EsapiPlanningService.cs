@@ -210,7 +210,8 @@ namespace SrsMcPsqa.Esapi
             catch (Exception ex) { _log($"{plan.Id}: PhotonCalculationModel failed: {ex.Message}"); }
             try
             {
-                var names = plan.GetModelsForCalculationType(CalculationType.PhotonVolumeDose)?.Where(n => !string.IsNullOrEmpty(n))
+                // GetModelsForCalculationType is on ExternalPlanSetup, not PlanSetup.
+                var names = (plan as ExternalPlanSetup)?.GetModelsForCalculationType(CalculationType.PhotonVolumeDose)?.Where(n => !string.IsNullOrEmpty(n))
                     .OrderByDescending(n => n.Length).ToList() ?? new List<string>();
                 var found = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 var sample = new List<string>();

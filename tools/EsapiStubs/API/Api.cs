@@ -83,11 +83,12 @@ namespace VMS.TPS.Common.Model.API
         public DoseValuePresentation DoseValuePresentation { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
         public string PhotonCalculationModel => throw new NotImplementedException();
         public string GetCalculationModel(CalculationType calculationType) => throw new NotImplementedException();
-        public IEnumerable<string> GetModelsForCalculationType(CalculationType calculationType) => throw new NotImplementedException();
     }
 
     public class ExternalPlanSetup : PlanSetup
     {
+        // On ExternalPlanSetup in ESAPI (not PlanSetup).
+        public IEnumerable<string> GetModelsForCalculationType(CalculationType calculationType) => throw new NotImplementedException();
         public Beam AddVMATBeam(ExternalBeamMachineParameters machineParameters, IEnumerable<double> metersetWeights, double collimatorAngle, double gantryAngle, double gantryStop, GantryDirection gantryDirection, double patientSupportAngle, VVector isocenter) => throw new NotImplementedException();
         public Beam AddConformalArcBeam(ExternalBeamMachineParameters machineParameters, double collimatorAngle, int controlPointCount, double gantryAngle, double gantryStop, GantryDirection gantryDirection, double patientSupportAngle, VVector isocenter) => throw new NotImplementedException();
         public Beam AddMLCArcBeam(ExternalBeamMachineParameters machineParameters, float[,] leafPositions, VRect<double> jawPositions, double collimatorAngle, double gantryAngle, double gantryStop, GantryDirection gantryDirection, double patientSupportAngle, VVector isocenter) => throw new NotImplementedException();
