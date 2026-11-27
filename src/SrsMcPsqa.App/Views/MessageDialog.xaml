@@ -8,7 +8,7 @@
                  ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="None"
                  Background="{DynamicResource ApplicationBackgroundBrush}">
-    <Grid>
+    <Grid x:Name="RootGrid">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
