@@ -215,11 +215,15 @@ namespace SrsMcPsqa.Esapi
                     .OrderByDescending(n => n.Length).ToList() ?? new List<string>();
                 var found = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 var sample = new List<string>();
+                var categories = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                 foreach (var b in plan.Beams.Where(b => !b.IsSetupField))
                     foreach (var log in b.CalculationLogs ?? Enumerable.Empty<BeamCalculationLog>())
                     {
                         bool dose = (log.Category ?? "").IndexOf("Dose", StringComparison.OrdinalIgnoreCase) >= 0;
-                        foreach (var line in log.MessageLines ?? Enumerable.Empty<string>())
+                        var lines = (log.MessageLines ?? Enumerable.Empty<string>()).ToList();
+                        string cat = string.IsNullOrEmpty(log.Category) ? "(none)" : log.Category;
+                        categories[cat] = (categories.TryGetValue(cat, out var c) ? c : 0) + lines.Count;
+                        foreach (var line in lines)
                         {
                             if (dose && sample.Count < 8) sample.Add(line);
                             var hit = names.FirstOrDefault(n => line.IndexOf(n, StringComparison.OrdinalIgnoreCase) >= 0);
@@ -229,7 +233,8 @@ namespace SrsMcPsqa.Esapi
                 if (found.Count == 1) { source = "beam dose calculation logs"; return found.First(); }
                 _log($"{plan.Id}: calculation model not found in the beam dose calculation logs" +
                      (found.Count > 1 ? $" (several: {string.Join(", ", found)})" : "") +
-                     (sample.Count > 0 ? "; first lines: " + string.Join(" | ", sample) : "; no dose calculation log lines") + ".");
+                     (sample.Count > 0 ? "; first lines: " + string.Join(" | ", sample) : "; no dose calculation log lines") +
+                     "; log categories: " + (categories.Count == 0 ? "none" : string.Join(", ", categories.Select(kv => $"{kv.Key} ({kv.Value} lines)"))) + ".");
             }
             catch (Exception ex) { _log($"{plan.Id}: reading the calculation logs failed: {ex.Message}"); }
             return "";

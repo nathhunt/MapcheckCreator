@@ -60,11 +60,18 @@ namespace SrsMcPsqa.Esapi
                 throw new InvalidOperationException("Eclipse doesn't allow changes to this patient: " + (_modifyError ?? "unknown reason") + ". Close it in Eclipse if needed and re-open it here.");
         }
 
-        /// <summary>Refuses (with the reason) unless the plan is calculated with the template phantom's model.</summary>
-        private void RequirePhantomModel(PlanSetup plan, string what)
+        /// <summary>
+        /// Refuses (with the reason) unless the plan is calculated with the template phantom's model. A clinical plan whose
+        /// model Eclipse doesn't report passes here; each QA plan's inherited model is checked (<paramref name="isQaPlan"/>).
+        /// </summary>
+        private void RequirePhantomModel(PlanSetup plan, string what, bool isQaPlan = false)
         {
             string model = SafeModel(plan);
-            if (CalculationModelCheck.BlockedReason(RequiredCalculationModel, model) is string why)
+            string? why = isQaPlan ? CalculationModelCheck.QaPlanBlockedReason(RequiredCalculationModel, model, plan.Id)
+                                   : CalculationModelCheck.BlockedReason(RequiredCalculationModel, model);
+            if (!isQaPlan && why == null && CalculationModelCheck.IsUnknown(model))
+                _log($"{what}: Eclipse doesn't report its calculation model; the QA plans' inherited model is checked instead.");
+            if (why != null)
             {
                 _log($"Refused for {what} (model '{model}', template phantom model '{RequiredCalculationModel}'): {why}");
                 throw new InvalidOperationException(why);
@@ -387,7 +394,7 @@ namespace SrsMcPsqa.Esapi
                     qa.SetPrescription(1, clinical.DosePerFraction, clinical.TreatmentPercentage);
                     messages.Add($"Prescription 1 × {clinical.DosePerFraction}.");
                     messages.AddRange(MatchCalculationModel(clinical, qa));
-                    RequirePhantomModel(qa, $"QA plan '{request.PlanId}'"); // the model it inherited
+                    RequirePhantomModel(qa, $"QA plan '{request.PlanId}'", isQaPlan: true); // the model it inherited
                     return qa.GetCalculationModel(CalculationType.PhotonVolumeDose);
                 }, model => $"1 × {clinical.DosePerFraction}, {model}");
 
@@ -427,7 +434,7 @@ namespace SrsMcPsqa.Esapi
                 // Same prescription as the QA plans: the MU method sets weights from the dose per fraction.
                 qa.SetPrescription(1, clinical.DosePerFraction, clinical.TreatmentPercentage);
                 messages.AddRange(MatchCalculationModel(clinical, qa));
-                RequirePhantomModel(qa, $"5×5 plan '{request.PlanId}'"); // the model it inherited
+                RequirePhantomModel(qa, $"5×5 plan '{request.PlanId}'", isQaPlan: true); // the model it inherited
                 return qa.GetCalculationModel(CalculationType.PhotonVolumeDose);
             }, model => model);
 
@@ -690,7 +697,7 @@ namespace SrsMcPsqa.Esapi
                 var course = RequireCourse(courseId);
                 var qa = RequireTaggedPlan(course, planId, clinical.UID);
                 RequirePhantomModel(clinical, "the clinical plan");
-                RequirePhantomModel(qa, $"QA plan '{planId}'");
+                RequirePhantomModel(qa, $"QA plan '{planId}'", isQaPlan: true);
                 QaPlanTag.TryParse(qa.Comment, out var tag);
                 ct.ThrowIfCancellationRequested();
                 ct = CancellationToken.None; // from here on, finish this plan (see BuildQaPlan)

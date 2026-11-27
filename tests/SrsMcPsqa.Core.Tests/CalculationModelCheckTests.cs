@@ -18,6 +18,14 @@ namespace SrsMcPsqa.Core.Tests
         }
 
         [Fact] public void NotSetIsRefused() => Assert.Contains("isn't set", CalculationModelCheck.BlockedReason("", "AcurosXB_1612"));
-        [Fact] public void UnknownClinicalModelIsRefused() => Assert.Contains("didn't report", CalculationModelCheck.BlockedReason("AcurosXB_1612", ""));
+        [Fact] public void UnknownClinicalModelIsCheckedOnTheQaPlanInstead()
+        {
+            Assert.Null(CalculationModelCheck.BlockedReason("AcurosXB_1612", ""));
+            Assert.True(CalculationModelCheck.IsUnknown(""));
+            Assert.Null(CalculationModelCheck.QaPlanBlockedReason("AcurosXB_1612", "acurosxb_1612", "MC1_0"));
+            Assert.Contains("AAA_1612", CalculationModelCheck.QaPlanBlockedReason("AcurosXB_1612", "AAA_1612", "MC1_0"));
+            Assert.Contains("didn't report", CalculationModelCheck.QaPlanBlockedReason("AcurosXB_1612", "", "MC1_0"));
+            Assert.Contains("isn't set", CalculationModelCheck.QaPlanBlockedReason("", "AAA_1612", "MC1_0"));
+        }
     }
 }

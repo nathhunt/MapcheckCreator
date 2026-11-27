@@ -122,6 +122,10 @@ namespace SrsMcPsqa.App.ViewModels
                 Session.SetClinicalPlan(data);
                 if (Session.CalculationModelBlockedReason is string why)
                     Validation.Add(new ValidationMessage(ValidationSeverity.Warning, "QA plans can't be created for this plan. " + why));
+                else if (CalculationModelCheck.IsUnknown(data.CalculationModel) && !string.IsNullOrWhiteSpace(Session.Settings.TemplateCalculationModel))
+                    Validation.Add(new ValidationMessage(ValidationSeverity.Info,
+                        $"Eclipse doesn't report this plan's calculation model, so it's checked on the first QA plan, which gets the clinical " +
+                        $"model. If that isn't {Session.Settings.TemplateCalculationModel}, the plan is removed straight away and nothing else is created."));
             });
             if (!ok) return;
             if (Session.CalculationModelBlockedReason is string reason)
